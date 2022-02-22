@@ -1,0 +1,92 @@
+# Example Wikibase docker-compose setup
+version: '3.4'
+
+services:
+  importer:
+    build: .
+    container_name: mardi-importer
+    links:
+      - wikibase
+    depends_on:
+      - wikibase
+
+  wikibase:
+    image: "ghcr.io/mardi4nfdi/docker-wikibase:main"
+
+    container_name: mardi-wikibase
+    links:
+      - mysql
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    volumes:
+      ## This shares the configuration with jobrunner
+      - shared_mardi_wikibase:/var/www/html/:rw
+    networks:
+      default:
+        aliases:
+         - wikibase-docker.svc
+         - wikibase.svc
+    environment:
+      DB_SERVER: mysql.svc:3306
+      MW_ADMIN_NAME: admin
+      MW_ADMIN_PASS: change-this-password
+      MW_ADMIN_EMAIL: admin@example.com
+      MW_WG_SECRET_KEY: some-secret-key
+      # Disable jobs running after requests when wikibase_jobrunner is defined
+      MW_WG_JOB_RUN_RATE: 0
+      DB_USER: sqluser
+      DB_PASS: change-this-sqlpassword
+      DB_NAME: my_wiki
+    ports:
+      - 8080:80
+
+  wikibase_jobrunner:
+    image: "ghcr.io/mardi4nfdi/docker-wikibase:main"
+    entrypoint: /bin/bash
+    command:  /jobrunner-entrypoint.sh
+    links:
+      - mysql
+    depends_on:
+      - mysql
+    restart: always
+    volumes:
+      - shared_mardi_wikibase:/shared/:ro
+      - ./mediawiki/jobrunner-entrypoint.sh:/jobrunner-entrypoint.sh
+    networks:
+      default:
+        aliases:
+          - wikibase-jobrunner.svc
+    environment:
+      DB_SERVER: mysql.svc:3306
+      MW_ADMIN_NAME: admin
+      MW_ADMIN_PASS: change-this-password
+      MW_ADMIN_EMAIL: admin@example.com
+      MW_WG_SECRET_KEY: some-secret-key
+      # Disable jobs running after requests when wikibase_jobrunner is defined
+      MW_WG_JOB_RUN_RATE: 0
+      DB_USER: sqluser
+      DB_PASS: change-this-sqlpassword
+      DB_NAME: my_wiki
+      MAX_JOBS: 1
+
+  mysql:
+    image: "mariadb:10.3"
+    container_name: mardi-mysql
+    restart: unless-stopped
+    volumes:
+      - mediawiki-mysql-data:/var/lib/mysql
+    environment:
+      MYSQL_USER: sqluser
+      MYSQL_PASSWORD: change-this-sqlpassword
+      WIKIBASE_HOST: localhost
+      MYSQL_DATABASE: my_wiki
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes'
+    networks:
+      default:
+        aliases:
+         - mysql.svc
+    
+volumes:
+  shared_mardi_wikibase:
+  mediawiki-mysql-data:

@@ -17,7 +17,7 @@ UML activity (todo:class) diagrams are in the `doc` folder.
 docker-compose -f docker-compose.yml up -d
 ```
 Will :
-* start a minmal wikibase setup (http://localhost:8080), 
+* start a minimal wikibase setup (http://localhost:8080), 
 * rebuild the importer image and start the mardi-importer container
 
 To run the tests, do:

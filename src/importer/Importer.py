@@ -21,20 +21,12 @@ class Importer:
 
 class AEntityCreator():
     """Abstract base class for creating entities in a local Wikibase."""
-
-    def read_entity_list(self, path):
-        """
-        Reads a list of entities to import.
-        
-        @param path: The list is a plain-text file with one entity (Px or Qx) per line.
-        @returns: pandas data frame
-        """
-        raise NotImplementedError
     
-    def create_entities(self):
+    def create_entities(self, path):
         """
         Creates all necessary entities in the local Wikibase.
-        @returns panas data frame of mappings between local Wikibase and Wikidata (or external Wikibase)
+        @param path: The list is a plain-text file with one entity (Px or Qx) per line.
+        @returns: pandas data frame of mappings between local Wikibase and Wikidata (or external Wikibase)
         """
         raise NotImplementedError
         

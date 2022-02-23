@@ -1,5 +1,7 @@
-#FROM python:3.8
-FROM php:8.0-cli
+FROM php:7.4-apache
+
+# add mysql driver
+RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli
 
 ##############################
 #    Setup import cronjob    #
@@ -35,27 +37,27 @@ RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
 
 
 ##############################
-# Setup import Python script #
+# Setup import script        #
 ##############################
 
-
-
-# upgrade Python package manager to latest version
-#RUN /usr/local/bin/python -m pip install --upgrade pip
+# add Python and upgrade Python package manager to latest version
+# Note: this might be considered un-docker-like, but what would be an alternative? Running 2 containers that communicate over http? 
+RUN apt-get update && apt-get install --yes --no-install-recommends python3 pip
+RUN python3 -m pip install --upgrade pip
 
 # Install Python requirements
-#COPY requirements.txt ./
-#RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Python source code to the image
-#COPY src /src
+COPY src /src
 
 # Copy the unit tests to the image
-#COPY tests /tests
+COPY tests /tests
 
 # Copy configurations to the image
-#COPY config /config
+COPY config /config
 
 # entry point start cronjob
-#WORKDIR /app
-#ENTRYPOINT ["/bin/bash","/app/start.sh"]
+WORKDIR /app
+ENTRYPOINT ["/bin/bash","/app/start.sh"]

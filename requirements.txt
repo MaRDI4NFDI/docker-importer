@@ -11,6 +11,7 @@ importlib-metadata
 lxml
 MarkupSafe
 more-itertools
+mysql-connector-python
 packaging
 pandas
 pluggy

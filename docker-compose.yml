@@ -5,10 +5,19 @@ services:
   importer:
     build: .
     container_name: mardi-importer
+    volumes:
+      - shared_mardi_wikibase:/shared/:ro
+      - ./src:/src # for development
+      - ./tests:/tests # for development
     links:
       - wikibase
     depends_on:
       - wikibase
+    environment:
+      DB_USER: sqluser
+      DB_PASS: change-this-sqlpassword
+      DB_NAME: my_wiki
+      DB_HOST: mardi-mysql
 
   wikibase:
     image: "ghcr.io/mardi4nfdi/docker-wikibase:main"
@@ -20,7 +29,7 @@ services:
       - mysql
     restart: unless-stopped
     volumes:
-      ## This shares the configuration with jobrunner
+      ## This shares the configuration with jobrunner and the importer
       - shared_mardi_wikibase:/var/www/html/:rw
     networks:
       default:

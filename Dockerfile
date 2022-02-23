@@ -1,4 +1,5 @@
-FROM python:3.8
+#FROM python:3.8
+FROM php:8.0-cli
 
 ##############################
 #    Setup import cronjob    #
@@ -22,7 +23,7 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
 
 # Set up non-root user.
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import
-RUN adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID import
+RUN adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
 
 # Copy cron files.
 RUN mkdir /app
@@ -37,22 +38,24 @@ RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
 # Setup import Python script #
 ##############################
 
+
+
 # upgrade Python package manager to latest version
-RUN /usr/local/bin/python -m pip install --upgrade pip
+#RUN /usr/local/bin/python -m pip install --upgrade pip
 
 # Install Python requirements
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+#COPY requirements.txt ./
+#RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Python source code to the image
-COPY src /src
+#COPY src /src
 
 # Copy the unit tests to the image
-COPY tests /tests
+#COPY tests /tests
 
 # Copy configurations to the image
-COPY config /config
+#COPY config /config
 
 # entry point start cronjob
-WORKDIR /app
-ENTRYPOINT ["/bin/bash","/app/start.sh"]
+#WORKDIR /app
+#ENTRYPOINT ["/bin/bash","/app/start.sh"]

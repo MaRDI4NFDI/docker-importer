@@ -14,13 +14,13 @@ class test_EntityCreator(unittest.TestCase):
 
     def test_01(self):
         """Tests that a Wikidata entity creator can be instantiated at all."""
-        creator = EntityCreator()
+        creator = EntityCreator(test_EntityCreator.entity_list)
         self.assertTrue(creator, 'Wikidata entity creator could not be instantiated')
         
     def test_02(self):
         """Tests that entities can be imported from Wikidata into the local Wikibase."""
-        creator = EntityCreator()
-        resp_df = creator.create_entities(test_EntityCreator.entity_list)
+        creator = EntityCreator(test_EntityCreator.entity_list)
+        resp_df = creator.create_entities()
         self.assertTrue(len(resp_df)==1, "Failed importing entities from Wikibase.")        
         # P31 is imported from Wikidata and mapped to P1 in local wikibase
         self.assertTrue(resp_df.loc[0, 'wbs_local_id'] == 'P1', "Failed importing entities from Wikibase.")        

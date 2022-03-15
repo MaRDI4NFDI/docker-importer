@@ -17,7 +17,13 @@ class EntityCreator(AEntityCreator):
     """
     mapping_df = None # data frame of entity id mappings Wikidata -> local wikibase
     
-    def create_entities(self, path):
+    def __init__(self, path):
+        """
+        @arg path: file with properties to import
+        """
+        self.entity_list = path
+    
+    def create_entities(self):
         """
         Overrides abstract method.
         This method calls WikibaseImport extention to:
@@ -28,11 +34,10 @@ class EntityCreator(AEntityCreator):
         therefore, the /var/www/html folder from the local Wikibase has to be shared. This is set in docker-compose.yml
             * Wikibase:/var/www/html is mounted read-only on /shared
             * The file with properties to import (@arg path) is copied to the Dockerfile in /config
-        @arg path: file with properties to import
         @returns: pandas dataframe
         """
         # call WikibaseImport from the Wikibase container to import the properties from Wikidata
-        command = "php /shared/extensions/WikibaseImport/maintenance/importEntities.php --file {} --do-not-recurse".format(path)
+        command = "php /shared/extensions/WikibaseImport/maintenance/importEntities.php --file {} --do-not-recurse".format(self.entity_list)
         return_code = os.system(command)
         if return_code != 0:
             raise ImporterException( 'Error attempting to import {}'.format(path) )

@@ -9,18 +9,23 @@ import sys
 from optparse import OptionParser
 from importer.Importer import Importer, ImporterException
 from wikidata.EntityCreator import EntityCreator
+from zbmath.ZBMathSource import ZBMathSource
 
 try:
     # Parse command-line options
     optionsParser = OptionParser()
     (options, args) = optionsParser.parse_args()
-    print(options)
+
+    # an object to create entities copied from Wikidata    
+    entity_list = "/config/Properties_to_import_from_WD.txt"
+    entityCreator = EntityCreator(entity_list)
+
+    # an object to import paper references related to certain softwares from zbMath
+    software_list = "/config/swMATH-software-list.csv"
+    data_source = ZBMathSource(software_list)
     
     # A wrapper for the import process
-    entity_list = "/config/Properties_to_import_from_WD.txt"
-    entityCreator = EntityCreator()
-    entityCreator.read_entity_list(entity_list)
-    importer = Importer(entityCreator)
+    importer = Importer(entityCreator, data_source)
     importer.import_all()
 
 except ImporterException as e:

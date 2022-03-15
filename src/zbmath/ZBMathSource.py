@@ -23,7 +23,6 @@ class ZBMathSource(ADataSource):
         """
         Overrides abstract method.
         This method uses the zbmath API to:
-            * filter paper references related to the softwares in self.software_list.
-        
+            * filter paper references related to the softwares in self.software_list.        
         """
         pass

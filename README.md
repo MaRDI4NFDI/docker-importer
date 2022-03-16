@@ -1,6 +1,11 @@
 # docker-importer
 Import data from external data sources into the portal.
 
+The docker-importer is a docker-container which has functionalities for data-import (e.g. from swMATH, zbMATH), 
+and can trigger the import of data in a wikibase container in the same docker-composition cyclically. 
+The import scripts in the importer are written in python and examples for these scripts can be seen as 
+Jupyter-Notebooks in the repository Portal-Examples.
+
 ## Documentation
 UML activity (todo:class) diagrams are in the `doc` folder. 
 * .drawio files can be edited using http://draw.io

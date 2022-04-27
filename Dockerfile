@@ -54,7 +54,8 @@ RUN mkdir /importer
 COPY src /importer/src
 COPY setup.py /importer/
 COPY pyproject.toml /importer/
-RUN cd /importer/ && pip install --no-cache-dir .
+COPY README.md /importer/
+RUN cd /importer/ && pip install --no-cache-dir -v .
 
 # Copy the unit tests to the image
 COPY tests /importer/tests

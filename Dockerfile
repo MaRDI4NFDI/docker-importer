@@ -50,10 +50,13 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the Python source code to the image
-COPY src /src
+RUN mkdir /importer
+COPY src /importer/src
+COPY setup.cfg /importer/
+COPY pyproject.toml /importer/
 
 # Copy the unit tests to the image
-COPY tests /tests
+COPY tests /importer/tests
 
 # Copy configurations to the image
 COPY config /config

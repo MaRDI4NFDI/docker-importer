@@ -25,3 +25,6 @@ Unidecode
 urllib3
 wcwidth
 zipp
+sphinx
+sphinx-argparse
+sphinx-rtd-theme

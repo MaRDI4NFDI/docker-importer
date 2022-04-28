@@ -7,7 +7,7 @@ The import scripts in the importer are written in python and examples for these 
 Jupyter-Notebooks in the repository Portal-Examples.
 
 ## Documentation
-UML activity (todo:class) diagrams are in the `doc` folder. 
+UML activity (todo:class) diagrams are in the `docs` folder. 
 * .drawio files can be edited using http://draw.io
 * .svg files can be viewed using a browser
 
@@ -29,3 +29,28 @@ To run the tests, do:
 ```
 docker exec -ti mardi-importer /bin/bash /tests/run_tests.sh
 ```
+
+## Local testing of python modules
+First installing the requirements from `requirements.txt`,
+
+```
+pip install -r requirements.txt
+```
+Then install the python package bundle ("mardi-importer") via
+```
+pip install -U -e .
+```
+`-U` enforces reinstalling the package, with `-e` modifications in
+the source files are automatically taken into account.
+
+*Note*: it is recommended (when not using docker) for local installations to use [virtual environments](https://docs.python.org/3/tutorial/venv.html) by first calling
+
+```
+python3 -m venv env
+source env/bin/activate
+```
+
+## Build sphinx documentation
+In `docs/`, run `make html` to generate the documentation for a
+local installation. The modules have to be installed and findable by `import
+module`. To view the docs, open the file `docs/_build/html/index.html`.

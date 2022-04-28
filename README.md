@@ -31,8 +31,7 @@ docker exec -ti mardi-importer /bin/bash /tests/run_tests.sh
 ```
 
 ## Local testing of python modules
-First installing the requirements from `requirements.txt`,
-
+First install the requirements from `requirements.txt`,
 ```
 pip install -r requirements.txt
 ```
@@ -43,12 +42,7 @@ pip install -U -e .
 `-U` enforces reinstalling the package, with `-e` modifications in
 the source files are automatically taken into account.
 
-*Note*: it is recommended (when not using docker) for local installations to use [virtual environments](https://docs.python.org/3/tutorial/venv.html) by first calling
-
-```
-python3 -m venv env
-source env/bin/activate
-```
+*Note*: it is recommended (when not using docker) for local installations to use [virtual environments](https://docs.python.org/3/tutorial/venv.html).
 
 ## Build sphinx documentation
 In `docs/`, run `make html` to generate the documentation for a

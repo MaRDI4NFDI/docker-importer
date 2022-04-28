@@ -14,9 +14,10 @@ Table of contents
 
 .. toctree::
    :maxdepth: 2
-   :caption: Manual:
+   :caption: Manual
 
    main
+   tech
 
 .. toctree::
    :maxdepth: 2

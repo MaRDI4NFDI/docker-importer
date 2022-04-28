@@ -45,7 +45,7 @@ Build documentation
 
 In :code:`docs/`, run :code:`make html` to generate the documentation for a
 local installation. The modules have to be installed and findable by :code:`import
-module`. To view the docs, open the file :code:`docs/src/index.html`.
+module`. To view the docs, open the file :code:`docs/_build/html/index.html`.
 
 
 Usage

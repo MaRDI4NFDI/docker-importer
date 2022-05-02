@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from pexpect import split_command_line
 from importer.Importer import ADataSource
 import pandas as pd
 import time
@@ -13,7 +14,14 @@ class ZBMathSource(ADataSource):
     """Reads data from zb math API."""
 
     def __init__(
-        self, out_dir, tags, from_date=None, until_date=None, raw_dump_path=None
+        self,
+        out_dir,
+        tags,
+        from_date=None,
+        until_date=None,
+        raw_dump_path=None,
+        split_id=None,
+        processed_dump_path=None,
     ):  # , path
         """
         @param path: string path to a csv file with one software name per row and 2 columns 'swMATH work ID' and 'Software'
@@ -24,11 +32,16 @@ class ZBMathSource(ADataSource):
         if out_dir[-1] != "/":
             out_dir = out_dir + "/"
         self.out_dir = out_dir
+        self.split_id = split_id
+        if self.split_id:
+            self.split_mode = True
+        else:
+            self.split_mode = False
         self.from_date = None
         self.until_date = None
         self.tags = tags
         self.raw_dump_path = raw_dump_path
-        self.processed_dump_path = None
+        self.processed_dump_path = processed_dump_path
         self.namespace = "http://www.openarchives.org/OAI/2.0/"
         self.preview_namespace = "https://zbmath.org/OAI/2.0/oai_zb_preview/"
         self.tag_namespace = "https://zbmath.org/zbmath/elements/1.0/"
@@ -77,20 +90,40 @@ class ZBMathSource(ADataSource):
         Overrides abstract method.
         Reads a zbMath data dump and processes it, then saves it as a csv.
         """
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        self.processed_dump_path = self.out_dir + "zbmath_data_dump" + timestr + ".txt"
+        if not (self.processed_dump_path and self.split_mode):
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            self.processed_dump_path = (
+                self.out_dir + "zbmath_data_dump" + timestr + ".txt"
+            )
         # def do_all(xml_file, out_file):
         with open(self.raw_dump_path) as infile:
             with open(self.processed_dump_path, "a") as outfile:
-                outfile.write("id" + (",").join(self.tags) + "\n")
+                # if we are not continuing with a pre-filled file
+                if not self.split_mode:
+                    outfile.write("id" + (",").join(self.tags) + "\n")
                 record_string = ""
                 for line in infile:
                     record_string = record_string + line
                     if line.endswith("</record>\n"):
                         element = ET.fromstring(record_string)
+                        if self.split_mode:
+                            zb_id = self.get_zb_id(element)
+                            # if the last processed id is found
+                            if zb_id == self.split_id:
+                                # next iteration, continue with writing
+                                self.split_mode = False
+                                record_string = ""
+                                print("mode found!!!")
+                                continue
+                            else:
+                                # continue searching
+                                record_string = ""
+                                continue
+                        # print("omntinuing now")
                         record = self.parse_record(element)
-
                         if record:
+                            # print("record, should writew to file now")
+                            # print(self.processed_dump_path)
                             outfile.write(
                                 ",".join(str(x) for x in record.values()) + "\n"
                             )
@@ -103,11 +136,7 @@ class ZBMathSource(ADataSource):
         is_conflict = False
         new_entry = {}
         # zbMath identifier
-        zb_id = (
-            xml_record.find(get_tag("header", self.namespace))
-            .find(get_tag("identifier", namespace=self.namespace))
-            .text
-        )
+        zb_id = self.get_zb_id(xml_record)
         new_entry["id"] = zb_id
         # read tags
         zb_preview = xml_record.find(
@@ -122,9 +151,11 @@ class ZBMathSource(ADataSource):
                         texts = []
                         for child in value:
                             texts.append(child.text)
+                        texts = [t for t in texts if t is not None]
                         text = ";".join(
                             texts
                         )  # multiple values are rendered as a semicolon-separated string
+
                     else:
                         # element content is a simple text
                         text = zb_preview.find(get_tag(tag, self.tag_namespace)).text
@@ -175,3 +206,11 @@ class ZBMathSource(ADataSource):
             if val is None and key not in self.internal_tags:
                 entry_dict[key] = parse_doi_info(key, work_info["message"])
         return entry_dict
+
+    def get_zb_id(self, xml_record):
+        zb_id = (
+            xml_record.find(get_tag("header", self.namespace))
+            .find(get_tag("identifier", namespace=self.namespace))
+            .text
+        )
+        return zb_id

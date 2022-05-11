@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 
 # from importer.Importer import Importer, ImporterException
 # from wikidata.EntityCreator import EntityCreator
-from zbmath.ZBMathSource import ZBMathSource
+from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 
 
 tags = [

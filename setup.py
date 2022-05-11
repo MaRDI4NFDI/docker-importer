@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="mardi-importer",
+    name="mardi_importer",
     version="0.0.1",
     author="MaRDI TA5",
     author_email="accounts_ta5@mardi4nfdi.de",
@@ -33,5 +33,5 @@ setuptools.setup(
         "mysql-connector-python",
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},
-    scripts=["src/scripts/import.py"],
+    scripts=["scripts/import.py"],
 )

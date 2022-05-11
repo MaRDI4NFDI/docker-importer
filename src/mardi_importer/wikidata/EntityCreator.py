@@ -5,7 +5,7 @@ Created on Thu Feb 17 19:50:55 2022
 
 @author: alvaro
 """
-from importer.Importer import AEntityCreator, ImporterException
+from mardi_importer.importer.Importer import AEntityCreator, ImporterException
 import pandas as pd
 import os
 import mysql.connector as connection

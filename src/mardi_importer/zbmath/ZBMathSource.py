@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from importer.Importer import ADataSource
+from mardi_importer.importer.Importer import ADataSource
 import time
 from sickle import Sickle
 import xml.etree.ElementTree as ET
 import sys
-from .misc import get_tag, parse_doi_info
+from mardi_importer.zbmath.misc import get_tag, parse_doi_info
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 

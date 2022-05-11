@@ -1,6 +1,3 @@
-from habanero import Crossref
-
-
 def get_tag(tag_name, namespace):
     """
     Returns a fully qualified tag name.
@@ -21,7 +18,6 @@ def parse_doi_info(val, work_info):
         # looks like: 'author': [{'given': 'Max', 'family': 'Mustermann', 'sequence': 'first', 'affiliation': []}]
         if "author" not in work_info:
             return None
-        all_authors = ""
         first_name = ""
         family_name = ""
         author_list = []

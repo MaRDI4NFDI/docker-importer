@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from pexpect import split_command_line
 from importer.Importer import ADataSource
-import pandas as pd
 import time
 from sickle import Sickle
 import xml.etree.ElementTree as ET
 import sys
-from .misc import *
+from .misc import get_tag, parse_doi_info
+from habanero import Crossref  # , RequestError
+from requests.exceptions import HTTPError, ContentDecodingError
 
 
 class ZBMathSource(ADataSource):
@@ -37,8 +37,8 @@ class ZBMathSource(ADataSource):
             self.split_mode = True
         else:
             self.split_mode = False
-        self.from_date = None
-        self.until_date = None
+        self.from_date = from_date
+        self.until_date = until_date
         self.tags = tags
         self.raw_dump_path = raw_dump_path
         self.processed_dump_path = processed_dump_path
@@ -47,7 +47,7 @@ class ZBMathSource(ADataSource):
         self.tag_namespace = "https://zbmath.org/zbmath/elements/1.0/"
         self.conflict_text = "zbMATH Open Web Interface contents unavailable due to conflicting licenses."
         # dict for counting how often a doi was not found and which agency it was registered with
-        self.unknown_doi_agency_dict = {"Crossref": 0, "crossref": 0}
+        self.unknown_doi_agency_dict = {"Crossref": [], "crossref": [], "nonsense": []}
         # tags that will not be found in doi query
         self.internal_tags = ["author_id", "source", "classifications", "links"]
 
@@ -100,7 +100,7 @@ class ZBMathSource(ADataSource):
             with open(self.processed_dump_path, "a") as outfile:
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
-                    outfile.write("id" + (",").join(self.tags) + "\n")
+                    outfile.write("zbmath_id" + (",").join(self.tags) + "\n")
                 record_string = ""
                 for line in infile:
                     record_string = record_string + line
@@ -113,17 +113,13 @@ class ZBMathSource(ADataSource):
                                 # next iteration, continue with writing
                                 self.split_mode = False
                                 record_string = ""
-                                print("mode found!!!")
                                 continue
                             else:
                                 # continue searching
                                 record_string = ""
                                 continue
-                        # print("omntinuing now")
                         record = self.parse_record(element)
                         if record:
-                            # print("record, should writew to file now")
-                            # print(self.processed_dump_path)
                             outfile.write(
                                 ",".join(str(x) for x in record.values()) + "\n"
                             )
@@ -172,34 +168,34 @@ class ZBMathSource(ADataSource):
             if is_conflict:
                 if "doi" in new_entry:
                     if new_entry["doi"]:
-                        new_entry = self.get_info_from_doi(new_entry)
+                        new_entry = self.get_info_from_doi(new_entry, zb_id)
             # return record, even if incomplete
             return new_entry
         else:
             sys.exit("Error: zb_preview not found")
 
-    def get_info_from_doi(self, entry_dict):
+    def get_info_from_doi(self, entry_dict, zb_id):
         cr = Crossref(mailto="pusch@zib.de")
         doi = entry_dict["doi"]
         try:
             work_info = cr.works(ids=doi)
         # if the doi is not found, there is a 404
-        except:
+        except HTTPError:
             try:
                 agency = cr.registration_agency(doi)[0]
                 if agency == "Crossref" or agency == "crossref":
                     # this can happen, seems to be a crossref problem
-                    self.unknown_doi_agency_dict[agency] += 1
+                    self.unknown_doi_agency_dict[agency].append(zb_id)
                     # return entry dict unchanged
                 else:
                     try:
-                        self.unknown_doi_agency_dict[agency] += 1
-                    except KeyError as e:
+                        self.unknown_doi_agency_dict[agency].append(zb_id)
+                    except KeyError:
                         # if the agency has not yet been included in the dict
-                        self.unknown_doi_agency_dict[agency] = 1
+                        self.unknown_doi_agency_dict[agency] = [zb_id]
                 # return entry dict unchanged
                 return entry_dict
-            except:
+            except HTTPError:
                 # return entry_dict unchanged
                 return entry_dict
         for key, val in entry_dict.items():
@@ -214,3 +210,61 @@ class ZBMathSource(ADataSource):
             .text
         )
         return zb_id
+
+    def write_error_ids(self):
+        """
+        Function for writing DOIs for which the Crossref API returned an error to a file, together with
+        the organization they are registered with
+        """
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        out_path = self.out_dir + "error_ids" + timestr + ".txt"
+        with open(out_path, "w") as out_file:
+            for k, val in self.unknown_doi_agency_dict.items():
+                out_file.write(k + "," + ",".join(val) + "\n")
+
+    def get_invalid_dois(self):
+        with open(self.raw_dump_path) as infile:
+            record_string = ""
+            for line in infile:
+                record_string = record_string + line
+                if line.endswith("</record>\n"):
+                    element = ET.fromstring(record_string)
+                    zb_id = self.get_zb_id(element)
+                    doi = (
+                        element.find(get_tag("metadata", namespace=self.namespace))
+                        .find(get_tag("zbmath", self.preview_namespace))
+                        .find(get_tag("doi", self.tag_namespace))
+                    )
+                    zb_preview = element.find(
+                        get_tag("metadata", namespace=self.namespace)
+                    ).find(get_tag("zbmath", self.preview_namespace))
+                    if zb_preview:
+                        doi_xml = zb_preview.find(get_tag("doi", self.tag_namespace))
+                        if doi_xml is not None:
+                            doi = doi_xml.text
+                        if doi is not None:
+                            cr = Crossref(mailto="pusch@zib.de")
+                            try:
+                                cr.works(ids=doi)
+                            # if the doi is not found, there is a 404
+                            except HTTPError:
+                                try:
+                                    agency = cr.registration_agency(doi)[0]
+                                    try:
+                                        self.unknown_doi_agency_dict[agency].append(
+                                            zb_id
+                                        )
+                                    except KeyError:
+                                        # if the agency has not yet been included in the dict
+                                        self.unknown_doi_agency_dict[agency] = [zb_id]
+                                except HTTPError:
+                                    self.unknown_doi_agency_dict["nonsense"].append(doi)
+                            except ContentDecodingError as e:
+                                print(doi)
+                                print(e)
+                                sys.exit("Content decoding error")
+                    record_string = ""
+
+    # read all dois from file;
+    # see if available; maybe take less costly method for that if possible
+    # look at agency

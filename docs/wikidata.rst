@@ -1,21 +1,11 @@
-wikidata package
-================
+mardi_importer.wikidata module
+==============================
 
-Submodules
-----------
 
-wikidata.EntityCreator module
------------------------------
+mardi_importer.wikidata.EntityCreator module
+--------------------------------------------
 
-.. automodule:: wikidata.EntityCreator
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: wikidata
+.. automodule:: mardi_importer.wikidata.EntityCreator
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,29 +1,18 @@
-zbmath package
-==============
+mardi_importer.zbmath module
+============================
 
-Submodules
-----------
+mardi_importer.zbmath.ZBMathSource module
+-----------------------------------------
 
-zbmath.ZBMathSource module
---------------------------
-
-.. automodule:: zbmath.ZBMathSource
+.. automodule:: mardi_importer.zbmath.ZBMathSource
    :members:
    :undoc-members:
    :show-inheritance:
 
-zbmath.misc module
-------------------
+mardi_importer.zbmath.misc module
+---------------------------------
 
-.. automodule:: zbmath.misc
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: zbmath
+.. automodule:: mardi_importer.zbmath.misc
    :members:
    :undoc-members:
    :show-inheritance:

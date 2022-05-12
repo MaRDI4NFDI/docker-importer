@@ -1,21 +1,10 @@
-importer package
-================
+mardi_importer.importer module
+==============================
 
-Submodules
-----------
+mardi_importer.importer.Importer module
+---------------------------------------
 
-importer.Importer module
-------------------------
-
-.. automodule:: importer.Importer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: importer
+.. automodule:: mardi_importer.importer.Importer
    :members:
    :undoc-members:
    :show-inheritance:

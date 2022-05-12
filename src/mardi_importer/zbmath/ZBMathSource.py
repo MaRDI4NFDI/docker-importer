@@ -20,11 +20,18 @@ class ZBMathSource(ADataSource):
         from_date=None,
         until_date=None,
         raw_dump_path=None,
-        split_id=None,
         processed_dump_path=None,
+        split_id=None,
     ):  # , path
         """
-        @param path: string path to a csv file with one software name per row and 2 columns 'swMATH work ID' and 'Software'
+        Args:
+            out_dir (string): target directory for saved files
+            tags (list): list of tags to extract from the zbMath response
+            from_date (string, optional): earliest date from when to pull information
+            until_date (string, optional): latest date from when to pull information
+            raw_dump_path (string, optional): path where the raw data dump is located, in case it has previously been pulled
+            processed_dump_path (string, optional): path to the processed dump file
+            split_id (string, optional): zbMath id from where to start processing the raw dump, in case it aborted mid-processing
         """
         # load the list of swMath software
         # software_df = pd.read_csv(path)
@@ -54,9 +61,8 @@ class ZBMathSource(ADataSource):
     def write_data_dump(self):
         """
         Overrides abstract method.
-        This method uses the zbmath API to:
-            * get a data dump from zbMath and save to a file
-            (* filter paper references related to the softwares in self.software_list.)
+        This method queries the zbMath API to get a data dump of all records,
+        optionally between from_date and until_date
         """
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self.raw_dump_path = self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt"
@@ -88,12 +94,12 @@ class ZBMathSource(ADataSource):
     def process_data(self):
         """
         Overrides abstract method.
-        Reads a zbMath data dump and processes it, then saves it as a csv.
+        Reads a raw zbMath data dump and processes it, then saves it as a csv.
         """
         if not (self.processed_dump_path and self.split_mode):
             timestr = time.strftime("%Y%m%d-%H%M%S")
             self.processed_dump_path = (
-                self.out_dir + "zbmath_data_dump" + timestr + ".txt"
+                self.out_dir + "zbmath_data_dump" + timestr + ".csv"
             )
         # def do_all(xml_file, out_file):
         with open(self.raw_dump_path) as infile:
@@ -127,7 +133,13 @@ class ZBMathSource(ADataSource):
 
     def parse_record(self, xml_record):
         """
-        parse xml record from zbMath
+        Parse xml record from zbMath API.
+
+        Args:
+            xml_record (xml element): record returned by zbMath API
+
+        Returns:
+            dict: dict of (tag,value) pairs extracted from xml_record
         """
         is_conflict = False
         new_entry = {}
@@ -175,6 +187,19 @@ class ZBMathSource(ADataSource):
             sys.exit("Error: zb_preview not found")
 
     def get_info_from_doi(self, entry_dict, zb_id):
+        """
+        Query crossref API for DOI information, and, if the doi is not found,
+        information about the registration agency. Missing values in entry_dict
+        are filled with information from querying the doi.
+
+        Args:
+            entry_dict (dict): dict of (tag,value) pairs
+            zb_id (str): zbMath ID
+
+        Returns:
+            dict: returns entry_dict with missing entries filled by information
+            gained from querying the doi at Crossref
+        """
         cr = Crossref(mailto="pusch@zib.de")
         doi = entry_dict["doi"]
         try:
@@ -204,6 +229,15 @@ class ZBMathSource(ADataSource):
         return entry_dict
 
     def get_zb_id(self, xml_record):
+        """
+        Get zbMath id from xml record.
+
+        Args:
+            xml_record (xml element): record returned by zbMath API
+
+        Returns:
+            string: zbMath ID
+        """
         zb_id = (
             xml_record.find(get_tag("header", self.namespace))
             .find(get_tag("identifier", namespace=self.namespace))
@@ -214,7 +248,7 @@ class ZBMathSource(ADataSource):
     def write_error_ids(self):
         """
         Function for writing DOIs for which the Crossref API returned an error to a file, together with
-        the organization they are registered with
+        the organization they are registered with.
         """
         timestr = time.strftime("%Y%m%d-%H%M%S")
         out_path = self.out_dir + "error_ids" + timestr + ".txt"
@@ -223,6 +257,9 @@ class ZBMathSource(ADataSource):
                 out_file.write(k + "," + ",".join(val) + "\n")
 
     def get_invalid_dois(self):
+        """
+        Populate unknown_doi_dict independently of processing raw data.
+        """
         with open(self.raw_dump_path) as infile:
             record_string = ""
             for line in infile:
@@ -264,7 +301,3 @@ class ZBMathSource(ADataSource):
                                 print(e)
                                 sys.exit("Content decoding error")
                     record_string = ""
-
-    # read all dois from file;
-    # see if available; maybe take less costly method for that if possible
-    # look at agency

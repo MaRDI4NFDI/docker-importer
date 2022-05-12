@@ -33,5 +33,5 @@ setuptools.setup(
         "mysql-connector-python",
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},
-    scripts=["scripts/import.py"],
+    #scripts=["scripts/import.py"],
 )

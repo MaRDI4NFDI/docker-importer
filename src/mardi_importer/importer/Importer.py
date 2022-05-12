@@ -13,8 +13,9 @@ class Importer:
     def __init__(self, entityCreator, dataSource):
         """
         Construct.
-        @param entityCreator: object implementing AEntityCreator
-        @param dataSource: object implementig ADataSource
+        Args:
+            entityCreator: object implementing AEntityCreator
+            dataSource: object implementig ADataSource
         """
         self.entityCreator = entityCreator
         self.dataSource = dataSource
@@ -33,7 +34,9 @@ class AEntityCreator:
     def create_entities(self):
         """
         Creates all necessary entities in the local Wikibase.
-        @returns: pandas data frame of mappings between local Wikibase and Wikidata (or external Wikibase)
+
+        Returns:
+            pandas data frame of mappings between local Wikibase and Wikidata (or external Wikibase)
         """
         raise NotImplementedError
 
@@ -42,9 +45,15 @@ class ADataSource:
     """Abstract base class for reading data from external sources."""
 
     def write_data_dump(self):
+        """
+        Write data dump from API.
+        """
         raise NotImplementedError
 
     def process_data(self):
+        """
+        Process data dump.
+        """
         raise NotImplementedError
 
 

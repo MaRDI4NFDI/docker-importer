@@ -1,16 +1,24 @@
 def get_tag(tag_name, namespace):
     """
     Returns a fully qualified tag name.
-    @param namespace URL of a namespace|None (OAI_NS is default)
+
+    Args:
+        tag_name (string): name of tag, e.g. author
+        namespace (string): namespace URL of a namespace
     """
     return "{{{}}}{}".format(namespace, tag_name)
 
 
 def parse_doi_info(val, work_info):
     """
-    input:
-        val: tag
-        work_info: dict with infomation from doi query response
+    Function to extract information returned by a doi query for a specific tag.
+
+    Args:
+        val (string): tag, e.g. author
+        work_info (dict): information from doi query response
+
+    Returns:
+        string: information for specific tag, None if not found
     """
     # information about return fields can be found under https://api.crossref.org/swagger-ui/index.html#/Works/get_works
     if val == "author":

@@ -6,10 +6,10 @@ Created on Thu Feb 17 18:40:58 2022
 """
 import sys
 from optparse import OptionParser
-from importer.Importer import Importer, ImporterException
-from wikidata.EntityCreator import EntityCreator
-from zbmath.ZBMathSource import ZBMathSource
-from cran.CRANSource import CRANSource
+from mardi_importer.importer.Importer import Importer, ImporterException
+from mardi_importer.wikidata.EntityCreator import EntityCreator
+from mardi_importer.zbmath.ZBMathSource import ZBMathSource
+from mardi_importer.cran.CRANSource import CRANSource
 
 try:
     # Parse command-line options

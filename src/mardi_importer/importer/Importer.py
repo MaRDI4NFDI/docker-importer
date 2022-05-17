@@ -62,6 +62,18 @@ class ADataSource:
         """
         raise NotImplementedError
 
+    def pull(self):
+        """
+        Pull data from DataSource
+        """
+        raise NotImplementedError
+
+    def push(self):
+        """
+        Push data into MaRDI Wikibase
+        """
+        raise NotImplementedError
+
 
 class ImporterException(Exception):
     """Failed importer operation."""

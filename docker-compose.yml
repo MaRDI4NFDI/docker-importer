@@ -1,6 +1,22 @@
 # Example Wikibase docker-compose setup
 version: '3.4'
 
+x-common-variables: &wikibase_variables
+  DB_SERVER: mysql.svc:3306
+  MW_ADMIN_NAME: admin
+  MW_ADMIN_PASS: change-this-password
+  MW_ADMIN_EMAIL: admin@example.com
+  MW_WG_SECRET_KEY: some-secret-key
+  # Disable jobs running after requests when wikibase_jobrunner is defined
+  MW_WG_JOB_RUN_RATE: 0
+  DB_USER: sqluser
+  DB_PASS: change-this-sqlpassword
+  DB_NAME: my_wiki
+  WIKIBASE_HOST: localhost
+x-extra-variables: &wikibase_extra_variables
+  MW_ELASTIC_HOST: elasticsearch.svc
+  MW_ELASTIC_PORT: 9200
+
 services:
   importer:
     build: .
@@ -9,14 +25,13 @@ services:
       - shared_mardi_wikibase:/shared/:ro
       - ./src:/src # for development
       - ./tests:/tests # for development
+      - ./config/:/config
     links:
       - wikibase
     depends_on:
       - wikibase
     environment:
-      DB_USER: sqluser
-      DB_PASS: change-this-sqlpassword
-      DB_NAME: my_wiki
+      <<: *wikibase_variables
       DB_HOST: mardi-mysql
 
   wikibase:
@@ -31,23 +46,19 @@ services:
     volumes:
       ## This shares the configuration with jobrunner and the importer
       - shared_mardi_wikibase:/var/www/html/:rw
-      - ./mediawiki/extra-entrypoint-run-first.sh:/extra-entrypoint-run-first.sh
+      - ./mediawiki/LocalSettings.d:/shared/LocalSettings.d
+      - ./mediawiki/LocalSettings.d:/var/www/html/LocalSettings.d
+      - ./mediawiki/images/:/var/www/html/images/
     networks:
       default:
         aliases:
          - wikibase-docker.svc
          - wikibase.svc
     environment:
-      DB_SERVER: mysql.svc:3306
-      MW_ADMIN_NAME: admin
-      MW_ADMIN_PASS: change-this-password
-      MW_ADMIN_EMAIL: admin@example.com
-      MW_WG_SECRET_KEY: some-secret-key
-      # Disable jobs running after requests when wikibase_jobrunner is defined
-      MW_WG_JOB_RUN_RATE: 0
-      DB_USER: sqluser
-      DB_PASS: change-this-sqlpassword
-      DB_NAME: my_wiki
+      <<: *wikibase_variables
+      WIKIBASE_PINGBACK:
+      MW_WG___UPLOADS:
+      <<: *wikibase_extra_variables
     ports:
       - 8080:80
 
@@ -61,24 +72,17 @@ services:
       - mysql
     restart: always
     volumes:
-      - shared_mardi_wikibase:/shared/:ro
+      - shared_mardi_wikibase:/shared/
+      - ./mediawiki/LocalSettings.d:/shared/LocalSettings.d:ro
       - ./mediawiki/jobrunner-entrypoint.sh:/jobrunner-entrypoint.sh
     networks:
       default:
         aliases:
           - wikibase-jobrunner.svc
     environment:
-      DB_SERVER: mysql.svc:3306
-      MW_ADMIN_NAME: admin
-      MW_ADMIN_PASS: change-this-password
-      MW_ADMIN_EMAIL: admin@example.com
-      MW_WG_SECRET_KEY: some-secret-key
-      # Disable jobs running after requests when wikibase_jobrunner is defined
-      MW_WG_JOB_RUN_RATE: 0
-      DB_USER: sqluser
-      DB_PASS: change-this-sqlpassword
-      DB_NAME: my_wiki
+      <<: *wikibase_variables
       MAX_JOBS: 1
+      <<: *wikibase_extra_variables
 
   mysql:
     image: "mariadb:10.3"
@@ -96,7 +100,21 @@ services:
       default:
         aliases:
          - mysql.svc
+
+  elasticsearch:
+    image: "${ELASTICSEARCH_IMAGE_NAME:-wikibase/elasticsearch:6.5.4-wmde.2}"
+    restart: unless-stopped
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      default:
+        aliases:
+         - elasticsearch.svc
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true"
     
 volumes:
   shared_mardi_wikibase:
   mediawiki-mysql-data:
+  elasticsearch-data:

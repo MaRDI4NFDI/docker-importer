@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from wikibase.WBEntity import WBEntity
+from mardi_importer.wikibase.WBEntity import WBEntity
 
 class WBItem(WBEntity):
     def create(self):

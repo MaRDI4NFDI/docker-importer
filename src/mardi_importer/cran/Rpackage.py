@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from wikibase.WBItem import WBItem
-from wikibase.WBProperty import WBProperty
+from mardi_importer.wikibase.WBItem import WBItem
+from mardi_importer.wikibase.WBProperty import WBProperty
 import pandas as pd
 import json
 import re

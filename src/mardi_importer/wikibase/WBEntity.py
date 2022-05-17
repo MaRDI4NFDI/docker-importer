@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from wikibase.WBAPIConnection import WBAPIConnection
-from wikibase.WBMapping import get_wbs_local_id
+from mardi_importer.wikibase.WBAPIConnection import WBAPIConnection
+from mardi_importer.wikibase.WBMapping import get_wbs_local_id
 import configparser
 
 class WBEntity():

@@ -24,19 +24,28 @@ class Importer:
         """
         Manages the import process.
         """
+        self.entityCreator.import_entities()
         self.entityCreator.create_entities()
+
         self.dataSource.pull()
+        self.dataSource.push()
 
 
 class AEntityCreator:
     """Abstract base class for creating entities in a local Wikibase."""
 
-    def create_entities(self):
+    def import_entities(self):
         """
-        Creates all necessary entities in the local Wikibase.
+        Imports all necessary entities from Wikidata in the local Wikibase.
 
         Returns:
             pandas data frame of mappings between local Wikibase and Wikidata (or external Wikibase)
+        """
+        raise NotImplementedError
+    
+    def create_entities(self):
+        """
+        Creates all necessary entities in the local Wikibase.
         """
         raise NotImplementedError
 
@@ -53,6 +62,18 @@ class ADataSource:
     def process_data(self):
         """
         Process data dump.
+        """
+        raise NotImplementedError
+
+    def pull(self):
+        """
+        Pull data from DataSource
+        """
+        raise NotImplementedError
+
+    def push(self):
+        """
+        Push data into MaRDI Wikibase
         """
         raise NotImplementedError
 

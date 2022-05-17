@@ -25,7 +25,10 @@ class Importer:
         Manages the import process.
         """
         self.entityCreator.import_entities()
+        self.entityCreator.create_entities()
+
         self.dataSource.pull()
+        self.dataSource.push()
 
 
 class AEntityCreator:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from importer.Importer import ADataSource, ImporterException
-from wikibase.WBAPIConnection import WBAPIConnection
-from cran.Rpackage import Rpackage
+from mardi_importer.importer.Importer import ADataSource, ImporterException
+from mardi_importer.wikibase.WBAPIConnection import WBAPIConnection
+from mardi_importer.cran.Rpackage import Rpackage
 import configparser
 from datetime import date
 import pandas as pd

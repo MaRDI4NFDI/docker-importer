@@ -56,7 +56,7 @@ COPY setup.py /importer/
 COPY pyproject.toml /importer/
 COPY README.md /importer/
 # --user works too instead of --no-build-isolation
-RUN pip install -v --no-build-isolation -e /importer
+RUN pip install --no-cache-dir -v --no-build-isolation -e /importer
 
 # Copy the unit tests to the image
 COPY tests /importer/tests

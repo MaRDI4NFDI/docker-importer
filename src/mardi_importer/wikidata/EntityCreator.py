@@ -6,6 +6,8 @@ Created on Thu Feb 17 19:50:55 2022
 @author: alvaro
 """
 from mardi_importer.importer.Importer import AEntityCreator, ImporterException
+from mardi_importer.wikibase.WBItem import WBItem
+from mardi_importer.wikibase.WBProperty import WBProperty
 import pandas as pd
 import os
 import mysql.connector as connection
@@ -50,7 +52,9 @@ class EntityCreator(AEntityCreator):
         )
         return_code = os.system(command)
         if return_code != 0:
-            raise ImporterException("Error attempting to import {}".format(path))
+            raise ImporterException(
+                "Error attempting to import {}".format(self.entity_list)
+            )
 
         # get the DB connection settings passed in docker-compose
         db_user = os.environ["DB_USER"]
@@ -80,38 +84,45 @@ class EntityCreator(AEntityCreator):
     def create_entities(self):
 
         # Create Item for 'file LICENSE'
-        item = WBItem('file LICENSE')
-        item.add_description('Text file that contains license information')
-        item.add_statement('WD_P31','WD_Q207621')
+        item = WBItem("file LICENSE")
+        item.add_description("Text file that contains license information")
+        item.add_statement("WD_P31", "WD_Q207621")
         item.create()
 
         # Create Item for ACM License
-        item = WBItem('ACM Software License Agreement')
-        item.add_description('Software License published by the Association for Computing Machinery')
-        item.add_statement('WD_P31','WD_Q207621')
-        item.add_statement('WD_P2699','https://www.acm.org/publications/policies/software-copyright-notice')
+        item = WBItem("ACM Software License Agreement")
+        item.add_description(
+            "Software License published by the Association for Computing Machinery"
+        )
+        item.add_statement("WD_P31", "WD_Q207621")
+        item.add_statement(
+            "WD_P2699",
+            "https://www.acm.org/publications/policies/software-copyright-notice",
+        )
         item.create()
 
         # Create Item for Unlimited License
-        item = WBItem('Unlimited License')
-        item.add_description('Unlimited Software License')
-        item.add_statement('WD_P31','WD_Q207621')
+        item = WBItem("Unlimited License")
+        item.add_description("Unlimited Software License")
+        item.add_statement("WD_P31", "WD_Q207621")
         item.create()
 
         # Create Wikidata QID property
-        property = WBProperty('Wikidata QID')
-        property.add_datatype('external-id')
-        property.add_description('Identifier in Wikidata of the corresponding properties')
-        property.add_statement('WD_P1630','https://www.wikidata.org/wiki/Property:$1')
+        property = WBProperty("Wikidata QID")
+        property.add_datatype("external-id")
+        property.add_description(
+            "Identifier in Wikidata of the corresponding properties"
+        )
+        property.add_statement("WD_P1630", "https://www.wikidata.org/wiki/Property:$1")
         wikidata_QID = property.create()
 
         # Version
-        property = WBProperty('License version')
-        property.add_datatype('string')
-        property.add_description('License version identifier')
+        property = WBProperty("License version")
+        property.add_datatype("string")
+        property.add_description("License version identifier")
         license_version = property.create()
 
-        #item = WBItem('MIT')
-        #item.add_statement(wikidata_QID,"Q334661")
-        #item.update()
-        #print(item.exists())
+        # item = WBItem('MIT')
+        # item.add_statement(wikidata_QID,"Q334661")
+        # item.update()
+        # print(item.exists())

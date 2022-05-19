@@ -21,7 +21,11 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
 		gzip \
 		tzdata \
 		nano \
+		libicu-dev \
 	&& rm -rf /var/cache/apk/*
+
+# add missing php library, requires libicu-dev
+RUN docker-php-ext-install intl
 
 # Set up non-root user.
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import

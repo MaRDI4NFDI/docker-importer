@@ -23,7 +23,7 @@ services:
     container_name: mardi-importer
     volumes:
       - shared_mardi_wikibase:/shared/:ro
-      - ./src:/src # for development
+      - ./src:/importer/src # for development
       - ./tests:/tests # for development
       - ./config/:/config
     links:

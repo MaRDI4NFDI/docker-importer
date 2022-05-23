@@ -24,7 +24,9 @@ Table of contents
    :caption: API Documentation
 
    scripts
+   cran
    importer
+   wikibase
    wikidata
    zbmath
 

@@ -2,6 +2,6 @@ Launcher script
 ---------------
 
 .. argparse::
-   :filename: ../scripts/import.py
+   :filename: ../src/mardi_importer/scripts/importZBMath.py
    :func: get_parser
-   :prog: import.py
+   :prog: importZBMath.py

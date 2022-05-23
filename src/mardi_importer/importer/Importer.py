@@ -39,13 +39,13 @@ class AEntityCreator:
         Imports all necessary entities from Wikidata in the local Wikibase.
 
         Returns:
-            pandas data frame of mappings between local Wikibase and Wikidata (or external Wikibase)
+            Pandas dataframe: Mapping between local Wikibase and Wikidata.
         """
         raise NotImplementedError
     
     def create_entities(self):
         """
-        Creates all necessary entities in the local Wikibase.
+        Creates all necessary additional entities in the local Wikibase.
         """
         raise NotImplementedError
 
@@ -73,7 +73,7 @@ class ADataSource:
 
     def push(self):
         """
-        Push data into MaRDI Wikibase
+        Push data into the MaRDI knowledge graph.
         """
         raise NotImplementedError
 

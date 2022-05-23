@@ -8,15 +8,38 @@ import re
 
 
 class WBAPIConnection:
+    """Establishes a connection to Wikibase through the bot.
+
+    *(The bot with the required permissions needs to be created in 
+    advance)*.
+
+    Each instance contains a session to create and edit entities
+    in the local Wikibase instance, i.e. the MaRDI knowledge graph.
+
+    Attributes:
+        Session: Bot session in MediaWiki.
+        WIKIBASE_API: URL to the Wikibase API.
+
+    Args:
+        username (String): Bot username
+        botpwd (String): Bot password
+        WIKIBASE_API (String): Wikibase instance url
+    """
     def __init__(self, username, botpwd, WIKIBASE_API):
         self.session = self.login(username, botpwd, WIKIBASE_API)
         self.WIKIBASE_API = WIKIBASE_API
 
     def login(self, username, botpwd, WIKIBASE_API):
         """
-        Starts a new session and logins using a bot account.
-        @username, @botpwd string: credentials of an existing bot user
-        @returns requests.sessions.Session object
+        Starts a new session to MediaWiki and logins using a bot account.
+
+        Args:
+            username (String): Bot username
+            botpwd (String): Bot password
+            WIKIBASE_API (String): Wikibase instance url
+
+        Returns:
+            requests.sessions.Session: Bot session
         """
         # create a new session
         session = requests.Session()
@@ -49,7 +72,11 @@ class WBAPIConnection:
         return session
 
     def get_csrf_token(self):
-        """Gets a security (CSRF) token."""
+        """Gets a security (CSRF) token through the API.
+        
+        Returns:
+            CSRF token
+            """
         params1 = {"action": "query", "meta": "tokens", "type": "csrf"}
         r1 = self.session.get(self.WIKIBASE_API, params=params1)
         token = r1.json()["query"]["tokens"]["csrftoken"]
@@ -58,10 +85,14 @@ class WBAPIConnection:
 
     def create_entity(self, entity, data):
         """
-        Creates a wikibase entity.
-        @session requests.sessions.Session: session obtained from login
-        @data python dict: creation parameters of the entity
-        @returns string: id of the new entity
+        Creates a Wikibase entity with the given data.
+
+        Args:
+            Entity (string): Entity type (i.e. Item or Property)
+            Data (dict): Parameters of the new entity
+
+        Returns:
+            String: ID of the new entity
         """
         token = self.get_csrf_token()
 
@@ -98,6 +129,16 @@ class WBAPIConnection:
         return r1.json["entity"]["id"]
 
     def edit_entity(self, qid, data):
+        """
+        Edits a Wikibase entity with the given data.
+
+        Args:
+            qid (string): ID of the entity to be modified
+            Data (dict): Parameters to be modified
+
+        Returns:
+            String: ID of the edited entity
+        """
         token = self.get_csrf_token()
 
         params = {
@@ -117,7 +158,15 @@ class WBAPIConnection:
         return r1.json["entity"]["id"]
 
     def read_entity_by_title(self, entity_type, title):
-        """Reads the Qid of an entity."""
+        """Reads the ID of an entity, given its label.
+
+        Args:
+            entity_type (string): Entity type (i.e. Item or Property).
+            title: Label of the entity.
+
+        Returns:
+            String: ID of the edited entity
+        """
         params = {
             "action": "wbsearchentities",
             "search": title,
@@ -136,6 +185,6 @@ class WBAPIConnection:
 
 
 class WBAPIException(BaseException):
-    """Raised when the wikibase Open API throws an error"""
+    """Raised when the Wikibase API throws an error"""
 
     pass

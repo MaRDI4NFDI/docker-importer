@@ -26,12 +26,14 @@ setuptools.setup(
     ),
     python_requires=">=3.6",
     install_requires=[
-        "sickle",
+        "configparser",
         "habanero",
-        "pandas",
         "lxml",
         "mysql-connector-python",
+        "pandas",
+        "sickle",
+        "sqlalchemy",
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},
-    #scripts=["scripts/import.py"],
+    # scripts=["scripts/import.py"],
 )

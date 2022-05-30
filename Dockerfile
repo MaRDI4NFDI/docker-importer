@@ -46,8 +46,9 @@ RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
 
 # add Python and upgrade Python package manager to latest version
 # Note: this might be considered un-docker-like, but what would be an alternative? Running 2 containers that communicate over http? 
-RUN apt-get update && apt-get install --yes --no-install-recommends python3 pip
-RUN python3 -m pip install --upgrade pip
+RUN apt-get update && apt-get install --yes --no-install-recommends python3 pip \
+	&& rm -rf /var/cache/apk/*
+RUN python3 -m pip install --no-cache-dir --upgrade pip
 
 # Install Python requirements
 COPY requirements.txt ./

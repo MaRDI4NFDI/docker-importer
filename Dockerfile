@@ -28,8 +28,8 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
 RUN docker-php-ext-install intl
 
 # Set up non-root user.
-RUN addgroup --gid "$IMPORT_DEFAULT_GID" import
-RUN adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
+RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
+	&& adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
 
 # Copy cron files.
 RUN mkdir /app

@@ -31,6 +31,9 @@ RUN docker-php-ext-install intl
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
 	&& adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
 
+#copy folder for extensions
+COPY --from=ghcr.io/mardi4nfdi/docker-wikibase:main /var/www/html/ /var/www/html/
+
 # Copy cron files.
 RUN mkdir /app
 COPY import.sh /app/
@@ -51,8 +54,8 @@ RUN apt-get update && apt-get install --yes --no-install-recommends python3 pip 
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
 # Install Python requirements
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy the Python source code to the image
 RUN mkdir /importer

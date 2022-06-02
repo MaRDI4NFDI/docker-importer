@@ -33,6 +33,7 @@ services:
     environment:
       <<: *wikibase_variables
       DB_HOST: mardi-mysql
+      IMPORTER_CRON_ENABLE: ${IMPORTER_CRON_ENABLE:-false}
 
   wikibase:
     image: "ghcr.io/mardi4nfdi/docker-wikibase:main"

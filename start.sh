@@ -34,8 +34,13 @@ chown import:import /app/import.sh
 # Set up crontab.
 # CRONTAB and DEFAULT_SCHEDULE are set in the Dockerfile
 # IMPORT_SCHEDULE is set in docker-compose.yml
-echo "" > $CRONTAB
-echo "${IMPORT_SCHEDULE:-$DEFAULT_SCHEDULE} /app/import.sh" >> $CRONTAB
+if [ "$IMPORTER_CRON_ENABLE" = true ]; then
+	echo "" > $CRONTAB
+	echo "${IMPORT_SCHEDULE:-$DEFAULT_SCHEDULE} /app/import.sh" >> $CRONTAB
+else
+    echo "No cronjob set for importer"
+fi
+
 crontab -u import - < $CRONTAB
 
 #echo "Starting cron."

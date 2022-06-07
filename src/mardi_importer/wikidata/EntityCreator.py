@@ -47,7 +47,7 @@ class EntityCreator(AEntityCreator):
             pandas dataframe
         """
         # call WikibaseImport from the Wikibase container to import the properties from Wikidata
-        command = "php /shared/extensions/WikibaseImport/maintenance/importEntities.php --file {} --do-not-recurse".format(
+        command = "php /var/www/html/extensions/WikibaseImport/maintenance/importEntities.php --file {} --do-not-recurse --conf /shared/LocalSettings.php".format(
             self.entity_list
         )
         return_code = os.system(command)

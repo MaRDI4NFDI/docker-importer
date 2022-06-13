@@ -77,6 +77,16 @@ class ADataSource:
         """
         raise NotImplementedError
 
+class AConfigParser:
+    """ Abstract base class for parsing config files """
+
+    def parse_config(self):
+        """
+        Parse config file.
+        Returns:
+            Dictionary: Dictionary containing config values
+        """
+
 
 class ImporterException(Exception):
     """Failed importer operation."""

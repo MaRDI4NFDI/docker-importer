@@ -67,7 +67,6 @@ class ZBMathSource(ADataSource):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         self.raw_dump_path = self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt"
         sickle = Sickle("https://oai.zbmath.org/v1")
-
         # date has to have format like 2012-12-12
         if self.from_date and self.until_date:
             records = sickle.ListRecords(

@@ -1,0 +1,12 @@
+[DEFAULT]
+output_directory = /path/to/output/dir/
+[ZBMath]
+; values that do not apply should be set to None
+tags = author, author_ids, document_title, source, classifications, language, links,
+    keywords, doi, publication_year, serial
+raw_dump_path = None
+processed_dump_path = None
+split_id = None
+;dates should have format like 2012-12-12
+from_date = 2020-06-05
+until_date = 2020-06-06

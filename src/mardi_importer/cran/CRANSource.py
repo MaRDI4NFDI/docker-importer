@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 from mardi_importer.importer.Importer import ADataSource, ImporterException
-from mardi_importer.wikibase.WBAPIConnection import WBAPIConnection
 from mardi_importer.cran.RPackage import RPackage
 import configparser
 import pandas as pd
@@ -59,36 +58,24 @@ class CRANSource(ADataSource):
 
         It creates a :class:`mardi_importer.cran.RPackage` instance
         for each package.
-
-        Uses :class:`mardi_importer.wikibase.WBAPIConnection` for the
-        edition and creation of R package items.
         """
-        # Establish a Wikibase connection
-        config = configparser.ConfigParser()
-        config.sections()
-        config.read("/config/credentials.ini")
-        username = config["default"]["username"]
-        botpwd = config["default"]["password"]
-        WIKIBASE_API = config["default"]["WIKIBASE_API"]
-        wb_connection = WBAPIConnection(username, botpwd, WIKIBASE_API)
-
         # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
-        self.packages = self.packages.loc[1:30, :]
+        #self.packages = self.packages.loc[1:15, :]
 
         # Process R packages
         for i, row in self.packages.iterrows():
             package_date = self.packages.loc[i, "Date"]
             package_label = self.packages.loc[i, "Package"]
             package_title = self.packages.loc[i, "Title"]
-            package = RPackage(
-                wb_connection, package_date, package_label, package_title
-            )
+            package = RPackage(package_date, package_label, package_title)
 
             print(package_label)
             if package.exists():
                 if not package.is_updated():
-                    package.update()
+                    print('Package will be updated')
+                    print(package.update())
             else:
-                package.create()
+                print('Package will be created')
+                print(package.create())
 
             time.sleep(2)

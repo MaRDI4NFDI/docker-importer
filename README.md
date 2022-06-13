@@ -17,6 +17,9 @@ UML activity (todo:class) diagrams are in the `docs` folder.
 * Ideally, import operations should be switchable by configuration, i.e. without editing the program
 * If an import doesn't succeeed, a rollback should be possible
 
+## Configuring the import
+Copy config/import_config.config.template to config/import_config.config and edit.
+
 ## Testing
 ```
 docker-compose -f docker-compose.yml up -d

@@ -174,30 +174,12 @@ class RPackage:
             else:
                 item.add_statement("WD_P348", self.version)
 
-            #if self.author != item.get_value("WD_P50"):
-            #    claim_guid = item.get_claim_guid("WD_P50")
-            #    item.remove_claim(claim_guid)
-            #    author_ID = self.preprocess_authors()
-            #    for author in author_ID:
-            #        item.add_statement("WD_P50", author)
-
             author_ID = self.preprocess_authors()
             if author_ID != item.get_value("WD_P50"):
                 claim_guid = item.get_claim_guid("WD_P50")
                 item.remove_claim(claim_guid)
                 for author in author_ID:
                     item.add_statement("WD_P50", author)
-
-            #wb_maintainer = item.get_value("WD_P126")
-            #if len(wb_maintainer) > 0:
-            #    if self.maintainer != wb_maintainer[0]:
-            #        claim_guid = item.get_claim_guid("WD_P126")[0]
-            #        maintainer_ID = self.preprocess_maintainer()
-            #        statement = item.return_statement("WD_P126", maintainer_ID)
-            #        item.update_claim(claim_guid, statement)
-            #else:
-            #    maintainer_ID = self.preprocess_maintainer()
-            #    item.add_statement("WD_P126", maintainer_ID)
 
             wb_maintainer = item.get_value("WD_P126")
             maintainer_ID = self.preprocess_maintainer()
@@ -358,7 +340,6 @@ class RPackage:
         Returns:
             (List): List of elements
         """
-        #return x if pd.isna(x) else str(x).split(", ")
         return [] if pd.isna(x) else str(x).split(", ")
 
     @staticmethod
@@ -424,7 +405,6 @@ class RPackage:
                         i = j
             return list(dict.fromkeys(split_list))
         else:
-            #return x
             return []
 
     @staticmethod

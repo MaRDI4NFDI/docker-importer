@@ -23,7 +23,7 @@ class WBEntity:
             list of properties and values describing the entity.
         wb_connection: Connection to the Wikibase API.
     """
-    def __init__(self, label):
+    def __init__(self, label=None, *, id=None):
         self.label = label
         self.description = ""
         self.claims = []
@@ -35,6 +35,7 @@ class WBEntity:
         botpwd = config["default"]["password"]
         WIKIBASE_API = config["default"]["WIKIBASE_API"]
         self.wb_connection = WBAPIConnection(username, botpwd, WIKIBASE_API)
+        self.id = self.get_ID(id)
 
     def add_description(self, description):
         """Adds a description to the instantiated entity.
@@ -47,6 +48,17 @@ class WBEntity:
         """
         self.description = description
         return self
+
+    def get_description(self):
+        params = {"action": "wbgetentities", "ids": self.id}
+        r1 = self.wb_connection.session.post(
+            self.wb_connection.WIKIBASE_API, data=params
+        )
+        r1.json = r1.json()
+        if "entities" in r1.json.keys():
+            if len(r1.json["entities"][self.id]["descriptions"]) > 0:
+                return r1.json["entities"][self.id]["descriptions"]["en"]["value"]
+        return None
 
     def add_statement(self, property, value, **qualifiers):
         """Adds a statement to the instantiated entity.
@@ -66,13 +78,23 @@ class WBEntity:
         Returns:
             WBEntity: Entity
         """
+        statement = self.return_statement(property, value)
+
         if qualifiers:
             qualifiers = self.process_qualifiers(qualifiers)
+            statement["qualifiers"] = qualifiers
+
+        if not self.statement_exists(property,value):
+            self.claims.append(statement)
+
+        return self
+
+    def return_statement(self, property, value):
         if property[0:3] == "WD_":
             property = get_wbs_local_id(property[3:])
-        data_type = self.get_datatype(property)
+        data_type = self.wb_connection.get_datatype(property)
         if data_type == "string" or data_type == "url":
-            statement = {
+            return {
                 "mainsnak": {
                     "snaktype": "value",
                     "property": property,
@@ -84,7 +106,7 @@ class WBEntity:
         elif data_type == "wikibase-item":
             if value[0:3] == "WD_":
                 value = get_wbs_local_id(value[3:])
-            statement = {
+            return {
                 "mainsnak": {
                     "snaktype": "value",
                     "property": property,
@@ -97,7 +119,7 @@ class WBEntity:
                 "rank": "normal",
             }
         elif data_type == "time":
-            statement = {
+            return {
                 "mainsnak": {
                     "snaktype": "value",
                     "property": property,
@@ -117,7 +139,7 @@ class WBEntity:
                 "rank": "normal",
             }
         elif data_type == "external-id":
-            statement = {
+            return {
                 "mainsnak": {
                     "snaktype": "value",
                     "property": property,
@@ -129,12 +151,23 @@ class WBEntity:
                 "rank": "normal",
                 "type": "statement",
             }
+        return None
+    
+    def statement_exists(self, property, value):
+        if property[0:3] == "WD_":
+            property = get_wbs_local_id(property[3:])
+        values = self.get_value(property)
+        if value[0:3] == "WD_":
+            value = get_wbs_local_id(value[3:])
+        for value_item in values:
+            if value_item == value:
+                return True
+        return False
 
-        if qualifiers:
-            statement["qualifiers"] = qualifiers
-
-        self.claims.append(statement)
-        return self
+    def exists(self):
+        """Abstract method for checking the existence of an entity.
+        """
+        pass
 
     def create(self):
         """Abstract method for creating entities in a local Wikibase.
@@ -153,15 +186,93 @@ class WBEntity:
         Returns:
             String: ID of the new entity
         """
-        qid = self.exists()
         data = {}
-        data["claims"] = self.claims
-        return self.wb_connection.edit_entity(qid, data)
+        if len(self.description) > 0:
+            data["descriptions"] = {"en": {"language": "en", "value": self.description}}
+        if len(self.claims) > 0:
+            data["claims"] = self.claims
+        return self.wb_connection.edit_entity(self.id, data)
 
-    def exists(self):
-        """Abstract method for checking the existence of an entity.
-        """
-        pass
+    def remove_claim(self,claim_guid):
+        if type(claim_guid) is not list:
+            claim_guid = [claim_guid]
+        for guid in claim_guid:
+            self.wb_connection.remove_claim(guid)
+
+    def update_claim(self, claim_guid, statement):
+        claim = {"id":claim_guid,
+                 "type":"claim"}
+        claim['mainsnak'] = statement['mainsnak']
+        return self.wb_connection.edit_claim(claim)
+
+    def get_claim_guid(self, property):
+        params = {"action": "wbgetentities", "ids": self.id, "props": "claims"}
+        r1 = self.wb_connection.session.post(
+            self.wb_connection.WIKIBASE_API, data=params
+        )
+        r1.json = r1.json()
+        if property[0:3] == "WD_":
+            property = get_wbs_local_id(property[3:])
+        data_type = self.wb_connection.get_datatype(property)
+        values = []
+        if "entities" in r1.json.keys():
+            if property in r1.json["entities"][self.id]["claims"].keys():
+                for statement in r1.json["entities"][self.id]["claims"][property]:
+                    values.append(statement['id'])
+        return values
+
+    def get_ID(self, id):
+        if id:
+            self.id = id
+            self.label = self.get_label_by_ID()
+        else:
+            self.id = self.SQL_exists()
+        return self.id
+
+    def get_label_by_ID(self):
+        params = {
+            'action': 'wbsearchentities',
+            'search': self.id,
+            'language': 'en',
+            'type': 'item',
+            'limit': 1
+        }
+        r1 = self.wb_connection.session.post(self.wb_connection.WIKIBASE_API, data=params)
+        r1.json = r1.json()
+        if 'search' in r1.json.keys():
+            if len(r1.json['search']) > 0:
+                for matches in r1.json['search']:
+                    return matches['label']
+        return None
+
+    def get_value(self, property):
+        params = {"action": "wbgetentities", "ids": self.id, "props": "claims"}
+        r1 = self.wb_connection.session.post(
+            self.wb_connection.WIKIBASE_API, data=params
+        )
+        r1.json = r1.json()
+        if property[0:3] == "WD_":
+            property = get_wbs_local_id(property[3:])
+        data_type = self.wb_connection.get_datatype(property)
+        values = []
+        if "entities" in r1.json.keys():
+            if property in r1.json["entities"][self.id]["claims"].keys():
+                for statement in r1.json["entities"][self.id]["claims"][property]:
+                    if data_type == "string" or data_type == "url" or data_type == "external-id":
+                        values.append(statement['mainsnak']['datavalue']['value'])
+                    elif data_type == "wikibase-item":
+                        value_id = statement['mainsnak']['datavalue']['value']['id']
+                        values.append(value_id)
+                        #params = {"action": "wbgetentities", "ids": value_id, "props": "labels"}
+                        #r2 = self.wb_connection.session.post(
+                        #    self.wb_connection.WIKIBASE_API, data=params
+                        #)
+                        #r2.json = r2.json()
+                        #if "entities" in r2.json.keys():
+                        #    values.append(r2.json['entities'][value_id]['labels']['en']['value'])
+                    elif data_type == "time":
+                        values.append(statement['mainsnak']['datavalue']['value']['time'][1:11])
+        return values
 
     def process_qualifiers(self, qualifiers):
         """Processes the qualifiers that can optionally be added to each
@@ -180,8 +291,8 @@ class WBEntity:
                 property_qualifier = get_wbs_local_id(key[3:])
             else:
                 property_qualifier = key
-            data_type_qualifier = self.get_datatype(property_qualifier)
-            if data_type_qualifier == "string":
+            data_type_qualifier = self.wb_connection.get_datatype(property_qualifier)
+            if data_type_qualifier == "string" or data_type_qualifier == "url":
                 qualifier_dict[property_qualifier] = [
                     {
                         "snaktype": "value",
@@ -224,22 +335,3 @@ class WBEntity:
                     }
                 ]
         return qualifier_dict
-
-    def get_datatype(self, property):
-        """Returns the required data type for a given existing Wikibase property.
-
-        Args:
-            ID (String): Property ID
-
-        Returns:
-            String: Data type
-        """
-        params = {"action": "wbgetentities", "ids": property, "props": "datatype"}
-        r1 = self.wb_connection.session.post(
-            self.wb_connection.WIKIBASE_API, data=params
-        )
-        r1.json = r1.json()
-        if "entities" in r1.json.keys():
-            if len(r1.json["entities"]) > 0:
-                return r1.json["entities"][property]["datatype"]
-        return None

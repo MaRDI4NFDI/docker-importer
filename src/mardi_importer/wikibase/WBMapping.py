@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from mardi_importer.importer.Importer import ImporterException
 import sqlalchemy as db
 import os
 
@@ -47,3 +48,57 @@ def get_wbs_local_id(wbs_original_id):
         engine.dispose()
 
     return local_id
+
+def wb_SQL_query(label, entity):
+    # get the DB connection settings passed in docker-compose
+    db_user = os.environ["DB_USER"]
+    db_pass = os.environ["DB_PASS"]
+    db_name = os.environ["DB_NAME"]
+    db_host = os.environ["DB_HOST"]
+
+    engine = db.create_engine(
+        f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
+    )
+    connection = engine.connect()
+    metadata = db.MetaData()
+    try:
+        wbt_item_terms = db.Table(
+            "wbt_item_terms", metadata, autoload=True, autoload_with=engine
+        )
+        wbt_property_terms = db.Table(
+            "wbt_property_terms", metadata, autoload=True, autoload_with=engine
+        )
+        wbt_term_in_lang = db.Table(
+            "wbt_term_in_lang", metadata, autoload=True, autoload_with=engine
+        )
+        wbt_text_in_lang = db.Table(
+            "wbt_text_in_lang", metadata, autoload=True, autoload_with=engine
+        )
+        wbt_text = db.Table(
+            "wbt_text", metadata, autoload=True, autoload_with=engine
+        )
+        if entity == "item":
+            query = (db.select([wbt_item_terms.columns.wbit_item_id])
+                    .join(wbt_term_in_lang, wbt_item_terms.columns.wbit_term_in_lang_id == wbt_term_in_lang.columns.wbtl_id)
+                    .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
+                    .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
+                    .where(wbt_text.columns.wbx_text == bytes(label, "utf-8")))
+        elif entity == "property":
+            query = (db.select([wbt_property_terms.columns.wbpt_property_id])
+                    .join(wbt_term_in_lang, wbt_term_in_lang.columns.wbtl_id == wbt_property_terms.columns.wbpt_term_in_lang_id)
+                    .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
+                    .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
+                    .where(wbt_text.columns.wbx_text == bytes(label, "utf-8")))
+        result = connection.execute(query).fetchall()
+        entity_id = None
+        if result:
+            entity_id = result[0][0]
+    except Exception as e:
+        raise ImporterException(
+            "Error attempting to read mappings from database\n{}".format(e)
+        )
+    finally:
+        connection.close()
+        engine.dispose()
+
+    return entity_id

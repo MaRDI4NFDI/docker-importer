@@ -11,6 +11,7 @@ from mardi_importer.wikidata.EntityCreator import EntityCreator
 from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
+from mardi_importer.cran.CRANEntityCreator import CRANEntityCreator
 
 
 def get_parser():
@@ -48,7 +49,7 @@ def main():
     elif args.mode == "CRAN":
         # an object to create entities copied from Wikidata
         entity_list = "/config/Properties_to_import_from_WD.txt"
-        entityCreator = EntityCreator(entity_list)
+        entityCreator = CRANEntityCreator(entity_list)
 
         # an object to import metadata related to R packages from CRAN
         data_source = CRANSource()

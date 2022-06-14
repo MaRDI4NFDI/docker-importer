@@ -157,6 +157,53 @@ class WBAPIConnection:
 
         return r1.json["entity"]["id"]
 
+    def edit_claim(self, claim):
+        token = self.get_csrf_token()
+        params = {
+            "action": "wbsetclaim",
+            "claim": json.dumps(claim),
+            "token": token,
+        }
+        r1 = self.session.post(self.WIKIBASE_API, data=params)
+        r1.json = r1.json()
+
+        if "error" in r1.json.keys():
+            raise WBAPIException(r1.json["error"])
+
+    def remove_claim(self, claim_guid):
+        token = self.get_csrf_token()
+        params = {
+            "action": "wbremoveclaims",
+            "claim": claim_guid,
+            "token": token,
+        }
+        r1 = self.session.post(self.WIKIBASE_API, data=params)
+        r1.json = r1.json()
+
+        if "error" in r1.json.keys():
+            raise WBAPIException(r1.json["error"])
+
+        return claim_guid
+
+    def create_qualifier(self, claim_guid, property, value):
+        token = self.get_csrf_token()
+        params = {
+            "action": "wbsetqualifier",
+            "claim": claim_guid,
+            "property": property,
+            "value": value,
+            "snaktype": "somevalue",
+            "token": token,
+        }
+        print(params)
+        r1 = self.session.post(self.WIKIBASE_API, data=params)
+        r1.json = r1.json()
+
+        if "error" in r1.json.keys():
+            raise WBAPIException(r1.json["error"])
+
+        return claim_guid
+
     def read_entity_by_title(self, entity_type, title):
         """Reads the ID of an entity, given its label.
 
@@ -181,6 +228,25 @@ class WBAPIConnection:
                 for matches in r1.json["search"]:
                     if matches["label"] == title:
                         return matches["id"]
+        return None
+
+    def get_datatype(self, property):
+        """Returns the required data type for a given existing Wikibase property.
+
+        Args:
+            ID (String): Property ID
+
+        Returns:
+            String: Data type
+        """
+        params = {"action": "wbgetentities", "ids": property, "props": "datatype"}
+        r1 = self.session.post(
+            self.WIKIBASE_API, data=params
+        )
+        r1.json = r1.json()
+        if "entities" in r1.json.keys():
+            if len(r1.json["entities"]) > 0:
+                return r1.json["entities"][property]["datatype"]
         return None
 
 

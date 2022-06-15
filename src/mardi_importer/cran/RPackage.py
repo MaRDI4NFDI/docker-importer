@@ -4,7 +4,9 @@
 from mardi_importer.wikibase.WBItem import WBItem
 from mardi_importer.wikibase.WBProperty import WBProperty
 from mardi_importer.wikibase.WBMapping import get_wbs_local_id
+from bs4 import BeautifulSoup
 import pandas as pd
+import requests
 import json
 import re
 
@@ -53,15 +55,15 @@ class RPackage:
         self.url = url
 
         try:
-            raw_data = pd.read_html(url)
+            #raw_data = pd.read_html(url)
+            page = requests.get(url)
+            soup = BeautifulSoup(page.content, 'lxml')
         except:
             print(f"Package {self.label} package not found in CRAN.")
             return None
         else:
-            raw_data = raw_data[0].set_index(0).T
-            raw_data.columns = raw_data.columns.str[:-1]
-
-            package_df = self.clean_package_list(raw_data)
+            table = soup.find_all('table')[0] 
+            package_df = self.clean_package_list(table)
             if "Version" in package_df.columns:
                 self.version = package_df.loc[1, "Version"]
             if "Author" in package_df.columns:
@@ -208,10 +210,17 @@ class RPackage:
         # Create items for each Author, if they do not exist already
         author_ID = []
         for author in self.author:
+            orcid = None
+            if re.findall("\(.*?\)", author):
+                orcid = re.findall("\d{4}-\d{4}-\d{4}-\d{4}", author)[0]
+                author = re.sub("\(.*?\)", "", author)
             item = WBItem(author)
-            author_ID.append(
-                item.SQL_exists() or item.add_statement("WD_P31", "WD_Q5").create()
-            )
+            if item.SQL_exists():
+                author_ID.append(item.SQL_exists())
+            elif orcid:
+                author_ID.append(item.add_statement("WD_P31", "WD_Q5").add_statement("WD_P496", orcid).create())
+            else:
+                author_ID.append(item.add_statement("WD_P31", "WD_Q5").create())
         return author_ID
 
     def preprocess_maintainer(self):
@@ -301,7 +310,7 @@ class RPackage:
         except:
             return None
 
-    def clean_package_list(self, package_df):
+    def clean_package_list(self, table_html):
         """Processes raw imported data from CRAN to enable the creation of items.
 
         - Package dependencies are splitted at the comma position.
@@ -319,6 +328,9 @@ class RPackage:
               **Version**, **Author**, **License**, **Depends**, **Imports** 
               and **Maintainer**.
         """
+        package_df = pd.read_html(str(table_html))
+        package_df = package_df[0].set_index(0).T
+        package_df.columns = package_df.columns.str[:-1]
         if "Depends" in package_df.columns:
             package_df["Depends"] = package_df["Depends"].apply(self.split_list)
         if "Imports" in package_df.columns:
@@ -326,6 +338,7 @@ class RPackage:
         if "License" in package_df.columns:
             package_df["License"] = package_df["License"].apply(self.split_license)
         if "Author" in package_df.columns:
+            package_df["Author"] = str(table_html.find("td", text="Author:").find_next_sibling("td")).replace('\n', '').replace('\r', '')
             package_df["Author"] = package_df["Author"].apply(self.split_authors)
         if "Maintainer" in package_df.columns:
             package_df["Maintainer"] = package_df["Maintainer"].apply(self.clean_maintainer)
@@ -429,6 +442,9 @@ class RPackage:
         Returns:
             (List): List of authors.
         """
+        x = re.sub("<td>", "", x)
+        x = re.sub("</td>", "", x)
+        x = re.sub("<img alt.*?a>", "", x)
         x = re.sub("\(.*?\)", "", x)
         x = re.sub("\t", "", x)
         x = re.sub("ORCID iD", "", x)
@@ -440,6 +456,10 @@ class RPackage:
                 if labels:
                     is_author = re.findall("aut", labels[0])
                     if is_author:
+                        orcid = None
+                        if re.findall("\d{4}-\d{4}-\d{4}-\d{4}", author):
+                            orcid = re.findall("\d{4}-\d{4}-\d{4}-\d{4}", author)[0]
+                        author = re.sub("<a href=.*?>", "", author)
                         author = re.sub("\[.*?\]", "", author)
                         author = re.sub("^\s?,", "", author)
                         author = re.sub("^\s?and\s?", "", author)
@@ -449,7 +469,11 @@ class RPackage:
                         author = author.strip()
                         multiple_words = author.split(" ")
                         if len(multiple_words) > 1:
-                            author_array.append(author)
+                            if orcid:
+                                author = f"{author} ({orcid})"
+                                author_array.append(author)
+                            else:
+                                author_array.append(author)
             return author_array
         else:
             authors_comma = x.split(", ")

@@ -103,7 +103,7 @@ services:
          - mysql.svc
 
   elasticsearch:
-    image: "${ELASTICSEARCH_IMAGE_NAME:-wikibase/elasticsearch:6.5.4-wmde.2}"
+    image: "${ELASTICSEARCH_IMAGE_NAME:-wikibase/elasticsearch:6.8.23-wmde.6}"
     restart: unless-stopped
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
@@ -113,7 +113,7 @@ services:
          - elasticsearch.svc
     environment:
       discovery.type: single-node
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
     
 volumes:
   shared_mardi_wikibase:

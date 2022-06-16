@@ -59,7 +59,12 @@ class CRANEntityCreator(EntityCreator):
         property = WBProperty("License version")
         property.add_datatype("string")
         property.add_description("License version identifier")
-        license_version = property.create()
+        property.create()
+
+        # Add formatter URL property to ORCID iD
+        property = WBProperty("ORCID iD")
+        property.add_statement("WD_P1630", "https://orcid.org/$1")
+        property.update()
 
         license_QID_list  = ["Q28130012",
                              "Q27017232",

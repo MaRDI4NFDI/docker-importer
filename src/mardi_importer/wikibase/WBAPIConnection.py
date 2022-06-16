@@ -106,22 +106,21 @@ class WBAPIConnection:
         r1 = self.session.post(self.WIKIBASE_API, data=params)
         r1.json = r1.json()
 
-        if (
-            "error" in r1.json.keys()
-            and r1.json["error"]["messages"][0]["name"]
-            == "wikibase-validator-label-with-description-conflict"
-        ):
-            item_error = re.findall("\[\[.*?\]\]", r1.json["error"]["info"])
-            item = re.findall("Q\d+", item_error[0])
-            return item[0]
-        elif (
-            "error" in r1.json.keys()
-            and r1.json["error"]["messages"][0]["name"]
-            == "wikibase-validator-label-conflict"
-        ):
-            property_error = re.findall("\[\[.*?\]\]", r1.json["error"]["info"])
-            property = re.findall("P\d+", property_error[0])
-            return property[0]
+        if ("error" in r1.json.keys()):
+            for message in r1.json["error"]["messages"]:
+                if message['name'] == "wikibase-validator-label-with-description-conflict":
+                    for parameter in message['parameters']:
+                        item_error = re.findall("\[\[.*?\]\]", parameter)
+                        if item_error:
+                            item = re.findall("Q\d+", item_error[0])
+                            return item[0]
+                elif message['name'] == "wikibase-validator-label-conflict":
+                    for parameter in message['parameters']:
+                        property_error = re.findall("\[\[.*?\]\]", parameter)
+                        if property_error:
+                            property = re.findall("P\d+", property_error[0])
+                            return property[0]
+
         # raise when edit failed
         if "error" in r1.json.keys():
             raise WBAPIException(r1.json["error"])
@@ -195,7 +194,6 @@ class WBAPIConnection:
             "snaktype": "somevalue",
             "token": token,
         }
-        print(params)
         r1 = self.session.post(self.WIKIBASE_API, data=params)
         r1.json = r1.json()
 

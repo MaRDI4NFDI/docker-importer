@@ -23,7 +23,7 @@
 /*******************************/
 /* Disable UI error-reporting  */
 /*******************************/
-#ini_set( 'display_errors', 1 );
+ini_set( 'display_errors', '0' );
 # increase memory limit
 ini_set('memory_limit', '2G');
 

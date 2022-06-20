@@ -38,6 +38,7 @@ class RPackage:
         self.date = date
         self.label = label
         self.description = title
+        self.long_description = ""
         self.url = ""
         self.version = ""
         self.author = ""
@@ -55,14 +56,14 @@ class RPackage:
         self.url = url
 
         try:
-            #raw_data = pd.read_html(url)
             page = requests.get(url)
             soup = BeautifulSoup(page.content, 'lxml')
         except:
             print(f"Package {self.label} package not found in CRAN.")
             return None
         else:
-            table = soup.find_all('table')[0] 
+            table = soup.find_all('table')[0]
+            self.long_description = soup.find_all('p')[0].get_text()
             package_df = self.clean_package_list(table)
             if "Version" in package_df.columns:
                 self.version = package_df.loc[1, "Version"]
@@ -146,6 +147,12 @@ class RPackage:
 
             # Dependencies
             self.add_dependencies(item)
+
+            # Related publication
+            doi_list = self.preprocess_doi()
+            related_publication = WBProperty("Related publication").SQL_exists()
+            for doi in doi_list:
+                item.add_statement(related_publication,doi)
 
             return item.create()
         return None
@@ -249,6 +256,16 @@ class RPackage:
             dependencies.append(dependency_version)
             return dependencies
         return None
+
+    def preprocess_doi(self):
+        doi_list = []
+        doi_references = re.findall('<doi:(.*?)>', self.long_description)
+        arxiv_references = re.findall('<arXiv:(.*?)>', self.long_description)
+        for reference in doi_references:
+            doi_list.append(reference)
+        for reference in arxiv_references:
+            doi_list.append('10.48550/' + reference)
+        return doi_list
 
     def add_dependencies(self, item):
         # Create items for the dependencies (including dependency version), if they do not exist already

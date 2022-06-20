@@ -66,6 +66,15 @@ class CRANEntityCreator(EntityCreator):
         property.add_statement("WD_P1630", "https://orcid.org/$1")
         property.update()
 
+        # Create property: Related publication
+        property = WBProperty("Related publication")
+        property.add_datatype("external-id")
+        property.add_description(
+            "Reference publication in relation to a given entity"
+        )
+        property.add_statement("WD_P1630", "https://doi.org/$1")
+        property.create()
+
         license_QID_list  = ["Q28130012",
                              "Q27017232",
                              "Q616526",

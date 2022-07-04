@@ -1,5 +1,6 @@
 atomicwrites
 attrs
+bs4
 certifi
 chardet
 colorama

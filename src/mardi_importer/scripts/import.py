@@ -5,6 +5,8 @@ Created on Thu Feb 17 18:40:58 2022
 @author: alvaro
 """
 import sys
+import logging
+import logging.config
 from argparse import ArgumentParser
 from mardi_importer.importer.Importer import Importer, ImporterException
 from mardi_importer.wikidata.EntityCreator import EntityCreator
@@ -23,6 +25,7 @@ def get_parser():
 
 
 def main():
+    logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
     # Parse command-line arguments
     args = get_parser().parse_args()
 

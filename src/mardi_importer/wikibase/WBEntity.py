@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from mardi_importer.wikibase.WBAPIConnection import WBAPIConnection
+from mardi_importer.wikibase.WBAPIConnection import WBAPIConnection, WBAPIException
 from mardi_importer.wikibase.WBMapping import get_wbs_local_id
 import configparser
-
+import logging
+log = logging.getLogger('CRANlogger')
 
 class WBEntity:
     """
@@ -41,7 +42,7 @@ class WBEntity:
         """Adds a description to the instantiated entity.
 
         Args:
-            description (String): Description of the entity.
+            description (String): Description of the entity
 
         Returns:
             WBEntity: Entity
@@ -50,6 +51,14 @@ class WBEntity:
         return self
 
     def get_description(self):
+        """Returns the description for the instantiated entity.
+        
+        If a description is provided for the instantiated entity it is
+        returned by the Wikibase API, otherwise **None** is returned.
+
+        Returns:
+          String: Entity description
+        """
         params = {"action": "wbgetentities", "ids": self.id}
         r1 = self.wb_connection.session.post(
             self.wb_connection.WIKIBASE_API, data=params
@@ -69,7 +78,7 @@ class WBEntity:
         Args:
             Property (String): Property ID in the local wikibase instance.
               Wikidata ID can also be used using the prefix *WD_*.
-            Value: Value corresponding to the indicated property, in the
+            Value (String): Value corresponding to the indicated property, in the
               corresponding format (i.e. string, time, wikibase-entity, ...)
             Qualifiers: Qualifiers to the statement. These must be introduced
               following the format *property=value*, where in turn the property
@@ -90,9 +99,32 @@ class WBEntity:
         return self
 
     def return_statement(self, property, value):
+        """Creates the dictionary to insert a statement through the Wikibase API.
+
+        The nomenclature of the returned dictionary depends on the data type of 
+        the specific property that is inserted.
+        
+        Args:
+          Property (String): Property to be inserted. The property has to be 
+            defined using its property ID and with the prefix *WD_* if the ID 
+            refers to the Wikidata ID.
+          Value (String): The format of the value has to be consistent with the 
+            data type of the inserted property. Supported formats in this method 
+            are **string**, **url**, **wikibase-item**, **time** and **external-id**.
+
+        Returns:
+          Dict: 
+            Dictionary containing the property and value to be
+            inserted following the required *mainsnak* nomenclature
+            for Wikibase.
+        """
         if property[0:3] == "WD_":
             property = get_wbs_local_id(property[3:])
-        data_type = self.wb_connection.get_datatype(property)
+        try:
+            data_type = self.wb_connection.get_datatype(property)
+        except WBAPIException as e:
+            data_type = None
+            log.error(f"Property not found: {str(e)}")
         if data_type == "string" or data_type == "url":
             return {
                 "mainsnak": {
@@ -154,6 +186,20 @@ class WBEntity:
         return None
     
     def statement_exists(self, property, value):
+        """Checks if the statement already exists in the instantiated entity.
+
+        Args:
+          Property (String): Property of the statement to be checked. The 
+            property has to be defined using its property ID and with the 
+            prefix *WD_* if the ID refers to the Wikidata ID.
+          Value (String): The format of the value has to be consistent with the 
+            data type of the inserted property. Supported formats in this method 
+            are **string**, **url**, **wikibase-item**, **time** and **external-id**.
+
+        Returns:
+          Boolean:
+            **True** if the statement already exists, **False** otherwise.
+        """
         if property[0:3] == "WD_":
             property = get_wbs_local_id(property[3:])
         values = self.get_value(property)
@@ -166,6 +212,8 @@ class WBEntity:
 
     def exists(self):
         """Abstract method for checking the existence of an entity.
+
+        Specific methods are defined for *Items* and *Properties*.
         """
         pass
 
@@ -178,7 +226,7 @@ class WBEntity:
         pass
 
     def update(self):
-        """Updates an existing entity with additional statements.
+        """Updates an existing entity with description or additional statements.
 
         In order for the method to update the entity with a new statement, 
         this must have been previously added with :meth:`add_statement`.
@@ -191,21 +239,61 @@ class WBEntity:
             data["descriptions"] = {"en": {"language": "en", "value": self.description}}
         if len(self.claims) > 0:
             data["claims"] = self.claims
-        return self.wb_connection.edit_entity(self.id, data)
+        try:
+            return self.wb_connection.edit_entity(self.id, data)
+        except WBAPIException as e:
+            log.error(f"Package update failed: {str(e)}")
 
     def remove_claim(self,claim_guid):
+        """
+        Removes a specific claim from the instantiated entity.
+
+        Args:
+          claim_guid (String):
+            GUID corresponding to the claim to be deleted.
+        """
         if type(claim_guid) is not list:
             claim_guid = [claim_guid]
         for guid in claim_guid:
-            self.wb_connection.remove_claim(guid)
+            try:
+                self.wb_connection.remove_claim(guid)
+            except WBAPIException as e:
+                log.error(f"Claim {claim_guid} could not be removed: {str(e)}")
 
     def update_claim(self, claim_guid, statement):
+        """
+        Change the information of a specific claim from the instantiated entity.
+
+        Args:
+          claim_guid (String):
+            GUID corresponding to the claim to be deleted.
+          statement (Dict):
+            Dictionary following the *mainsnak* nomenclature that described
+            the updated claim.
+        """
         claim = {"id":claim_guid,
                  "type":"claim"}
         claim['mainsnak'] = statement['mainsnak']
-        return self.wb_connection.edit_claim(claim)
+        try:
+            return self.wb_connection.edit_claim(claim)
+        except WBAPIException as e:
+            log.error(f"Claim {claim_guid} could not be edited: {str(e)}")
 
     def get_claim_guid(self, property):
+        """Returns the claim GUID corresponding to a given property.
+
+        Given a property ID, a list is returned with all the GUIDs corresponding
+        to the claims for that property in the instantiated entity.
+
+        Args:
+          property (String): Property for which the claims GUID must be returned.
+            The property must be introduced as a string given its ID. Wikidata IDs
+            can be introduced using the prefix *WD_*.
+
+        Returns:
+          List:
+            List of GUIDs corresponding to each claim in the given property.
+        """
         params = {"action": "wbgetentities", "ids": self.id, "props": "claims"}
         r1 = self.wb_connection.session.post(
             self.wb_connection.WIKIBASE_API, data=params
@@ -213,7 +301,7 @@ class WBEntity:
         r1.json = r1.json()
         if property[0:3] == "WD_":
             property = get_wbs_local_id(property[3:])
-        data_type = self.wb_connection.get_datatype(property)
+        #data_type = self.wb_connection.get_datatype(property)
         values = []
         if "entities" in r1.json.keys():
             if property in r1.json["entities"][self.id]["claims"].keys():
@@ -222,6 +310,22 @@ class WBEntity:
         return values
 
     def get_ID(self, id):
+        """Returns the ID of the instantiated entity through an SQL query to the 
+        Wikibase tables.
+
+        The method is called during the instantiation of an entity. If the entity
+        is declared using a label, the method returns the ID for that entity, if
+        it already exists. If the entity is declared already with an ID, the label
+        corresponding to that ID is assigned to the corresponding attribute of the
+        instantiated entity.
+
+        Args:
+          id (String): Optional
+
+        Return:
+          String:
+            Entity ID
+        """
         if id:
             self.id = id
             self.label = self.get_label_by_ID()
@@ -230,6 +334,12 @@ class WBEntity:
         return self.id
 
     def get_label_by_ID(self):
+        """Returns the label corresponding to a given entity ID.
+
+        Returns:
+          String:
+            Entity label
+        """
         params = {
             'action': 'wbsearchentities',
             'search': self.id,
@@ -246,6 +356,17 @@ class WBEntity:
         return None
 
     def get_value(self, property):
+        """Returns the value corresponding to the given property.
+
+        Args:
+          Property (String): Property for which the value must be returned.
+            The property must be introduced as a string given its ID. Wikidata IDs
+            can be introduced using the prefix *WD_*.
+        
+        Returns:
+          String:
+            Value assigned to the introduced property in the instantiated entity.
+        """
         params = {"action": "wbgetentities", "ids": self.id, "props": "claims"}
         r1 = self.wb_connection.session.post(
             self.wb_connection.WIKIBASE_API, data=params
@@ -253,7 +374,11 @@ class WBEntity:
         r1.json = r1.json()
         if property[0:3] == "WD_":
             property = get_wbs_local_id(property[3:])
-        data_type = self.wb_connection.get_datatype(property)
+        try:
+            data_type = self.wb_connection.get_datatype(property)
+        except WBAPIException as e:
+            data_type = None
+            log.error(f"Property not found: {str(e)}")
         values = []
         if "entities" in r1.json.keys():
             if property in r1.json["entities"][self.id]["claims"].keys():
@@ -263,13 +388,6 @@ class WBEntity:
                     elif data_type == "wikibase-item":
                         value_id = statement['mainsnak']['datavalue']['value']['id']
                         values.append(value_id)
-                        #params = {"action": "wbgetentities", "ids": value_id, "props": "labels"}
-                        #r2 = self.wb_connection.session.post(
-                        #    self.wb_connection.WIKIBASE_API, data=params
-                        #)
-                        #r2.json = r2.json()
-                        #if "entities" in r2.json.keys():
-                        #    values.append(r2.json['entities'][value_id]['labels']['en']['value'])
                     elif data_type == "time":
                         values.append(statement['mainsnak']['datavalue']['value']['time'][1:11])
         return values
@@ -291,7 +409,11 @@ class WBEntity:
                 property_qualifier = get_wbs_local_id(key[3:])
             else:
                 property_qualifier = key
-            data_type_qualifier = self.wb_connection.get_datatype(property_qualifier)
+            try:
+                data_type_qualifier = self.wb_connection.get_datatype(property_qualifier)
+            except WBAPIException as e:
+                data_type_qualifier = None
+                log.error(f"Property not found: {str(e)}")
             if data_type_qualifier == "string" or data_type_qualifier == "url":
                 qualifier_dict[property_qualifier] = [
                     {

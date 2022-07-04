@@ -9,7 +9,8 @@ import pandas as pd
 import requests
 import json
 import re
-
+import logging
+log = logging.getLogger('CRANlogger')
 
 class RPackage:
     """Class to manage R package items in the local Wikibase instance.
@@ -21,17 +22,19 @@ class RPackage:
           Package name
         description:
           Title of the R package
+        long_description:
+          Extended description of the R package
         url:
           URL to the CRAN repository
         version:
           Version of the R package
-        Author:
+        author:
           Author(s) of the package
-        License:
+        license:
           Software license
-        Dependency:
+        dependency:
           Dependencies to R and other packages
-        Maintainer:
+        maintainer:
           Software maintainer          
     """
     def __init__(self, date, label, title):
@@ -59,7 +62,7 @@ class RPackage:
             page = requests.get(url)
             soup = BeautifulSoup(page.content, 'lxml')
         except:
-            print(f"Package {self.label} package not found in CRAN.")
+            log.warning(f"Package {self.label} package not found in CRAN.")
             return None
         else:
             table = soup.find_all('table')[0]
@@ -81,8 +84,11 @@ class RPackage:
     def exists(self):
         """Checks if a WB item corresponding to the R package already exists.
 
-        Searches for a WB item with the package label and returns **True**
-        if a matching result is found.
+        Searches for a WB item with the package label in the SQL Wikibase
+        tables and returns **True** if a matching result is found.
+
+        It uses for that the :meth:`mardi_importer.wikibase.WBItem.SQL_exists()` 
+        method.
 
         Returns: 
           Boolean: **True** if package exists, **False** otherwise.
@@ -112,6 +118,9 @@ class RPackage:
 
         Uses :class:`mardi_importer.wikibase.WBItem` to create the 
         corresponding new item.
+
+        Returns:
+          String: ID of the created R package.
         """
         if self.pull():
 
@@ -128,10 +137,10 @@ class RPackage:
             item.add_statement("WD_P2699", self.url)
 
             # Publication date
-            item.add_statement("WD_P577", "+%sT00:00:00Z" % (self.date))
+            item.add_statement("WD_P5017", "+%sT00:00:00Z" % (self.date))
 
             # Software version identifier
-            item.add_statement("WD_P348", self.version)
+            item.add_statement("WD_P348", self.version, WD_P577="+%sT00:00:00Z" % (self.date))
 
             # Authors
             author_ID = self.preprocess_authors()
@@ -150,39 +159,60 @@ class RPackage:
 
             # Related publication
             doi_list = self.preprocess_doi()
-            related_publication = WBProperty("Related publication").SQL_exists()
+            related_publication = WBProperty("related publication").SQL_exists()
             for doi in doi_list:
                 item.add_statement(related_publication,doi)
 
-            return item.create()
+            package_ID = item.create()
+            if package_ID:
+                log.info(f"Package created with ID {package_ID}.")
+                return package_ID
+            else:
+                log.info(f"Package could not be created.")
+                return None
         return None
 
     def update(self):
         """Updates existing WB item with the imported metadata from CRAN.
+        
+        The metadata corresponding to the package is first pulled from CRAN and
+        saved as instance attributes through :meth:`pull`. The statements that 
+        do not coincide with the locally saved information are updated or 
+        subsituted with the updated information.
+
+        Uses :class:`mardi_importer.wikibase.WBItem` to update the item
+        corresponding to the R package.
+
+        Returns:
+          String: ID of the updated R package.
         """
         if self.pull():
             item = WBItem(self.label)
             if self.description != item.get_description():
                 item.add_description(self.description)
 
-            wb_date = item.get_value("WD_P577")
+            # Update URL
+            wb_url = item.get_value("WD_P2699")
+            if not len(wb_url) > 0:
+                item.add_statement("WD_P2699", self.url)
+
+            # Update Publication Date
+            wb_date = item.get_value("WD_P5017")
             if len(wb_date) > 0:
                 if self.date != wb_date[0]:
-                    claim_guid = item.get_claim_guid("WD_P577")[0]
-                    statement = item.return_statement("WD_P577", "+%sT00:00:00Z" % (self.date))
+                    claim_guid = item.get_claim_guid("WD_P5017")[0]
+                    statement = item.return_statement("WD_P5017", "+%sT00:00:00Z" % (self.date))
                     item.update_claim(claim_guid, statement)
             else:
-                item.add_statement("WD_P577", "+%sT00:00:00Z" % (self.date))
+                item.add_statement("WD_P5017", "+%sT00:00:00Z" % (self.date))
 
+            # Update version
             wb_version = item.get_value("WD_P348")
             if len(wb_version) > 0:
-                if self.version != wb_version[0]:
-                    claim_guid = item.get_claim_guid("WD_P348")[0]
-                    statement = item.return_statement("WD_P348", self.version)
-                    item.update_claim(claim_guid, statement)
-            else:
-                item.add_statement("WD_P348", self.version)
+                if self.version not in wb_version[0]:
+                    item.add_statement("WD_P348", self.version, WD_P577="+%sT00:00:00Z" % (self.date))
 
+            # Update authors
             author_ID = self.preprocess_authors()
             if author_ID != item.get_value("WD_P50"):
                 claim_guid = item.get_claim_guid("WD_P50")
@@ -190,6 +220,7 @@ class RPackage:
                 for author in author_ID:
                     item.add_statement("WD_P50", author)
 
+            # Update maintainer
             wb_maintainer = item.get_value("WD_P126")
             maintainer_ID = self.preprocess_maintainer()
             if len(wb_maintainer) > 0:
@@ -210,11 +241,29 @@ class RPackage:
             item.remove_claim(claim_guid)
             self.add_dependencies(item)
 
-            return item.update()
+            package_ID = item.update()
+            if package_ID:
+                log.info(f"Package with ID {package_ID} has been updated.")
+                return package_ID
+            else:
+                log.info(f"Package could not be updated.")
+                return None
         return None
 
     def preprocess_authors(self):
-        # Create items for each Author, if they do not exist already
+        """Processes the author information of each R package. This includes:
+
+        - Deleting unnecessary characters.
+        - Parsing the ORCID iD if provided.
+        - Providing the Item ID corresponding to each author.
+        - Creating WB Items for new authors.
+            
+
+        Returns:
+          List: 
+            Item IDs corresponding to each author. If the ORCID iD is 
+            available it is provided in brackets after each author ID.
+        """
         author_ID = []
         for author in self.author:
             orcid = None
@@ -231,12 +280,36 @@ class RPackage:
         return author_ID
 
     def preprocess_maintainer(self):
+        """Processes the maintainer information of each R package. This includes:
+
+        - Providing the Item ID given the maintainer name.
+        - Creating a new WB Item if the maintainer is not found in the 
+          local graph.
+
+        Returns:
+          String: 
+            Item ID corresponding to the maintainer.
+        """
         # Create item for the maintainer, if it does not exist already
         item = WBItem(self.maintainer)
         maintainer_ID = item.SQL_exists() or item.add_statement("WD_P31", "WD_Q5").create()
         return maintainer_ID
 
     def preprocess_dependencies(self):
+        """Processes the dependency information of each R package. This includes:
+
+        - Extracting the version information of each dependency if provided.
+        - Providing the Item ID given the dependency label.
+        - Creating a new WB Item if the dependency is not found in the 
+          local graph.
+
+        Returns:
+          List: 
+            List with two items. The first one is a list with the Item IDs 
+            corresponding to each dependency. The second is a list
+            indicating the version of each dependency, which is later added 
+            in the dependency statement as a qualifier.
+        """
         dependency_ID = []
         dependency_version = []
         if type(self.dependency) is list:
@@ -258,17 +331,37 @@ class RPackage:
         return None
 
     def preprocess_doi(self):
+        """Extracts the DOI identification of related publications.
+
+        Identifies the DOI of publications that are mentioned using the 
+        format *doi:* or *arXiv:* in the long description of the 
+        R package.
+
+        Returns:
+          List:
+            List containing the DOIs of mentioned publications.
+        """
         doi_list = []
         doi_references = re.findall('<doi:(.*?)>', self.long_description)
         arxiv_references = re.findall('<arXiv:(.*?)>', self.long_description)
         for reference in doi_references:
-            doi_list.append(reference)
+            doi_list.append(reference[:-1]) if reference[-1] == "." else doi_list.append(reference)
         for reference in arxiv_references:
-            doi_list.append('10.48550/' + reference)
+            doi_list.append('10.48550/' + reference[-1]) if reference[-1] == "." else doi_list.append('10.48550/' + reference)
         return doi_list
 
     def add_dependencies(self, item):
-        # Create items for the dependencies (including dependency version), if they do not exist already
+        """Adds the statements corresponding to the package dependencies.
+        
+        Insert the wikibase statements corresponding the required R package for
+        the instantiated R package. The statement includes a link to the item
+        representing the dependency and, when provided, a qualifier
+        specifying the required version of the dependency.
+
+        Args:
+          item (WBItem):
+            Item representing the R package to which the statement must be added.
+        """
         preprocessed_dependencies = self.preprocess_dependencies()
         dependency_ID = []
         dependency_version = []
@@ -285,6 +378,20 @@ class RPackage:
                 item.add_statement("WD_P1547", dependency)
 
     def add_licenses(self, item):
+        """Processes the license string and adds the corresponding statements.
+
+        The concrete License is identified and linked to the corresponding
+        item that has previously been imported from Wikidata. Further license
+        information, when provided between round or square brackets, is added
+        as a qualifier.
+
+        If a file license is mentioned, the linked to the file license
+        in CRAN is added as a qualifier.
+
+        Args:
+          item (WBItem):
+            Item representing the R package to which the statement must be added.
+        """
         for license in self.license:
             license_qualifier = ""
             if re.findall("\(.*?\)", license):
@@ -314,14 +421,14 @@ class RPackage:
         """Reads the package publication date saved in the local Wikibase instance.
 
         Queries the WB Item corresponding to the R package label through the 
-        MediaWiki API.
+        Wikibase API.
 
         Returns:
             String: Package publication date in format DD-MM-YYYY.
         """
         try:
             item = WBItem(self.label)
-            property_date = get_wbs_local_id("P577")
+            property_date = get_wbs_local_id("P5017")
             values = item.get_value(property_date)
             return values[0]
         except:
@@ -331,14 +438,14 @@ class RPackage:
         """Processes raw imported data from CRAN to enable the creation of items.
 
         - Package dependencies are splitted at the comma position.
-        - License information is processed using the :meth:`split_license` function.
-        - Author information is processed using the :meth:`split_author` function.
-        - Maintainer information is splitted between name and e-mail.
+        - License information is processed using the :meth:`split_license` method.
+        - Author information is processed using the :meth:`split_author` method.
+        - Maintainer information is processed using the :meth:`clean_maintainer` method.
 
         Args:
-            package_df (Pandas dataframe):
-              Dataframe with raw data corresponding to an R package imported from
-              CRAN.
+            table_html:
+              HTML code obtained with BeautifulSoup corresponding to the table
+              containing the metadata of the R package imported from CRAN.
         Returns:
             (Pandas dataframe): 
               Dataframe with processed data from a single R package including columns: 
@@ -515,7 +622,7 @@ class RPackage:
 
         Args:
             x (String): String imported from CRAN which my contain e-mail
-            address and comments within brackets
+                        address and comments within brackets
 
         Returns:
             (String): Name of the maintainer

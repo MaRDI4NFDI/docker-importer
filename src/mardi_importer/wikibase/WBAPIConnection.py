@@ -157,6 +157,15 @@ class WBAPIConnection:
         return r1.json["entity"]["id"]
 
     def edit_claim(self, claim):
+        """
+        Edits a specific claim in the local wikibase instance.
+
+        Args:
+          claim (dict):
+            Dictionary containing the key *id* with value equal to the claim GUID, 
+            the key *type* with value equal to *claim* and the key *mainsnak* with 
+            the corresponding dictionary containing the new claim information.
+        """
         token = self.get_csrf_token()
         params = {
             "action": "wbsetclaim",
@@ -170,6 +179,13 @@ class WBAPIConnection:
             raise WBAPIException(r1.json["error"])
 
     def remove_claim(self, claim_guid):
+        """
+        Removes a specific claim in the local wikibase instance.
+
+        Args:
+          claim_guid (String):
+             GUID corresponding to the claim to be deleted.
+        """
         token = self.get_csrf_token()
         params = {
             "action": "wbremoveclaims",
@@ -184,30 +200,12 @@ class WBAPIConnection:
 
         return claim_guid
 
-    def create_qualifier(self, claim_guid, property, value):
-        token = self.get_csrf_token()
-        params = {
-            "action": "wbsetqualifier",
-            "claim": claim_guid,
-            "property": property,
-            "value": value,
-            "snaktype": "somevalue",
-            "token": token,
-        }
-        r1 = self.session.post(self.WIKIBASE_API, data=params)
-        r1.json = r1.json()
-
-        if "error" in r1.json.keys():
-            raise WBAPIException(r1.json["error"])
-
-        return claim_guid
-
     def read_entity_by_title(self, entity_type, title):
         """Reads the ID of an entity, given its label.
 
         Args:
-            entity_type (string): Entity type (i.e. Item or Property).
-            title: Label of the entity.
+            entity_type (String): Entity type (i.e. Item or Property).
+            title (String): Label of the entity.
 
         Returns:
             String: ID of the edited entity
@@ -221,6 +219,10 @@ class WBAPIConnection:
         }
         r1 = self.session.post(self.WIKIBASE_API, data=params)
         r1.json = r1.json()
+
+        if "error" in r1.json.keys():
+            raise WBAPIException(r1.json["error"])
+
         if "search" in r1.json.keys():
             if len(r1.json["search"]) > 0:
                 for matches in r1.json["search"]:
@@ -242,6 +244,10 @@ class WBAPIConnection:
             self.WIKIBASE_API, data=params
         )
         r1.json = r1.json()
+
+        if "error" in r1.json.keys():
+            raise WBAPIException(r1.json["error"])
+            
         if "entities" in r1.json.keys():
             if len(r1.json["entities"]) > 0:
                 return r1.json["entities"][property]["datatype"]
@@ -250,5 +256,4 @@ class WBAPIConnection:
 
 class WBAPIException(BaseException):
     """Raised when the Wikibase API throws an error"""
-
     pass

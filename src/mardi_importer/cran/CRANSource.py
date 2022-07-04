@@ -6,7 +6,8 @@ from mardi_importer.cran.RPackage import RPackage
 import configparser
 import pandas as pd
 import time
-
+import logging
+log = logging.getLogger('CRANlogger')
 
 class CRANSource(ADataSource):
     """Processes data from the Comprehensive R Archive Network.
@@ -60,22 +61,21 @@ class CRANSource(ADataSource):
         for each package.
         """
         # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
-        #self.packages = self.packages.loc[1:15, :]
+        #self.packages = self.packages.loc[1:30, :]
 
-        # Process R packages
         for i, row in self.packages.iterrows():
             package_date = self.packages.loc[i, "Date"]
             package_label = self.packages.loc[i, "Package"]
             package_title = self.packages.loc[i, "Title"]
             package = RPackage(package_date, package_label, package_title)
-
-            print(package_label)
             if package.exists():
                 if not package.is_updated():
-                    print('Package will be updated')
-                    print(package.update())
+                    log.info(f"Package {package_label} found: Not up to date. Attempting update...")
+                    package.update()
+                else:
+                    log.info(f"Package {package_label} found: Already up to date.")
             else:
-                print('Package will be created')
-                print(package.create())
+                log.info(f"Package {package_label} not found: Attempting item creation...")
+                package.create()
 
             time.sleep(2)

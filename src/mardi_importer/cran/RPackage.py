@@ -65,20 +65,24 @@ class RPackage:
             log.warning(f"Package {self.label} package not found in CRAN.")
             return None
         else:
-            table = soup.find_all('table')[0]
-            self.long_description = soup.find_all('p')[0].get_text()
-            package_df = self.clean_package_list(table)
-            if "Version" in package_df.columns:
-                self.version = package_df.loc[1, "Version"]
-            if "Author" in package_df.columns:
-                self.author = package_df.loc[1, "Author"]
-            if "License" in package_df.columns:
-                self.license = package_df.loc[1, "License"]
-            if "Depends" in package_df.columns:
-                self.dependency = package_df.loc[1, "Depends"]
-            if "Maintainer" in package_df.columns:
-                self.maintainer = package_df.loc[1, "Maintainer"]
-            return self
+            if soup.find_all('table'):
+                table = soup.find_all('table')[0]
+                self.long_description = soup.find_all('p')[0].get_text()
+                package_df = self.clean_package_list(table)
+                if "Version" in package_df.columns:
+                    self.version = package_df.loc[1, "Version"]
+                if "Author" in package_df.columns:
+                    self.author = package_df.loc[1, "Author"]
+                if "License" in package_df.columns:
+                    self.license = package_df.loc[1, "License"]
+                if "Depends" in package_df.columns:
+                    self.dependency = package_df.loc[1, "Depends"]
+                if "Maintainer" in package_df.columns:
+                    self.maintainer = package_df.loc[1, "Maintainer"]
+                return self
+            else:
+                log.warning(f"Metadata table not found in CRAN. Package has probably been archived.")
+                return None
 
 
     def exists(self):

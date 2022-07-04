@@ -67,7 +67,7 @@ class CRANEntityCreator(EntityCreator):
         property.update()
 
         # Create property: Related publication
-        property = WBProperty("Related publication")
+        property = WBProperty("related publication")
         property.add_datatype("external-id")
         property.add_description(
             "Reference publication in relation to a given entity"

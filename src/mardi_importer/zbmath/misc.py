@@ -45,13 +45,13 @@ def parse_doi_info(val, work_info):
             else:
                 author_list.append(family_name + ", " + first_name)
 
-        return ";".join(author_list)
+        return "|".join(author_list)
     elif val == "document_title":
         if "document_title" not in work_info:
             return None
         title_list = work_info["title"]
         if title_list:
-            return ";".join(title_list)
+            return "|".join(title_list)
         else:
             return None
     elif val == "publication_year":
@@ -73,7 +73,7 @@ def parse_doi_info(val, work_info):
             return None
         # make list unique
         serials = list(set(serials))
-        return ";".join(serials)
+        return "|".join(serials)
 
     elif val == "language":
         if "language" not in work_info:
@@ -82,4 +82,4 @@ def parse_doi_info(val, work_info):
     elif val == "keywords":
         if "subject" not in work_info:
             return None
-        return ";".join(work_info["subject"])
+        return "|".join(work_info["subject"])

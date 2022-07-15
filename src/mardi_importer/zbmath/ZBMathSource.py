@@ -105,7 +105,7 @@ class ZBMathSource(ADataSource):
             with open(self.processed_dump_path, "a") as outfile:
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
-                    outfile.write("zbmath_id" + (",").join(self.tags) + "\n")
+                    outfile.write("zbmath_id;" + (";").join(self.tags) + "\n")
                 record_string = ""
                 for line in infile:
                     record_string = record_string + line
@@ -126,7 +126,7 @@ class ZBMathSource(ADataSource):
                         record = self.parse_record(element)
                         if record:
                             outfile.write(
-                                ",".join(str(x) for x in record.values()) + "\n"
+                                ";".join(str(x) for x in record.values()) + "\n"
                             )
                         record_string = ""
 
@@ -159,7 +159,7 @@ class ZBMathSource(ADataSource):
                         for child in value:
                             texts.append(child.text)
                         texts = [t for t in texts if t is not None]
-                        text = ";".join(
+                        text = "|".join(
                             texts
                         )  # multiple values are rendered as a semicolon-separated string
 
@@ -171,6 +171,10 @@ class ZBMathSource(ADataSource):
                         is_conflict = True
                         text = None
 
+                    #zbmath gives back several values separated by semicolon
+                    if text:
+                        if ";" in text:
+                            text = "|".join(text.split(";"))
                     new_entry[tag] = text
                 # if tag is not found in zbMath return, we still want to get it from doi
                 else:

@@ -41,7 +41,7 @@ class Article:
 
     def exists_in_wikidata(self):
         """
-        Checks if a WB item corresponding to the article exists in Wikidat; if yes, it gets imported.
+        Checks if a WB item corresponding to the article exists in Wikidata; if yes, it gets imported.
         Searches by label.
         """
         pass

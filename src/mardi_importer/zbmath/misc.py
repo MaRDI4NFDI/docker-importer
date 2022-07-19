@@ -83,3 +83,11 @@ def parse_doi_info(val, work_info):
         if "subject" not in work_info:
             return None
         return "|".join(work_info["subject"])
+
+
+def parse_publisher(line):
+    # get publisher substring
+    publisher = line.split("|")[1].split(",")[0]
+    # remove potential abbreviation
+    publisher = publisher.split("(")[0].strip()
+    return publisher

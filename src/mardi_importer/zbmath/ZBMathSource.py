@@ -8,6 +8,8 @@ import sys
 from mardi_importer.zbmath.misc import get_tag, parse_doi_info
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
+from .Publisher import Publisher
+from .misc import *
 
 
 class ZBMathSource(ADataSource):
@@ -130,6 +132,32 @@ class ZBMathSource(ADataSource):
                             )
                         record_string = ""
 
+    def import_data(self):
+        with open(self.processed_dump_path, "r") as infile:
+            in_header_line = True
+            for line in infile:
+                if in_header_line:
+                    headers = line.strip().split(";")
+                    in_header_line = False
+                    continue
+                if (
+                    "None" not in line
+                    and "Stichting Mathematics in Open Access" not in line
+                ):
+                    test_dict = dict(zip(headers, line.strip().split(";")))
+                    print(test_dict["serial"])
+                    print(parse_publisher(test_dict["serial"]))
+                    publisher = Publisher(label=parse_publisher(test_dict["serial"]))
+                    # if the publisher exists locally
+                    if not publisher.exists():
+                        if publisher.exists_in_wikidata():
+                            # import with self.wikidata_id
+                            pass
+                        else:
+                            # just create
+                            pass
+                    sys.exit()
+
     def parse_record(self, xml_record):
         """
         Parse xml record from zbMath API.
@@ -171,7 +199,7 @@ class ZBMathSource(ADataSource):
                         is_conflict = True
                         text = None
 
-                    #zbmath gives back several values separated by semicolon
+                    # zbmath gives back several values separated by semicolon
                     if text:
                         if ";" in text:
                             text = "|".join(text.split(";"))

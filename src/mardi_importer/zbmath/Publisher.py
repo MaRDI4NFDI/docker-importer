@@ -1,4 +1,5 @@
 from mardi_importer.wikibase.WBItem import WBItem
+import requests
 
 
 class Publisher:
@@ -11,13 +12,21 @@ class Publisher:
 
     def __init__(self, label):
         self.label = label
+        self.wikidata_id = None
+        self.internal_id = None
 
     def exists_in_wikidata(self):
         """
         Checks if a WB item corresponding to the publisher exists in Wikidat; if yes, it gets imported.
         Searches by label.
         """
-        pass
+        base_url = "https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=en&search="
+        response_json = requests.get(base_url + self.label).json()
+        if response_json["search"]:
+            self.wikidata_id = response_json["search"][0]["id"]
+            return True
+        else:
+            return False
 
     def exists(self):
         """

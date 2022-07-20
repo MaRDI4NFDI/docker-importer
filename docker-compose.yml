@@ -13,6 +13,8 @@ x-common-variables: &wikibase_variables
   DB_PASS: change-this-sqlpassword
   DB_NAME: my_wiki
   WIKIBASE_HOST: localhost
+  BOTUSER_NAME: botuser_name
+  BOTUSER_PW: botuser_pw
 x-extra-variables: &wikibase_extra_variables
   MW_ELASTIC_HOST: elasticsearch.svc
   MW_ELASTIC_PORT: 9200

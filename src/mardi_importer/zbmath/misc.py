@@ -1,3 +1,9 @@
+import os
+import mysql.connector as connection
+from mardi_importer.importer.Importer import ImporterException
+import pandas as pd
+
+
 def get_tag(tag_name, namespace):
     """
     Returns a fully qualified tag name.
@@ -91,3 +97,34 @@ def parse_publisher(line):
     # remove potential abbreviation
     publisher = publisher.split("(")[0].strip()
     return publisher
+
+
+def get_internal_id(wikidata_id):
+    # get the DB connection settings passed in docker-compose
+    db_user = os.environ["DB_USER"]
+    db_pass = os.environ["DB_PASS"]
+    db_name = os.environ["DB_NAME"]
+    db_host = os.environ["DB_HOST"]
+
+    # read the mappings table from the wiki database
+    mydb = connection.connect(
+        host=db_host, database=db_name, user=db_user, passwd=db_pass, use_pure=True
+    )
+    try:
+        query = f"Select wbs_local_id from wbs_entity_mapping where wbs_original_id = '{wikidata_id}';"
+        mapping_df = pd.read_sql(query, mydb)
+        # DB returns bytearrays, decode to utf-8
+        for col in mapping_df.columns:
+            mapping_df[col] = mapping_df[col].apply(lambda x: x.decode("utf-8"))
+        print(mapping_df)
+        import sys
+
+        sys.exit()
+    except Exception as e:
+        raise ImporterException(
+            "Error attempting to read mappings from database\n{}".format(e)
+        )
+    finally:
+        mydb.close()
+
+    return mapping_df["INTERNAL_ID"][0]

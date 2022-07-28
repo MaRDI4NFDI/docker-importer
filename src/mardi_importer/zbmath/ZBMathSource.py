@@ -19,6 +19,7 @@ class ZBMathSource(ADataSource):
         self,
         out_dir,
         tags,
+        tracker,
         from_date=None,
         until_date=None,
         raw_dump_path=None,
@@ -41,6 +42,7 @@ class ZBMathSource(ADataSource):
         if out_dir[-1] != "/":
             out_dir = out_dir + "/"
         self.out_dir = out_dir
+        self.tracker = tracker
         self.split_id = split_id
         if self.split_id:
             self.split_mode = True
@@ -143,19 +145,29 @@ class ZBMathSource(ADataSource):
                 if (
                     "None" not in line
                     and "Stichting Mathematics in Open Access" not in line
+                    and "Springer US" not in line
+                    and "Elsevier" not in line
                 ):
                     test_dict = dict(zip(headers, line.strip().split(";")))
                     print(test_dict["serial"])
                     print(parse_publisher(test_dict["serial"]))
-                    publisher = Publisher(label=parse_publisher(test_dict["serial"]))
-                    # if the publisher exists locally
-                    if not publisher.exists():
-                        if publisher.exists_in_wikidata():
-                            # import with self.wikidata_id
-                            pass
-                        else:
-                            # just create
-                            pass
+                    publisher = Publisher(
+                        label=parse_publisher(test_dict["serial"]), tracker=self.tracker
+                    )
+                    # if it was not already created in this run
+                    if not publisher.label in self.tracker.imported_publishers:
+                        # if the publisher does not exist locally
+                        if not publisher.exists():
+                            if publisher.exists_in_wikidata():
+                                print("exists")
+                                publisher.import_item()
+                            else:
+                                # just create
+                                pass
+                    else:
+                        publisher.internal_id = self.tracker.imported_publishers[
+                            publisher.label
+                        ]
                     sys.exit()
 
     def parse_record(self, xml_record):

@@ -12,6 +12,7 @@ from mardi_importer.importer.Importer import Importer, ImporterException
 from mardi_importer.wikidata.EntityCreator import EntityCreator
 from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
+from mardi_importer.zbmath.Tracker import Tracker
 from mardi_importer.cran.CRANSource import CRANSource
 from mardi_importer.cran.CRANEntityCreator import CRANEntityCreator
 
@@ -35,6 +36,7 @@ def main():
             sys.exit("--conf_path is required for --mode ZBMath")
         conf_parser = ZBMathConfigParser(args.conf_path)
         conf = conf_parser.parse_config()
+        tracker = Tracker()
 
         data_source = ZBMathSource(
             out_dir=conf["out_dir"],
@@ -44,6 +46,7 @@ def main():
             raw_dump_path=conf["raw_dump_path"],
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
+            tracker=tracker,
         )
         # data_source.write_data_dump()
         # data_source.process_data()

@@ -45,9 +45,15 @@ def main():
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
         )
-        data_source.write_data_dump()
-        data_source.process_data()
-        data_source.write_error_ids()
+        #data_source.write_data_dump()
+        #data_source.process_data()
+        #data_source.write_error_ids()
+
+        from mardi_importer.integrator.Integrator import Integrator
+        i = Integrator(conf_path=args.conf_path)
+        i.create_units(id_list =["Q177", "Q192783"], 
+                            languages = ['en', 'de'], recurse=True)     
+        i.import_items()  
 
     elif args.mode == "CRAN":
         # an object to create entities copied from Wikidata

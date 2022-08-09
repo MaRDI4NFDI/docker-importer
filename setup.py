@@ -33,7 +33,8 @@ setuptools.setup(
         "mysql-connector-python",
         "pandas",
         "sickle",
-        "sqlalchemy",
+        "sparqlwrapper",
+        "sqlalchemy"
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},
     # scripts=["scripts/import.py"],

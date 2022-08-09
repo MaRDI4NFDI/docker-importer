@@ -29,3 +29,4 @@ zipp
 sphinx
 sphinx-argparse
 sphinx-rtd-theme
+sparqlwrapper

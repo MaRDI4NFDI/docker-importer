@@ -50,7 +50,7 @@ class CRANEntityCreator(EntityCreator):
         property = WBProperty("Wikidata QID")
         property.add_datatype("external-id")
         property.add_description(
-            "Item identifier in  Wikidata"
+            "Item identifier in Wikidata"
         )
         property.add_statement("WD_P1630", "https://www.wikidata.org/wiki/$1")
         wikidata_QID = property.create()
@@ -61,18 +61,59 @@ class CRANEntityCreator(EntityCreator):
         property.add_description("License version identifier")
         property.create()
 
+        # Create property for items about software
+        item = WBItem("Property for items about software")
+        item.add_description("attribute of a particular piece of software")
+        property_software = item.create()
+
+        # Create import property
+        property = WBProperty("imports")
+        property.add_datatype("wikibase-item")
+        property.add_description(
+            "Subject software imports object software"
+        )
+        property.add_statement("WD_P31", property_software)
+        property.create()
+
+        # Add property for items about software to 'depends on software'
+        propertyp = WBProperty("digital object identifier")
+        propertyp.add_statement("WD_P1630", "https://doi.org/$1")
+        propertyp.update()
+
+        # Add formatter URL property to DOI
+        propertyp = WBProperty("depends on software")
+        property.add_statement("WD_P31", property_software)
+        propertyp.update()
+
         # Add formatter URL property to ORCID iD
         property = WBProperty("ORCID iD")
         property.add_statement("WD_P1630", "https://orcid.org/$1")
         property.update()
 
+        # Add formatter URL property to ISSN
+        property = WBProperty("ISSN")
+        property.add_statement("WD_P1630", "https://www.worldcat.org/issn/$1")
+        property.add_statement("WD_P1630", "http://www.issn.cc/$1")
+        property.add_statement("WD_P1630", "https://portal.issn.org/resource/issn/$1")
+        property.add_statement("WD_P1630", "https://api.crossref.org/journals/$1")
+        property.update()
+
+        # Add formatter URL property to ISBN-10
+        property = WBProperty("ISBN-10")
+        property.add_statement("WD_P1630", "https://wikidata.org/wiki/Special:BookSources/$1")
+        property.update()
+
+        # Add formatter URL property to ISBN-13
+        property = WBProperty("ISBN-13")
+        property.add_statement("WD_P1630", "https://wikidata.org/wiki/Special:BookSources/$1")
+        property.update()
+
         # Create property: Related publication
         property = WBProperty("related publication")
-        property.add_datatype("external-id")
+        property.add_datatype("wikibase-item")
         property.add_description(
             "Reference publication in relation to a given entity"
         )
-        property.add_statement("WD_P1630", "https://doi.org/$1")
         property.create()
 
         license_QID_list  = ["Q28130012",
@@ -112,7 +153,7 @@ class CRANEntityCreator(EntityCreator):
 
         for license_QID in license_QID_list:
             license_local_ID = get_wbs_local_id(license_QID)
-            licenseItem = WBItem(id=license_local_ID)
+            licenseItem = WBItem(ID=license_local_ID)
             # Instance of: Software License
             licenseItem.add_statement("WD_P31","WD_Q207621")
             # Wikidata QID

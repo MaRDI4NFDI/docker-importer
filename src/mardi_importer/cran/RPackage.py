@@ -4,6 +4,9 @@
 from mardi_importer.wikibase.WBItem import WBItem
 from mardi_importer.wikibase.WBProperty import WBProperty
 from mardi_importer.wikibase.WBMapping import get_wbs_local_id
+from mardi_importer.wikibase.SPARQLUtils import SPARQL_exists
+from mardi_importer.crossref.Publication import Publication
+from mardi_importer.crossref.Author import Author
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
@@ -47,7 +50,9 @@ class RPackage:
         self.author = ""
         self.license = ""
         self.dependency = ""
+        self.imports = ""
         self.maintainer = ""
+        self.ID = None
 
     def pull(self):
         """Imports metadata from CRAN corresponding to the R package.
@@ -65,20 +70,26 @@ class RPackage:
             log.warning(f"Package {self.label} package not found in CRAN.")
             return None
         else:
-            table = soup.find_all('table')[0]
-            self.long_description = soup.find_all('p')[0].get_text()
-            package_df = self.clean_package_list(table)
-            if "Version" in package_df.columns:
-                self.version = package_df.loc[1, "Version"]
-            if "Author" in package_df.columns:
-                self.author = package_df.loc[1, "Author"]
-            if "License" in package_df.columns:
-                self.license = package_df.loc[1, "License"]
-            if "Depends" in package_df.columns:
-                self.dependency = package_df.loc[1, "Depends"]
-            if "Maintainer" in package_df.columns:
-                self.maintainer = package_df.loc[1, "Maintainer"]
-            return self
+            if soup.find_all('table'):
+                table = soup.find_all('table')[0]
+                self.long_description = soup.find_all('p')[0].get_text()
+                package_df = self.clean_package_list(table)
+                if "Version" in package_df.columns:
+                    self.version = package_df.loc[1, "Version"]
+                if "Author" in package_df.columns:
+                    self.author = package_df.loc[1, "Author"]
+                if "License" in package_df.columns:
+                    self.license = package_df.loc[1, "License"]
+                if "Depends" in package_df.columns:
+                    self.dependency = package_df.loc[1, "Depends"]
+                if "Imports" in package_df.columns:
+                    self.imports = package_df.loc[1, "Imports"]
+                if "Maintainer" in package_df.columns:
+                    self.maintainer = package_df.loc[1, "Maintainer"]
+                return self
+            else:
+                log.warning(f"Metadata table not found in CRAN. Package has probably been archived.")
+                return None
 
 
     def exists(self):
@@ -87,14 +98,14 @@ class RPackage:
         Searches for a WB item with the package label in the SQL Wikibase
         tables and returns **True** if a matching result is found.
 
-        It uses for that the :meth:`mardi_importer.wikibase.WBItem.SQL_exists()` 
+        It uses for that the :meth:`mardi_importer.wikibase.WBItem.instance_exists()` 
         method.
 
         Returns: 
-          Boolean: **True** if package exists, **False** otherwise.
+          String: Entity ID
         """
-        item = WBItem(self.label)
-        return not not item.SQL_exists()
+        self.ID = WBItem(self.label).instance_exists("WD_Q73539779")
+        return self.ID
 
     def is_updated(self):
         """Checks if the WB item corresponding to the R package is up to date.
@@ -148,7 +159,7 @@ class RPackage:
                 item.add_statement("WD_P50", author)
 
             # Maintainer
-            maintainer_ID = self.preprocess_maintainer()
+            maintainer_ID = self.preprocess_maintainer(author_ID)
             item.add_statement("WD_P126", maintainer_ID)
 
             # Licenses
@@ -157,11 +168,14 @@ class RPackage:
             # Dependencies
             self.add_dependencies(item)
 
+            # Imports
+            self.add_imports(item)
+
             # Related publication
-            doi_list = self.preprocess_doi()
-            related_publication = WBProperty("related publication").SQL_exists()
-            for doi in doi_list:
-                item.add_statement(related_publication,doi)
+            publication_list = self.preprocess_publications(author_ID)
+            related_publication = WBProperty("related publication").label_exists()
+            for publication in publication_list:
+                item.add_statement(related_publication,publication)
 
             package_ID = item.create()
             if package_ID:
@@ -187,7 +201,8 @@ class RPackage:
           String: ID of the updated R package.
         """
         if self.pull():
-            item = WBItem(self.label)
+            item = WBItem(ID=self.ID)
+
             if self.description != item.get_description():
                 item.add_description(self.description)
 
@@ -222,7 +237,7 @@ class RPackage:
 
             # Update maintainer
             wb_maintainer = item.get_value("WD_P126")
-            maintainer_ID = self.preprocess_maintainer()
+            maintainer_ID = self.preprocess_maintainer(author_ID)
             if len(wb_maintainer) > 0:
                 if maintainer_ID != wb_maintainer[0]:
                     claim_guid = item.get_claim_guid("WD_P126")[0]                    
@@ -241,6 +256,21 @@ class RPackage:
             item.remove_claim(claim_guid)
             self.add_dependencies(item)
 
+            # Substitute Imports information
+            software_property = WBItem("Property for items about software").label_exists()
+            import_property = WBProperty("imports").instance_exists(software_property)
+            claim_guid = item.get_claim_guid(import_property)
+            item.remove_claim(claim_guid)
+            self.add_imports(item)
+
+            # Add Publicationspublication_list = self.preprocess_publications(author_ID)
+            publication_list = self.preprocess_publications(author_ID)
+            related_publication = WBProperty("related publication").label_exists()
+            claim_guid = item.get_claim_guid(related_publication)
+            item.remove_claim(claim_guid)
+            for publication in publication_list:
+                item.add_statement(related_publication,publication)
+
             package_ID = item.update()
             if package_ID:
                 log.info(f"Package with ID {package_ID} has been updated.")
@@ -253,33 +283,36 @@ class RPackage:
     def preprocess_authors(self):
         """Processes the author information of each R package. This includes:
 
-        - Deleting unnecessary characters.
-        - Parsing the ORCID iD if provided.
-        - Providing the Item ID corresponding to each author.
-        - Creating WB Items for new authors.
+        - Searching if an author with the given ID already exists in the KG.
+        - Alternatively, create WB Items for new authors.
             
-
         Returns:
           List: 
-            Item IDs corresponding to each author. If the ORCID iD is 
-            available it is provided in brackets after each author ID.
+            Item IDs corresponding to each author.
         """
         author_ID = []
-        for author in self.author:
-            orcid = None
-            if re.findall("\(.*?\)", author):
-                orcid = re.findall("\d{4}-\d{4}-\d{4}-\d{4}", author)[0]
-                author = re.sub("\(.*?\)", "", author)
-            item = WBItem(author)
-            if item.SQL_exists():
-                author_ID.append(item.SQL_exists())
-            elif orcid:
-                author_ID.append(item.add_statement("WD_P31", "WD_Q5").add_statement("WD_P496", orcid).create())
-            else:
-                author_ID.append(item.add_statement("WD_P31", "WD_Q5").create())
+        for author, orcid in self.author.items():
+            author_qid = None
+            human = get_wbs_local_id("Q5")
+            orcid_id = get_wbs_local_id("P496")
+            if orcid: 
+                author_qid = WBItem(author).instance_property_exists(human, orcid_id, orcid)
+            if not author_qid and self.ID:
+                current_authors_id = WBItem(ID=self.ID).get_value("WD_P50")
+                for author_id in current_authors_id:
+                    if author == WBItem(ID=author_id).get_label_by_ID():
+                        author_qid = author_id
+            if not author_qid:
+                if len(author) > 0:
+                    author_item = Author(author)
+                    if orcid:
+                        author_item.add_orcid(orcid)
+                    author_qid = author_item.create()
+            if author_qid:
+                author_ID.append(author_qid)
         return author_ID
 
-    def preprocess_maintainer(self):
+    def preprocess_maintainer(self, author_ID):
         """Processes the maintainer information of each R package. This includes:
 
         - Providing the Item ID given the maintainer name.
@@ -290,47 +323,52 @@ class RPackage:
           String: 
             Item ID corresponding to the maintainer.
         """
+        for author in author_ID:
+            package_author = WBItem(ID=author)
+            package_author_name = package_author.get_label_by_ID()
+            if Author(package_author_name).compare_names(self.maintainer):
+                return author
         # Create item for the maintainer, if it does not exist already
-        item = WBItem(self.maintainer)
-        maintainer_ID = item.SQL_exists() or item.add_statement("WD_P31", "WD_Q5").create()
-        return maintainer_ID
+        return WBItem(self.maintainer).add_statement("WD_P31", "WD_Q5").create()
 
-    def preprocess_dependencies(self):
-        """Processes the dependency information of each R package. This includes:
+    def preprocess_software(self, packages):
+        """Processes the dependency and import information of each R package. This includes:
 
-        - Extracting the version information of each dependency if provided.
-        - Providing the Item ID given the dependency label.
-        - Creating a new WB Item if the dependency is not found in the 
-          local graph.
+        - Extracting the version information of each dependency/import if provided.
+        - Providing the Item ID given the dependency/import label.
+        - Creating a new WB Item if the dependency/import is not found in the 
+          local knowledge graph.
 
         Returns:
-          List: 
-            List with two items. The first one is a list with the Item IDs 
-            corresponding to each dependency. The second is a list
-            indicating the version of each dependency, which is later added 
-            in the dependency statement as a qualifier.
+          Dict: 
+            Dictionary with key value corresponding to the Item ID of each dependency or
+            import. The value indicates the version of each dependency or import, if
+            provided, which is added in the statement as a qualifier.
         """
-        dependency_ID = []
-        dependency_version = []
-        if type(self.dependency) is list:
-            for dependency in self.dependency:
-                version = re.findall("\(.*?\)", dependency)
-                dependency = re.sub("\(.*?\)", "", dependency).strip()
-                item = WBItem(dependency)
-                dependency_ID.append(
-                    item.SQL_exists()
-                    or item.add_statement("WD_P31", "WD_Q73539779").create()
-                )
-                dependency_version.append(
-                    re.sub("\)", "", re.sub("\(", "", version[0])) if version else ""
-                )
-            dependencies = []
-            dependencies.append(dependency_ID)
-            dependencies.append(dependency_version)
-            return dependencies
-        return None
+        if packages == "dependencies":
+            process_list = self.dependency
+        elif packages == "imports":
+            process_list = self.imports
+        software = {}
+        if type(process_list) is list:
+            for software_string in process_list:
+                software_version = re.findall("\(.*?\)", software_string)
+                software_name = re.sub("\(.*?\)", "", software_string).strip()
+                item = WBItem(software_name)
+                software_id = item.instance_exists("WD_Q73539779") # Instance of R package
+                if software_name == "R":
+                    software_ID = get_wbs_local_id("Q206904") # R language
+                elif software_id: 
+                    software_ID = software_id
+                else:
+                    software_ID = item.add_statement("WD_P31", "WD_Q73539779").create()
+                if software_version:
+                    software[software_ID] = re.sub("\)", "", re.sub("\(", "", software_version[0]))
+                else:
+                    software[software_ID] = ""
+        return software
 
-    def preprocess_doi(self):
+    def preprocess_publications(self, author_ID):
         """Extracts the DOI identification of related publications.
 
         Identifies the DOI of publications that are mentioned using the 
@@ -339,7 +377,7 @@ class RPackage:
 
         Returns:
           List:
-            List containing the DOIs of mentioned publications.
+            List containing the wikibase IDs of mentioned publications.
         """
         doi_list = []
         doi_references = re.findall('<doi:(.*?)>', self.long_description)
@@ -347,8 +385,26 @@ class RPackage:
         for reference in doi_references:
             doi_list.append(reference[:-1]) if reference[-1] == "." else doi_list.append(reference)
         for reference in arxiv_references:
-            doi_list.append('10.48550/' + reference[-1]) if reference[-1] == "." else doi_list.append('10.48550/' + reference)
-        return doi_list
+            doi_list.append('10.48550/arXiv.' + reference[-1]) if reference[-1] == "." else doi_list.append('10.48550/arXiv.' + reference)
+
+        publication_id_array = []
+        for doi in doi_list:
+            scientific_publication = get_wbs_local_id("Q591041")
+            doi_id = get_wbs_local_id("P356")
+            publication = Publication(doi)
+            publication.add_related_authors(author_ID)
+            publication.pull()
+            publication_id = WBItem(publication.title).instance_property_exists(scientific_publication, doi_id, doi)
+
+            if not publication_id:
+                publication_id = publication.create()
+                # This
+                author_ID = publication.related_authors
+
+            if publication_id:
+                publication_id_array.append(publication_id)
+
+        return publication_id_array
 
     def add_dependencies(self, item):
         """Adds the statements corresponding to the package dependencies.
@@ -362,20 +418,28 @@ class RPackage:
           item (WBItem):
             Item representing the R package to which the statement must be added.
         """
-        preprocessed_dependencies = self.preprocess_dependencies()
-        dependency_ID = []
-        dependency_version = []
-        if preprocessed_dependencies:
-            dependency_ID = preprocessed_dependencies[0] 
-            dependency_version = preprocessed_dependencies[1]
+        preprocessed_dependencies = self.preprocess_software("dependencies")
+        for software, version in preprocessed_dependencies.items():
+            item.add_statement("WD_P1547", software, WD_P348=version) if len(version) > 0 else item.add_statement("WD_P1547", software)
 
-        for i, dependency in enumerate(dependency_ID):
-            if len(dependency_version[i]) > 0:
-                item.add_statement(
-                    "WD_P1547", dependency, WD_P348=dependency_version[i]
-                )
-            else:
-                item.add_statement("WD_P1547", dependency)
+    def add_imports(self, item):
+        """Adds the statements corresponding to the package imports.
+        
+        Insert the wikibase statements corresponding the imported R packages for
+        the instantiated R package. The statement includes a link to the item
+        representing the imported package and, when provided, a qualifier
+        specifying the required version of this package.
+
+        Args:
+          item (WBItem):
+            Item representing the R package to which the imported packages
+            statements must be added.
+        """
+        preprocessed_imports = self.preprocess_software("imports")
+        software_property = WBItem("Property for items about software").label_exists()
+        import_property = WBProperty("imports").instance_exists(software_property)
+        for software, version in preprocessed_imports.items():
+            item.add_statement(import_property, software, WD_P348=version) if len(version) > 0 else item.add_statement(import_property, software)
 
     def add_licenses(self, item):
         """Processes the license string and adds the corresponding statements.
@@ -407,7 +471,7 @@ class RPackage:
                 license = re.sub("\[.*?\]", "", license)
             license = license.strip()
             license_ID = self.get_license_ID(license)
-            license_property = WBProperty("License version").SQL_exists()
+            license_property = WBProperty("License version").label_exists()
             if license == "file LICENSE" or license == "file LICENCE":
                 item.add_statement(
                     "WD_P275", license_ID, **{"WD_P2699": f"https://cran.r-project.org/web/packages/{self.label}/LICENSE"}
@@ -427,10 +491,10 @@ class RPackage:
             String: Package publication date in format DD-MM-YYYY.
         """
         try:
-            item = WBItem(self.label)
-            property_date = get_wbs_local_id("P5017")
-            values = item.get_value(property_date)
-            return values[0]
+            values = WBItem(ID=self.exists()).get_value("WD_P5017")
+            if len(values) > 0:
+                return values[0]
+            return None
         except:
             return None
 
@@ -439,7 +503,7 @@ class RPackage:
 
         - Package dependencies are splitted at the comma position.
         - License information is processed using the :meth:`split_license` method.
-        - Author information is processed using the :meth:`split_author` method.
+        - Author information is processed using the :meth:`split_authors` method.
         - Maintainer information is processed using the :meth:`clean_maintainer` method.
 
         Args:
@@ -544,9 +608,8 @@ class RPackage:
         else:
             return []
 
-    @staticmethod
-    def split_authors(x):
-        """Splits the string corresponding to the authors into a list.
+    def split_authors(self,x):
+        """Splits the string corresponding to the authors into a dictionary.
 
         Author information in CRAN is not registered uniformly. This function 
         parses the imported string and returns just the names of the individuals 
@@ -564,7 +627,7 @@ class RPackage:
               information.
 
         Returns:
-            (List): List of authors.
+            (Dict): Dictionary of authors and corresponding ORCID ID, if provided.
         """
         x = re.sub("<td>", "", x)
         x = re.sub("</td>", "", x)
@@ -573,16 +636,16 @@ class RPackage:
         x = re.sub("\t", "", x)
         x = re.sub("ORCID iD", "", x)
         authors = re.findall(".*?\]", x)
+        author_dict = {}
         if authors:
-            author_array = []
             for author in authors:
                 labels = re.findall("\[.*?\]", author)
                 if labels:
                     is_author = re.findall("aut", labels[0])
                     if is_author:
                         orcid = None
-                        if re.findall("\d{4}-\d{4}-\d{4}-\d{4}", author):
-                            orcid = re.findall("\d{4}-\d{4}-\d{4}-\d{4}", author)[0]
+                        if re.findall("\d{4}-\d{4}-\d{4}-.{4}", author):
+                            orcid = re.findall("\d{4}-\d{4}-\d{4}-.{4}", author)[0]
                         author = re.sub("<a href=.*?>", "", author)
                         author = re.sub("\[.*?\]", "", author)
                         author = re.sub("^\s?,", "", author)
@@ -593,12 +656,8 @@ class RPackage:
                         author = author.strip()
                         multiple_words = author.split(" ")
                         if len(multiple_words) > 1:
-                            if orcid:
-                                author = f"{author} ({orcid})"
-                                author_array.append(author)
-                            else:
-                                author_array.append(author)
-            return author_array
+                            author = self.capitalize_author(author)
+                            author_dict[author] = orcid
         else:
             authors_comma = x.split(", ")
             authors_and = x.split(" and ")
@@ -612,12 +671,22 @@ class RPackage:
                     "",
                     authors_comma[0],
                 )
-            if len(author.split(" ")) > 5 or re.findall("[@\(\)\[\]&]",author):
+            if len(author.split(" ")) > 5 or re.findall("[@\(\)\[\]&]", author):
                 author = ""
-            return [author.strip()]
+            author = self.capitalize_author(author)
+            author_dict[author] = None
+        return author_dict
 
     @staticmethod
-    def clean_maintainer(x):
+    def capitalize_author(author):
+        if author != "":
+            author_terms = author.split()
+            author = author_terms[0].capitalize()
+            for index in range(1,len(author_terms)):
+                author = author + " " + author_terms[index].capitalize()
+        return author
+
+    def clean_maintainer(self,x):
         """Remove unnecessary information from maintainer string.
 
         Args:
@@ -630,6 +699,7 @@ class RPackage:
         if not pd.isna(x):
             x = re.sub("<.*?>", "", x)
             x = re.sub("\(.*?\)", "", x)
+            x = self.capitalize_author(x)
             return x.strip()
         return x
 
@@ -650,7 +720,7 @@ class RPackage:
             (String): Wikidata item ID.
         """
         if license == "ACM":
-            return WBItem("ACM Software License Agreement").SQL_exists()
+            return WBItem("ACM Software License Agreement").instance_exists("WD_Q207621")
         elif license == "AGPL":
             return "WD_Q28130012"
         elif license == "AGPL-3":
@@ -706,9 +776,9 @@ class RPackage:
         elif license == "EUPL-1.1":
             return "WD_Q1376919"
         elif license == "file LICENCE":
-            return WBItem("file LICENSE").SQL_exists()
+            return WBItem("file LICENSE").instance_exists("WD_Q207621")
         elif license == "file LICENSE":
-            return WBItem("file LICENSE").SQL_exists()
+            return WBItem("file LICENSE").instance_exists("WD_Q207621")
         elif license == "FreeBSD":
             return "WD_Q34236"
         elif license == "GNU Affero General Public License":
@@ -758,4 +828,4 @@ class RPackage:
         elif license == "MPL-2.0":
             return "WD_Q25428413"
         elif license == "Unlimited":
-            return WBItem("Unlimited License").SQL_exists()
+            return WBItem("Unlimited License").instance_exists("WD_Q207621")

@@ -83,16 +83,20 @@ def wb_SQL_query(label, entity):
                     .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                     .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
                     .where(wbt_text.columns.wbx_text == bytes(label, "utf-8")))
+            prefix = "Q"
         elif entity == "property":
             query = (db.select([wbt_property_terms.columns.wbpt_property_id])
                     .join(wbt_term_in_lang, wbt_term_in_lang.columns.wbtl_id == wbt_property_terms.columns.wbpt_term_in_lang_id)
                     .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                     .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
                     .where(wbt_text.columns.wbx_text == bytes(label, "utf-8")))
-        result = connection.execute(query).fetchall()
-        entity_id = None
-        if result:
-            entity_id = result[0][0]
+            prefix = "P"
+        results = connection.execute(query).fetchall()
+        entity_id = []
+        if results:
+            for result in results:
+                entity_id.append(prefix + str(result[0]))
+
     except Exception as e:
         raise ImporterException(
             "Error attempting to read mappings from database\n{}".format(e)

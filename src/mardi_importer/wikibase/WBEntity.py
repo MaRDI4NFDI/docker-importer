@@ -4,6 +4,7 @@
 from mardi_importer.wikibase.WBAPIConnection import WBAPIConnection, WBAPIException
 from mardi_importer.wikibase.WBMapping import get_wbs_local_id
 import configparser
+import re
 import logging
 log = logging.getLogger('CRANlogger')
 
@@ -24,7 +25,7 @@ class WBEntity:
             list of properties and values describing the entity.
         wb_connection: Connection to the Wikibase API.
     """
-    def __init__(self, label=None, *, id=None):
+    def __init__(self, label=None, *, ID=None):
         self.label = label
         self.description = ""
         self.claims = []
@@ -36,7 +37,7 @@ class WBEntity:
         botpwd = config["default"]["password"]
         WIKIBASE_API = config["default"]["WIKIBASE_API"]
         self.wb_connection = WBAPIConnection(username, botpwd, WIKIBASE_API)
-        self.id = self.get_ID(id)
+        self.ID = ID
 
     def add_description(self, description):
         """Adds a description to the instantiated entity.
@@ -59,14 +60,14 @@ class WBEntity:
         Returns:
           String: Entity description
         """
-        params = {"action": "wbgetentities", "ids": self.id}
+        params = {"action": "wbgetentities", "ids": self.ID}
         r1 = self.wb_connection.session.post(
             self.wb_connection.WIKIBASE_API, data=params
         )
         r1.json = r1.json()
         if "entities" in r1.json.keys():
-            if len(r1.json["entities"][self.id]["descriptions"]) > 0:
-                return r1.json["entities"][self.id]["descriptions"]["en"]["value"]
+            if len(r1.json["entities"][self.ID]["descriptions"]) > 0:
+                return r1.json["entities"][self.ID]["descriptions"]["en"]["value"]
         return None
 
     def add_statement(self, property, value, **qualifiers):
@@ -159,7 +160,7 @@ class WBEntity:
                         "type": "time",
                         "value": {
                             "time": value,
-                            "precision": 11,
+                            "precision": self.get_time_precision(value),
                             "timezone": 0,
                             "before": 0,
                             "after": 0,
@@ -210,8 +211,26 @@ class WBEntity:
                 return True
         return False
 
-    def exists(self):
-        """Abstract method for checking the existence of an entity.
+    def label_exists(self):
+        """Abstract method for checking the existence of an entity
+        with the same label.
+
+        Specific methods are defined for *Items* and *Properties*.
+        """
+        pass
+
+    def instance_exists(self, instance):
+        """Abstract method for checking the existence of an entity
+        with the same label and that is an instance of *instance*.
+
+        Specific methods are defined for *Items* and *Properties*.
+        """
+        pass
+
+    def instance_property_exists(self, instance, property, value):
+        """Abstract method for checking the existence of an entity
+        with the same label and that is an instance of *instance* 
+        and with given *property* and *value*.
 
         Specific methods are defined for *Items* and *Properties*.
         """
@@ -240,7 +259,14 @@ class WBEntity:
         if len(self.claims) > 0:
             data["claims"] = self.claims
         try:
-            return self.wb_connection.edit_entity(self.id, data)
+            return self.wb_connection.edit_entity(self.ID, data)
+        except WBAPIException as e:
+            log.error(f"Package update failed: {str(e)}")
+
+    def update_label(self, label):
+        data = {"labels": {"en": {"language": "en", "value": label}}}
+        try:
+            return self.wb_connection.edit_entity(self.ID, data)
         except WBAPIException as e:
             log.error(f"Package update failed: {str(e)}")
 
@@ -294,44 +320,19 @@ class WBEntity:
           List:
             List of GUIDs corresponding to each claim in the given property.
         """
-        params = {"action": "wbgetentities", "ids": self.id, "props": "claims"}
+        params = {"action": "wbgetentities", "ids": self.ID, "props": "claims"}
         r1 = self.wb_connection.session.post(
             self.wb_connection.WIKIBASE_API, data=params
         )
         r1.json = r1.json()
         if property[0:3] == "WD_":
             property = get_wbs_local_id(property[3:])
-        #data_type = self.wb_connection.get_datatype(property)
         values = []
         if "entities" in r1.json.keys():
-            if property in r1.json["entities"][self.id]["claims"].keys():
-                for statement in r1.json["entities"][self.id]["claims"][property]:
+            if property in r1.json["entities"][self.ID]["claims"].keys():
+                for statement in r1.json["entities"][self.ID]["claims"][property]:
                     values.append(statement['id'])
         return values
-
-    def get_ID(self, id):
-        """Returns the ID of the instantiated entity through an SQL query to the 
-        Wikibase tables.
-
-        The method is called during the instantiation of an entity. If the entity
-        is declared using a label, the method returns the ID for that entity, if
-        it already exists. If the entity is declared already with an ID, the label
-        corresponding to that ID is assigned to the corresponding attribute of the
-        instantiated entity.
-
-        Args:
-          id (String): Optional
-
-        Return:
-          String:
-            Entity ID
-        """
-        if id:
-            self.id = id
-            self.label = self.get_label_by_ID()
-        else:
-            self.id = self.SQL_exists()
-        return self.id
 
     def get_label_by_ID(self):
         """Returns the label corresponding to a given entity ID.
@@ -342,7 +343,7 @@ class WBEntity:
         """
         params = {
             'action': 'wbsearchentities',
-            'search': self.id,
+            'search': self.ID,
             'language': 'en',
             'type': 'item',
             'limit': 1
@@ -367,7 +368,7 @@ class WBEntity:
           String:
             Value assigned to the introduced property in the instantiated entity.
         """
-        params = {"action": "wbgetentities", "ids": self.id, "props": "claims"}
+        params = {"action": "wbgetentities", "ids": self.ID, "props": "claims"}
         r1 = self.wb_connection.session.post(
             self.wb_connection.WIKIBASE_API, data=params
         )
@@ -381,8 +382,8 @@ class WBEntity:
             log.error(f"Property not found: {str(e)}")
         values = []
         if "entities" in r1.json.keys():
-            if property in r1.json["entities"][self.id]["claims"].keys():
-                for statement in r1.json["entities"][self.id]["claims"][property]:
+            if property in r1.json["entities"][self.ID]["claims"].keys():
+                for statement in r1.json["entities"][self.ID]["claims"][property]:
                     if data_type == "string" or data_type == "url" or data_type == "external-id":
                         values.append(statement['mainsnak']['datavalue']['value'])
                     elif data_type == "wikibase-item":
@@ -449,7 +450,7 @@ class WBEntity:
                                 "timezone": 0,
                                 "before": 0,
                                 "after": 0,
-                                "precision": 11,
+                                "precision": self.get_time_precision(value),
                                 "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
                             },
                             "type": "time",
@@ -457,3 +458,26 @@ class WBEntity:
                     }
                 ]
         return qualifier_dict
+
+    @staticmethod
+    def get_time_precision(value):
+        year = re.findall("\d{4}", value)[0]
+        values = re.findall("\d{2}", value)
+        second = values[6]
+        minute = values[5]
+        hour = values[4]
+        day = values[3]
+        month = values[2]
+        if second != "00":
+            return 14
+        elif minute != "00":
+            return 13
+        elif hour != "00":
+            return 12
+        elif day != "00":
+            return 11
+        elif month != "00":
+            return 10
+        elif year != "0000":
+            return 9
+        return None

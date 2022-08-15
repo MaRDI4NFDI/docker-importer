@@ -9,9 +9,8 @@ from mardi_importer.importer.Importer import AEntityCreator, ImporterException
 from mardi_importer.wikibase.WBItem import WBItem
 from mardi_importer.wikibase.WBProperty import WBProperty
 import pandas as pd
+import sqlalchemy as db
 import os
-import mysql.connector as connection
-
 
 class EntityCreator(AEntityCreator):
     """
@@ -63,9 +62,10 @@ class EntityCreator(AEntityCreator):
         db_host = os.environ["DB_HOST"]
 
         # read the mappings table from the wiki database
-        mydb = connection.connect(
-            host=db_host, database=db_name, user=db_user, passwd=db_pass, use_pure=True
+        engine = db.create_engine(
+            f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
         )
+        mydb = engine.connect()
         try:
             query = "Select * from wbs_entity_mapping;"
             mapping_df = pd.read_sql(query, mydb)
@@ -80,4 +80,3 @@ class EntityCreator(AEntityCreator):
             mydb.close()
 
         return mapping_df
-

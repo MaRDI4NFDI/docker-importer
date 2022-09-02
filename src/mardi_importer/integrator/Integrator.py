@@ -3,6 +3,7 @@ from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigPar
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator import wbi_login
+from wikibaseintegrator.wbi_helpers import search_entities
 import os
 
 import sys
@@ -100,181 +101,148 @@ class Integrator:
                 wikidata_id=item_id,
             )
 
-    def check_entity_exists(self, unit, wikidata_id):
-        "Check if entity exists"
-        print(unit.entity_type)
-        print(vars(unit))
-        print(unit.labels['en'])
-        #--------------------------------------------
-        language = 'en'
-        params = {
-        'action': 'wbsearchentities',
-        'search': 'URL',
-        'language': language,
-        'type': 'property',
-        'limit': 50,
-        'format': 'json'
-        }
-        cont_count = 0
-        results = []
-        from wikibaseintegrator.wbi_helpers import mediawiki_api_call_helper
-        search_results = mediawiki_api_call_helper(data=params, allow_anonymous=True)
-        print(search_results)
-        sys.exit("reproduce exit")
+    def check_entity_exists(self, unit):
+        """Check if entity exists using wbsearchentity with label
 
-        #--------------------------------------------
-        from wikibaseintegrator.wbi_helpers import search_entities
-        test_dict = search_entities(
-        #test_dict = self.wikibase_integrator.wbi_helpers.search_entities(
-            #search_string=unit.labels['en'], language='en', search_type=unit.entity_type, dict_result=True
-            search_string="URL", language="en", search_type="property"
-         )
-        print(test_dict)
-        sys.exit("Exit: check entity exists")
+        Args:
+            unit: an IntegratorUnit
+        Returns:
+            bool: Entity already exists or not
+        """
+        result = search_entities(
+            search_string=unit.labels['en'], language='en', search_type=unit.entity_type)
+        if not result:
+            return(False)
+        else:
+            return(True)
 
     def import_items(self):
         """Import items in self.integrator units or update"""
         self.change_config(instance="local")
-        print(type(self.wikibase_integrator))
-        print(self.wikibase_integrator.login)
         test_login = self.change_login(instance="local")
-        print(self.wikibase_integrator.login)
-        print(type(self.wikibase_integrator.login))
         for wikidata_id, unit in self.secondary_integrator_units.items():
 
-            self.check_entity_exists(unit=unit, wikidata_id=wikidata_id)
+            if self.check_entity_exists(unit=unit, wikidata_id=wikidata_id):
+                continue
             if wikidata_id[0] == "Q":
                 entity = self.wikibase_integrator.item.new()
             elif wikidata_id[0] == "P":
                 entity = self.wikibase_integrator.property.new()
-            print(unit.labels)
             for lang, val in unit.labels.items():
                 entity.labels.set(language=lang, value=val)
-            print("descriptions!")
-            print(unit.descriptions)
-            print("aliases!")
-            print(unit.aliases)
             for lang, val in unit.descriptions.items():
                 entity.descriptions.set(language=lang, value=val)
             for lang, val_list in unit.aliases.items():
                 for val in val_list:
                     entity.aliases.set(language=lang, values=val)
             entity.datatype = "wikibase-property"
-            print(entity.aliases)
-            print(type(entity.datatype))
             # entity.datatype.set_value('P100')
-            print(type(entity))
-            print(entity.aliases)
-            print(unit.labels)
-            print(unit.descriptions)
-            print(unit.aliases)
 
             #     ------------------------------------------------
-            import ujson
+            # import ujson
 
-            data = entity.get_json()
-            print("!!!!!!!!!!!!!!!!!!!!!!!!")
-            print(data)
-            print(type(data))
-            print(type(ujson.dumps(data)))
+            # data = entity.get_json()
+            # print("!!!!!!!!!!!!!!!!!!!!!!!!")
+            # print(data)
+            # print(type(data))
+            # print(type(ujson.dumps(data)))
 
-            payload = {
-                "action": "wbeditentity",
-                # "data": ujson.dumps(
-                #     {
-                #         "labels": {
-                #             "en": {"language": "en", "value": "Testbla"},
-                #             "de": {"language": "de", "value": "Testbla"},
-                #         },
-                #         "descriptions": {
-                #             "en": {
-                #                 "language": "en",
-                #                 "value": 'fix "Category:")',
-                #             },
-                #             "de": {
-                #                 "language": "de",
-                #                 "value": "haltet (ohne das Präfix „Category:“)",
-                #             },
-                #         },
-                #         "aliases": {
-                #             "en": [
-                #                 {"language": "en", "value": "test"},
-                #                 {"language": "en", "value": "test2"},
-                #             ]
-                #         },
-                #         # "aliases": {
-                #         #     "en": [
-                #         #         "commons",
-                #         #         "category Commo",
-                #         #         "category on Coms",
-                #         #     ],
-                #         #     "de": ["commonst"],
-                #         # },
-                #         "datatype": "wikibase-property",
-                #     }
-                # ),
-                "data": ujson.dumps(data),
-                "format": "json",
-                "token": "+\\",
-                #'badge': '1'
-                #'assert': 'bot'
-            }
-            is_bot = self.wikibase_integrator.is_bot
-            if is_bot:
-                payload.update({"bot": ""})
-            payload.update({"new": entity.type})
-            login = self.wikibase_integrator.login
+            # payload = {
+            #     "action": "wbeditentity",
+            #     # "data": ujson.dumps(
+            #     #     {
+            #     #         "labels": {
+            #     #             "en": {"language": "en", "value": "Testbla"},
+            #     #             "de": {"language": "de", "value": "Testbla"},
+            #     #         },
+            #     #         "descriptions": {
+            #     #             "en": {
+            #     #                 "language": "en",
+            #     #                 "value": 'fix "Category:")',
+            #     #             },
+            #     #             "de": {
+            #     #                 "language": "de",
+            #     #                 "value": "haltet (ohne das Präfix „Category:“)",
+            #     #             },
+            #     #         },
+            #     #         "aliases": {
+            #     #             "en": [
+            #     #                 {"language": "en", "value": "test"},
+            #     #                 {"language": "en", "value": "test2"},
+            #     #             ]
+            #     #         },
+            #     #         # "aliases": {
+            #     #         #     "en": [
+            #     #         #         "commons",
+            #     #         #         "category Commo",
+            #     #         #         "category on Coms",
+            #     #         #     ],
+            #     #         #     "de": ["commonst"],
+            #     #         # },
+            #     #         "datatype": "wikibase-property",
+            #     #     }
+            #     # ),
+            #     "data": ujson.dumps(data),
+            #     "format": "json",
+            #     "token": "+\\",
+            #     #'badge': '1'
+            #     #'assert': 'bot'
+            # }
+            # is_bot = self.wikibase_integrator.is_bot
+            # if is_bot:
+            #     payload.update({"bot": ""})
+            # payload.update({"new": entity.type})
+            # login = self.wikibase_integrator.login
 
-            # json_result: dict = mediawiki_api_call_helper(data=payload, login=login, allow_anonymous=allow_anonymous, is_bot=is_bot, **kwargs)
+            # # json_result: dict = mediawiki_api_call_helper(data=payload, login=login, allow_anonymous=allow_anonymous, is_bot=is_bot, **kwargs)
 
-            from wikibaseintegrator.wbi_config import config
+            # from wikibaseintegrator.wbi_config import config
 
-            mediawiki_api_url = config["MEDIAWIKI_API_URL"]
-            user_agent = "WikibaseIntegrator/0.12.0"
-            headers = {"User-Agent": user_agent}
-            payload.update({"token": login.get_edit_token()})
-            session = login.get_session()
+            # mediawiki_api_url = config["MEDIAWIKI_API_URL"]
+            # user_agent = "WikibaseIntegrator/0.12.0"
+            # headers = {"User-Agent": user_agent}
+            # payload.update({"token": login.get_edit_token()})
+            # session = login.get_session()
 
-            response = None
-            import requests
+            # response = None
+            # import requests
 
-            # session = requests.Session()
-            from time import sleep
-            import json
+            # # session = requests.Session()
+            # from time import sleep
+            # import json
 
-            for n in range(100):
-                try:
-                    response = session.request(
-                        method="POST",
-                        url=mediawiki_api_url,
-                        data=payload,
-                        headers=headers,
-                    )
-                except requests.exceptions.ConnectionError as e:
-                    print("Connection error: %s. Sleeping for %d seconds.", e, 60)
-                    sleep(60)
-                    continue
-                if response.status_code in (500, 502, 503, 504):
-                    print(
-                        "Service unavailable (HTTP Code %d). Sleeping for %d seconds.",
-                        response.status_code,
-                        60,
-                    )
-                    sleep(60)
-                    continue
-                break
-            response.raise_for_status()
-            print(response.content)
-            print("????????????????????/")
-            print(response.request.body)
-            print(response.request.headers)
-            print(mediawiki_api_url)
-            json_data = response.json()
-            print(json_data)
-            sys.exit("Exited")
+            # for n in range(100):
+            #     try:
+            #         response = session.request(
+            #             method="POST",
+            #             url=mediawiki_api_url,
+            #             data=payload,
+            #             headers=headers,
+            #         )
+            #     except requests.exceptions.ConnectionError as e:
+            #         print("Connection error: %s. Sleeping for %d seconds.", e, 60)
+            #         sleep(60)
+            #         continue
+            #     if response.status_code in (500, 502, 503, 504):
+            #         print(
+            #             "Service unavailable (HTTP Code %d). Sleeping for %d seconds.",
+            #             response.status_code,
+            #             60,
+            #         )
+            #         sleep(60)
+            #         continue
+            #     break
+            # response.raise_for_status()
+            # print(response.content)
+            # print("????????????????????/")
+            # print(response.request.body)
+            # print(response.request.headers)
+            # print(mediawiki_api_url)
+            # json_data = response.json()
+            # print(json_data)
+            # sys.exit("Exited")
             # -----------------------------------------------------
             entity.write(login=test_login)
-        # import each of the secondaries
         # import each of the primaries
         # after importing or updating, mark as known in list or sthj
 

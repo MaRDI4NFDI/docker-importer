@@ -25,7 +25,7 @@ def get_parser():
 
 
 def main():
-    logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
+    logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
     args = get_parser().parse_args()
 
@@ -45,15 +45,19 @@ def main():
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
         )
-        #data_source.write_data_dump()
-        #data_source.process_data()
-        #data_source.write_error_ids()
+        # data_source.write_data_dump()
+        # data_source.process_data()
+        # data_source.write_error_ids()
 
         from mardi_importer.integrator.Integrator import Integrator
+
         i = Integrator(conf_path=args.conf_path)
-        i.create_units(id_list =["Q177", "Q192783"], 
-                            languages = ['en', 'de'], recurse=True)     
-        i.import_items()  
+        i.check_or_create_db_table()
+        i.create_units(
+            id_list=["Q177", "Q192783"], languages=["en", "de"], recurse=True
+        )
+        i.import_items()
+        i.engine.dispose()
 
     elif args.mode == "CRAN":
         # an object to create entities copied from Wikidata

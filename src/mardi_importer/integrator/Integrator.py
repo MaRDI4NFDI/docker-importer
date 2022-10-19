@@ -2,9 +2,12 @@ from mardi_importer.integrator.IntegratorUnit import IntegratorUnit
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.wbi_config import config as wbi_config
+from wikibaseintegrator.datatypes import Item, String, MonolingualText
 from wikibaseintegrator import wbi_login
 from wikibaseintegrator.wbi_helpers import search_entities
+from wikibaseintegrator.wbi_enums import ActionIfExists
 import os
+import sqlalchemy as db
 
 import sys
 
@@ -26,6 +29,41 @@ class Integrator:
         self.imported_items = []
         config_parser = IntegratorConfigParser(conf_path)
         self.config_dict = config_parser.parse_config()
+        # wikidata id to imported id
+        self.id_mapping = {}
+        db_user = os.environ["DB_USER"]
+        db_pass = os.environ["DB_PASS"]
+        db_name = os.environ["DB_NAME"]
+        db_host = os.environ["DB_HOST"]
+        self.engine = db.create_engine(
+            f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
+        )
+
+    def check_or_create_db_table(self):
+        # check if db table is there
+        # if not, create
+        with self.engine.connect() as connection:
+            metadata = db.MetaData()
+            if not db.inspect(self.engine).has_table("wb_id_mapping"):
+                mapping_table = db.Table(
+                    "wb_id_mapping",
+                    metadata,
+                    db.Column("id", db.Integer, primary_key=True),
+                    db.Column("wikidata_id", db.String(24), nullable=False),
+                    db.Column("internal_id", db.String(24), nullable=False),
+                    db.UniqueConstraint("wikidata_id"),
+                    db.UniqueConstraint("internal_id"),
+                )
+                metadata.create_all(self.engine)
+
+    def insert_id_db(self, wikidata_id, internal_id, connection):
+        metadata = db.MetaData()
+        table = db.Table(
+            "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
+        )
+
+        ins = table.insert().values(wikidata_id=wikidata_id, internal_id=internal_id)
+        result = connection.execute(ins)
 
     def create_units(self, id_list, languages, recurse):
         """Downloads data from wikidata and saves them
@@ -39,9 +77,11 @@ class Integrator:
                 aliases,
                 claims,
                 entity_type,
+                datatype,
             ) = self.get_wikidata_information(
                 wikidata_id=item_id, languages=languages, recurse=recurse
             )
+
             if recurse == True:
                 # for each of the ids in the claims, get stuff with recurse = False
                 # and add to secondary
@@ -54,6 +94,7 @@ class Integrator:
                             sec_aliases,
                             sec_claims,
                             sec_entity_type,
+                            sec_datatype,
                         ) = self.get_wikidata_information(
                             wikidata_id=secondary_id, languages=languages, recurse=False
                         )
@@ -65,32 +106,37 @@ class Integrator:
                             entity_type=sec_entity_type,
                             claims=sec_claims,
                             wikidata_id=secondary_id,
+                            datatype=sec_datatype,
                         )
+
                     # add target
-                    if "id" in claims[secondary_id][0]["mainsnak"]["datavalue"]:
-                        target_id = claims[secondary_id][0]["mainsnak"]["datavalue"][
-                            "id"
-                        ]
-                        if target_id not in self.secondary_integrator_units:
-                            (
-                                tar_labels,
-                                tar_descriptions,
-                                tar_aliases,
-                                tar_claims,
-                                tar_entity_type,
-                            ) = self.get_wikidata_information(
-                                wikidata_id=target_id,
-                                languages=languages,
-                                recurse=False,
-                            )
-                            self.secondary_integrator_units[target_id] = IntegratorUnit(
-                                labels=tar_labels,
-                                descriptions=tar_descriptions,
-                                aliases=tar_aliases,
-                                entity_type=tar_entity_type,
-                                claims=tar_claims,
-                                wikidata_id=target_id,
-                            )
+                    for ref in claims[secondary_id]:
+                        if "id" in ref["mainsnak"]["datavalue"]["value"]:
+                            target_id = ref["mainsnak"]["datavalue"]["value"]["id"]
+                            if target_id not in self.secondary_integrator_units:
+                                (
+                                    tar_labels,
+                                    tar_descriptions,
+                                    tar_aliases,
+                                    tar_claims,
+                                    tar_entity_type,
+                                    tar_datatype,
+                                ) = self.get_wikidata_information(
+                                    wikidata_id=target_id,
+                                    languages=languages,
+                                    recurse=False,
+                                )
+                                self.secondary_integrator_units[
+                                    target_id
+                                ] = IntegratorUnit(
+                                    labels=tar_labels,
+                                    descriptions=tar_descriptions,
+                                    aliases=tar_aliases,
+                                    entity_type=tar_entity_type,
+                                    claims=tar_claims,
+                                    wikidata_id=target_id,
+                                    datatype=tar_datatype,
+                                )
 
             self.primary_integrator_units[item_id] = IntegratorUnit(
                 labels=labels,
@@ -99,9 +145,10 @@ class Integrator:
                 entity_type=entity_type,
                 claims=claims,
                 wikidata_id=item_id,
+                datatype=datatype,
             )
 
-    def check_entity_exists(self, unit):
+    def check_entity_exists(self, unit, wikidata_id, connection):
         """Check if entity exists using wbsearchentity with label
 
         Args:
@@ -109,142 +156,216 @@ class Integrator:
         Returns:
             bool: Entity already exists or not
         """
+        # check if id is in id mapping
+        if wikidata_id in self.id_mapping:
+            return True
+
+        # check if id in db
+        metadata = db.MetaData()
+        table = db.Table(
+            "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
+        )
+        sql = db.select([table.columns.internal_id]).where(
+            table.columns.wikidata_id == wikidata_id,
+        )
+        db_result = connection.execute(sql).fetchone()
+        if db_result:
+            # add to id mapping, because it already exists
+            self.id_mapping[wikidata_id] = db_result["internal_id"]
+            return True
+
+        # if unit is not in dict and not in db, try str search to see if it already exists in wiki
         result = search_entities(
-            search_string=unit.labels['en'], language='en', search_type=unit.entity_type)
+            search_string=unit.labels["en"],
+            language="en",
+            search_type=unit.entity_type,
+            dict_result=True,
+        )
         if not result:
-            return(False)
+            return False
         else:
-            return(True)
+            for subdict in result:
+                if subdict["label"] == unit.labels["en"]:
+                    # for properties, the label is unique
+                    if wikidata_id[0] == "P":
+                        # insert into mapping
+                        self.id_mapping[wikidata_id] = subdict["id"]
+                        # insert into db
+                        self.insert_id_db(wikidata_id, subdict["id"], connection)
+                        return True
+                    # an item is unqiue in combination (label, description)
+                    elif wikidata_id[0] == "Q":
+                        if subdict["description"] == unit.descriptions["en"]:
+                            # insert into mapping
+                            self.id_mapping[wikidata_id] = subdict["id"]
+                            # insert into db
+                            self.insert_id_db(wikidata_id, subdict["id"], connection)
+                            return True
+                    else:
+                        sys.exit(
+                            "Exception: wikidata id starts with letter other than Q or P"
+                        )
+            return False
 
     def import_items(self):
         """Import items in self.integrator units or update"""
         self.change_config(instance="local")
         test_login = self.change_login(instance="local")
-        for wikidata_id, unit in self.secondary_integrator_units.items():
 
-            if self.check_entity_exists(unit=unit, wikidata_id=wikidata_id):
-                continue
-            if wikidata_id[0] == "Q":
-                entity = self.wikibase_integrator.item.new()
-            elif wikidata_id[0] == "P":
-                entity = self.wikibase_integrator.property.new()
-            for lang, val in unit.labels.items():
-                entity.labels.set(language=lang, value=val)
-            for lang, val in unit.descriptions.items():
-                entity.descriptions.set(language=lang, value=val)
-            for lang, val_list in unit.aliases.items():
-                for val in val_list:
-                    entity.aliases.set(language=lang, values=val)
-            entity.datatype = "wikibase-property"
-            # entity.datatype.set_value('P100')
+        with self.engine.connect() as connection:
+            for wikidata_id, unit in self.secondary_integrator_units.items():
 
-            #     ------------------------------------------------
-            # import ujson
+                if self.check_entity_exists(
+                    unit=unit, wikidata_id=wikidata_id, connection=connection
+                ):
+                    continue
+                if wikidata_id[0] == "Q":
+                    entity = self.wikibase_integrator.item.new()
+                    # entity.datatype = "wikibase-item"
+                elif wikidata_id[0] == "P":
+                    entity = self.wikibase_integrator.property.new()
+                    entity.datatype = unit.datatype
+                for lang, val in unit.labels.items():
+                    entity.labels.set(language=lang, value=val)
+                for lang, val in unit.descriptions.items():
+                    entity.descriptions.set(language=lang, value=val)
+                for lang, val_list in unit.aliases.items():
+                    for val in val_list:
+                        entity.aliases.set(language=lang, values=val)
 
-            # data = entity.get_json()
-            # print("!!!!!!!!!!!!!!!!!!!!!!!!")
-            # print(data)
-            # print(type(data))
-            # print(type(ujson.dumps(data)))
+                try:
+                    entity_description = entity.write(login=test_login)
+                except:
+                    print(wikidata_id)
+                    if wikidata_id in self.id_mapping:
+                        print(self.id_mapping[wikidata_id])
+                    else:
+                        print("Nope!")
+                    print(unit.labels)
+                    print(unit.descriptions)
+                    print(unit.aliases)
+                    print(unit.datatype)
+                    self.engine.dispose()
+                    sys.exit("Nope!!")
+                # insert mapping into db
+                self.insert_id_db(
+                    wikidata_id=wikidata_id,
+                    internal_id=entity_description.id,
+                    connection=connection,
+                )
+                # insert mapping into dict
+                self.id_mapping[wikidata_id] = entity_description.id
 
-            # payload = {
-            #     "action": "wbeditentity",
-            #     # "data": ujson.dumps(
-            #     #     {
-            #     #         "labels": {
-            #     #             "en": {"language": "en", "value": "Testbla"},
-            #     #             "de": {"language": "de", "value": "Testbla"},
-            #     #         },
-            #     #         "descriptions": {
-            #     #             "en": {
-            #     #                 "language": "en",
-            #     #                 "value": 'fix "Category:")',
-            #     #             },
-            #     #             "de": {
-            #     #                 "language": "de",
-            #     #                 "value": "haltet (ohne das Präfix „Category:“)",
-            #     #             },
-            #     #         },
-            #     #         "aliases": {
-            #     #             "en": [
-            #     #                 {"language": "en", "value": "test"},
-            #     #                 {"language": "en", "value": "test2"},
-            #     #             ]
-            #     #         },
-            #     #         # "aliases": {
-            #     #         #     "en": [
-            #     #         #         "commons",
-            #     #         #         "category Commo",
-            #     #         #         "category on Coms",
-            #     #         #     ],
-            #     #         #     "de": ["commonst"],
-            #     #         # },
-            #     #         "datatype": "wikibase-property",
-            #     #     }
-            #     # ),
-            #     "data": ujson.dumps(data),
-            #     "format": "json",
-            #     "token": "+\\",
-            #     #'badge': '1'
-            #     #'assert': 'bot'
-            # }
-            # is_bot = self.wikibase_integrator.is_bot
-            # if is_bot:
-            #     payload.update({"bot": ""})
-            # payload.update({"new": entity.type})
-            # login = self.wikibase_integrator.login
+            for wikidata_id, unit in self.primary_integrator_units.items():
+                # import primary like secondary
+                if self.check_entity_exists(
+                    unit=unit, wikidata_id=wikidata_id, connection=connection
+                ):
+                    # here, nothing needs to be inserted into id_mapping or db,
+                    # as it is already there
+                    # if the entity already exists, update
+                    internal_id = self.id_mapping[wikidata_id]
+                    if wikidata_id[0] == "Q":
+                        entity = self.wikibase_integrator.item.get(
+                            entity_id=internal_id
+                        )
+                    elif wikidata_id[0] == "P":
+                        entity = self.wikibase_integrator.property.get(
+                            entity_id=internal_id
+                        )
+                        entity.datatype = unit.datatype
+                    for lang, val in unit.descriptions.items():
+                        # descriptions are not replaced,
+                        # new ones are only added if there was no old one
+                        entity.descriptions.set(
+                            language=lang,
+                            value=val,
+                            action_if_exists=ActionIfExists.KEEP,
+                        )
+                    # this should not create duplicates, but append non-existing aliases
+                    for lang, val_list in unit.aliases.items():
+                        for val in val_list:
+                            entity.aliases.set(language=lang, values=val)
+                    print("now befoire makingclaims")
+                    claims = self.make_claims(unit=unit)
+                    # add new claims if they are different from old claims
+                    print("now before appending claims")
+                    entity.claims.add(
+                        claims,
+                        ActionIfExists.APPEND_OR_REPLACE,
+                    )
+                    print("now after appending claims")
+                    entity_description = entity.write(login=test_login)
 
-            # # json_result: dict = mediawiki_api_call_helper(data=payload, login=login, allow_anonymous=allow_anonymous, is_bot=is_bot, **kwargs)
+                else:
+                    # add new entity
+                    if wikidata_id[0] == "Q":
+                        entity = self.wikibase_integrator.item.new()
+                    elif wikidata_id[0] == "P":
+                        entity = self.wikibase_integrator.property.new()
+                    for lang, val in unit.labels.items():
+                        entity.labels.set(language=lang, value=val)
+                    for lang, val in unit.descriptions.items():
+                        entity.descriptions.set(language=lang, value=val)
+                    for lang, val_list in unit.aliases.items():
+                        for val in val_list:
+                            entity.aliases.set(language=lang, values=val)
+                    claims = self.make_claims(unit=unit)
+                    entity.claims.add(claims)
 
-            # from wikibaseintegrator.wbi_config import config
+                    try:
+                        entity_description = entity.write(login=test_login)
+                    except Exception as e:
+                        print(e)
+                        print(wikidata_id)
+                        print(unit.labels)
+                        print(unit.descriptions)
+                        print(unit.aliases)
+                        print(claims)
+                        sys.exit("ewehfoi")
+                    # insert mapping into db
+                    self.insert_id_db(
+                        wikidata_id=wikidata_id,
+                        internal_id=entity_description.id,
+                        connection=connection,
+                    )
+                    self.id_mapping[wikidata_id] = entity_description.id
 
-            # mediawiki_api_url = config["MEDIAWIKI_API_URL"]
-            # user_agent = "WikibaseIntegrator/0.12.0"
-            # headers = {"User-Agent": user_agent}
-            # payload.update({"token": login.get_edit_token()})
-            # session = login.get_session()
-
-            # response = None
-            # import requests
-
-            # # session = requests.Session()
-            # from time import sleep
-            # import json
-
-            # for n in range(100):
-            #     try:
-            #         response = session.request(
-            #             method="POST",
-            #             url=mediawiki_api_url,
-            #             data=payload,
-            #             headers=headers,
-            #         )
-            #     except requests.exceptions.ConnectionError as e:
-            #         print("Connection error: %s. Sleeping for %d seconds.", e, 60)
-            #         sleep(60)
-            #         continue
-            #     if response.status_code in (500, 502, 503, 504):
-            #         print(
-            #             "Service unavailable (HTTP Code %d). Sleeping for %d seconds.",
-            #             response.status_code,
-            #             60,
-            #         )
-            #         sleep(60)
-            #         continue
-            #     break
-            # response.raise_for_status()
-            # print(response.content)
-            # print("????????????????????/")
-            # print(response.request.body)
-            # print(response.request.headers)
-            # print(mediawiki_api_url)
-            # json_data = response.json()
-            # print(json_data)
-            # sys.exit("Exited")
-            # -----------------------------------------------------
-            entity.write(login=test_login)
-        # import each of the primaries
-        # after importing or updating, mark as known in list or sthj
+    def make_claims(self, unit):
+        print("MAKING CLAIMS!!")
+        claims = []
+        for prop_nr, info in unit.claims.items():
+            for relation in info:
+                if "datavalue" in relation["mainsnak"]:
+                    data_value = relation["mainsnak"]["datavalue"]
+                    if data_value["type"] == "string":
+                        claims.append(
+                            String(
+                                value=data_value["value"],
+                                prop_nr=self.id_mapping[prop_nr],
+                            )
+                        )
+                    elif data_value["type"] == "wikibase-entityid":
+                        claims.append(
+                            Item(
+                                value=self.id_mapping[data_value["value"]["id"]],
+                                prop_nr=self.id_mapping[prop_nr],
+                            )
+                        )
+                        print(self.id_mapping[prop_nr])
+                    elif data_value["type"] == "monolingualtext":
+                        claims.append(
+                            MonolingualText(
+                                text=data_value["value"]["text"],
+                                language=data_value["value"]["language"],
+                                prop_nr=self.id_mapping[prop_nr],
+                            )
+                        )
+                    else:
+                        print(data_value)
+                        sys.exit("Unknown data value type")
+        # return claims
+        return claims
 
     def get_wikidata_information(self, wikidata_id, languages, recurse):
         labels = {}
@@ -252,10 +373,12 @@ class Integrator:
         aliases = {}
         if wikidata_id[0] == "Q":
             entity = self.wikibase_integrator.item.get(entity_id=wikidata_id).get_json()
+            datatype = None
         elif wikidata_id[0] == "P":
             entity = self.wikibase_integrator.property.get(
                 entity_id=wikidata_id
             ).get_json()
+            datatype = entity["datatype"]
         for lang in languages:
             label_info = entity["labels"].get(lang)
             if label_info:
@@ -275,7 +398,7 @@ class Integrator:
         else:
             claims = entity["claims"]
         entity_type = entity["type"]
-        return (labels, descriptions, aliases, claims, entity_type)
+        return (labels, descriptions, aliases, claims, entity_type, datatype)
 
     def change_config(self, instance):
         if instance == "wikidata":

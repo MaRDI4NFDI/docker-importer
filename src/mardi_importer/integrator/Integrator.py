@@ -2,7 +2,7 @@ from mardi_importer.integrator.IntegratorUnit import IntegratorUnit
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.wbi_config import config as wbi_config
-from wikibaseintegrator.datatypes import Item, String, MonolingualText
+from wikibaseintegrator.datatypes import Item, String, MonolingualText, Time
 from wikibaseintegrator import wbi_login
 from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -87,56 +87,36 @@ class Integrator:
                 # and add to secondary
                 for secondary_id in claims:
                     # add property
-                    if secondary_id not in self.secondary_integrator_units:
-                        (
-                            sec_labels,
-                            sec_descriptions,
-                            sec_aliases,
-                            sec_claims,
-                            sec_entity_type,
-                            sec_datatype,
-                        ) = self.get_wikidata_information(
-                            wikidata_id=secondary_id, languages=languages, recurse=False
-                        )
-
-                        self.secondary_integrator_units[secondary_id] = IntegratorUnit(
-                            labels=sec_labels,
-                            descriptions=sec_descriptions,
-                            aliases=sec_aliases,
-                            entity_type=sec_entity_type,
-                            claims=sec_claims,
-                            wikidata_id=secondary_id,
-                            datatype=sec_datatype,
-                        )
+                    self.add_secondary_units(unit_id=secondary_id, languages=languages)
 
                     # add target
-                    for ref in claims[secondary_id]:
-                        if "id" in ref["mainsnak"]["datavalue"]["value"]:
-                            target_id = ref["mainsnak"]["datavalue"]["value"]["id"]
-                            if target_id not in self.secondary_integrator_units:
-                                (
-                                    tar_labels,
-                                    tar_descriptions,
-                                    tar_aliases,
-                                    tar_claims,
-                                    tar_entity_type,
-                                    tar_datatype,
-                                ) = self.get_wikidata_information(
-                                    wikidata_id=target_id,
-                                    languages=languages,
-                                    recurse=False,
+                    for relation in claims[secondary_id]:
+                        if "id" in relation["mainsnak"]["datavalue"]["value"]:
+                            target_id = relation["mainsnak"]["datavalue"]["value"]["id"]
+                            self.add_secondary_units(
+                                unit_id=target_id, languages=languages
+                            )
+
+                        if "references" in relation:
+                            references = relation["references"][0]["snaks"]
+                            for ref_id in references:
+                                # add property name of reference
+                                self.add_secondary_units(
+                                    unit_id=ref_id, languages=languages
                                 )
-                                self.secondary_integrator_units[
-                                    target_id
-                                ] = IntegratorUnit(
-                                    labels=tar_labels,
-                                    descriptions=tar_descriptions,
-                                    aliases=tar_aliases,
-                                    entity_type=tar_entity_type,
-                                    claims=tar_claims,
-                                    wikidata_id=target_id,
-                                    datatype=tar_datatype,
-                                )
+                                # for each target of this property in references, add item if it is an item
+                                for ref_snak in references[ref_id]:
+                                    if "id" in ref_snak["datavalue"][
+                                        "value"
+                                    ] and isinstance(
+                                        ref_snak["datavalue"]["value"], dict
+                                    ):
+                                        self.add_secondary_units(
+                                            unit_id=ref_snak["datavalue"]["value"][
+                                                "id"
+                                            ],
+                                            languages=languages,
+                                        )
 
             self.primary_integrator_units[item_id] = IntegratorUnit(
                 labels=labels,
@@ -145,6 +125,29 @@ class Integrator:
                 entity_type=entity_type,
                 claims=claims,
                 wikidata_id=item_id,
+                datatype=datatype,
+            )
+
+    def add_secondary_units(self, unit_id, languages):
+        if unit_id not in self.secondary_integrator_units:
+            (
+                labels,
+                descriptions,
+                aliases,
+                claims,
+                entity_type,
+                datatype,
+            ) = self.get_wikidata_information(
+                wikidata_id=unit_id, languages=languages, recurse=False
+            )
+
+            self.secondary_integrator_units[unit_id] = IntegratorUnit(
+                labels=labels,
+                descriptions=descriptions,
+                aliases=aliases,
+                entity_type=entity_type,
+                claims=claims,
+                wikidata_id=unit_id,
                 datatype=datatype,
             )
 
@@ -336,36 +339,62 @@ class Integrator:
         claims = []
         for prop_nr, info in unit.claims.items():
             for relation in info:
+                print(relation)
                 if "datavalue" in relation["mainsnak"]:
-                    data_value = relation["mainsnak"]["datavalue"]
-                    if data_value["type"] == "string":
-                        claims.append(
-                            String(
-                                value=data_value["value"],
-                                prop_nr=self.id_mapping[prop_nr],
-                            )
-                        )
-                    elif data_value["type"] == "wikibase-entityid":
-                        claims.append(
-                            Item(
-                                value=self.id_mapping[data_value["value"]["id"]],
-                                prop_nr=self.id_mapping[prop_nr],
-                            )
-                        )
-                        print(self.id_mapping[prop_nr])
-                    elif data_value["type"] == "monolingualtext":
-                        claims.append(
-                            MonolingualText(
-                                text=data_value["value"]["text"],
-                                language=data_value["value"]["language"],
-                                prop_nr=self.id_mapping[prop_nr],
-                            )
-                        )
-                    else:
-                        print(data_value)
-                        sys.exit("Unknown data value type")
-        # return claims
+                    # add references
+                    ref_list = []
+                    if "references" in relation:
+                        references = relation["references"][0]["snaks"]
+                        for ref_id in references:
+                            for ref_snak in references[ref_id]:
+                                ref_list.append(
+                                    self.get_target(
+                                        ref_snak["datavalue"], prop_nr=ref_id
+                                    )
+                                )
+
+                    target = self.get_target(
+                        relation["mainsnak"]["datavalue"],
+                        prop_nr=prop_nr,
+                        references=list(ref_list),
+                    )
+                    claims.append(target)
         return claims
+
+    def get_target(self, data_value, prop_nr, references=None):
+        if data_value["type"] == "string":
+            return String(
+                value=data_value["value"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "wikibase-entityid":
+            return Item(
+                value=self.id_mapping[data_value["value"]["id"]],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "monolingualtext":
+            return MonolingualText(
+                text=data_value["value"]["text"],
+                language=data_value["value"]["language"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "time":
+            return Time(
+                time=data_value["value"]["time"],
+                timezone=data_value["value"]["timezone"],
+                before=data_value["value"]["before"],
+                after=data_value["value"]["after"],
+                precision=data_value["value"]["precision"],
+                calendarmodel=data_value["value"]["calendarmodel"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        else:
+            print(data_value)
+            sys.exit("Unknown data value type")
 
     def get_wikidata_information(self, wikidata_id, languages, recurse):
         labels = {}

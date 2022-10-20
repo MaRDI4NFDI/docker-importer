@@ -2,7 +2,24 @@ from mardi_importer.integrator.IntegratorUnit import IntegratorUnit
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.wbi_config import config as wbi_config
-from wikibaseintegrator.datatypes import Item, String, MonolingualText, Time
+from wikibaseintegrator.datatypes import (
+    Item,
+    String,
+    MonolingualText,
+    Time,
+    CommonsMedia,
+    ExternalID,
+    Form,
+    GeoShape,
+    GlobeCoordinate,
+    Lexeme,
+    Math,
+    MusicalNotation,
+    Quantity,
+    Sense,
+    TabularData,
+    URL,
+)
 from wikibaseintegrator import wbi_login
 from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -70,6 +87,8 @@ class Integrator:
         as IntegratorUnits
         """
         self.change_config(instance="wikidata")
+        # always import wikidata entity id
+        id_list.append("Q111513370")
         for item_id in id_list:
             (
                 labels,
@@ -91,7 +110,11 @@ class Integrator:
 
                     # add target
                     for relation in claims[secondary_id]:
-                        if "id" in relation["mainsnak"]["datavalue"]["value"]:
+                        if "id" in relation["mainsnak"]["datavalue"][
+                            "value"
+                        ] and isinstance(
+                            relation["mainsnak"]["datavalue"]["value"], dict
+                        ):
                             target_id = relation["mainsnak"]["datavalue"]["value"]["id"]
                             self.add_secondary_units(
                                 unit_id=target_id, languages=languages
@@ -361,6 +384,12 @@ class Integrator:
                     claims.append(target)
         return claims
 
+    def make_wikidata_claim(self, target_id):
+        return ExternalID(
+            value=target_id,
+            prop_nr=self.id_mapping["Q111513370"],
+        )
+
     def get_target(self, data_value, prop_nr, references=None):
         if data_value["type"] == "string":
             return String(
@@ -392,6 +421,88 @@ class Integrator:
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
             )
+        elif data_value["type"] == "commonsmedia":
+            return CommonsMedia(
+                value=data_value["value"]["commonsmedia"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "external-id":
+            return ExternalID(
+                value=data_value["value"]["external-id"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "wikibase-form":
+            return Form(
+                value=data_value["value"]["wikibase-form"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "geo-shape":
+            return GeoShape(
+                value=data_value["value"]["geo-shape"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "globecoordinate":
+            return GlobeCoordinate(
+                latitude=data_value["value"]["latitude"],
+                longitude=data_value["value"]["longitude"],
+                altitude=data_value["value"]["altitude"],
+                precision=data_value["value"]["precision"],
+                globe=data_value["value"]["globe"],
+                wikibase_url=data_value["value"]["wikibase_url"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "wikibase-lexeme":
+            return Lexeme(
+                value=data_value["value"]["wikibase-lexeme"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "math":
+            return Math(
+                value=data_value["value"]["math"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "musical-notation":
+            return MusicalNotation(
+                value=data_value["value"]["musical notation"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "quantity":
+            return Quantity(
+                amount=data_value["value"]["amount"],
+                upper_bound=data_value["value"]["upper_bound"],
+                lower_bound=data_value["value"]["lower_bound"],
+                unit=data_value["value"]["unit"],
+                wikibase_url=data_value["value"]["wikibase_url"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "wikibase-sense":
+            return Sense(
+                value=data_value["value"]["wikibase-sense"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "tabular-data":
+            return TabularData(
+                value=data_value["value"]["tabular-data"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+        elif data_value["type"] == "url":
+            return URL(
+                value=data_value["value"]["url"],
+                prop_nr=self.id_mapping[prop_nr],
+                references=references,
+            )
+
         else:
             print(data_value)
             sys.exit("Unknown data value type")
@@ -423,13 +534,14 @@ class Integrator:
             aliases[lang] = alias_value_list
 
         if recurse == False:
-            claims = None
+            claims = []
         else:
             claims = entity["claims"]
         entity_type = entity["type"]
         return (labels, descriptions, aliases, claims, entity_type, datatype)
 
     def change_config(self, instance):
+        wbi_config["USER_AGENT"] = "zuse_wikibase_importer"
         if instance == "wikidata":
             wbi_config["MEDIAWIKI_API_URL"] = "https://www.wikidata.org/w/api.php"
             wbi_config["SPARQL_ENDPOINT_URL"] = "https://query.wikidata.org/sparql"

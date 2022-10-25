@@ -74,17 +74,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# references = relation["references"][0]["snaks"]
-# for ref_id in references:
-#     # add property name of reference
-#     self.add_secondary_units(unit_id=ref_id, languages=languages)
-#     # for each target of this property in references, add item if it is an item
-#     for ref_snak in references["ref_id"]:
-#         if "id" in ref_snak["datavalue"]["value"]:
-#             self.add_secondary_units(unit_id=ref_snak["datavalue"]["value"]["id"])
-
-
-# target = self.get_target(data_value)
-# target["references"] = references
-# claims.append(target)

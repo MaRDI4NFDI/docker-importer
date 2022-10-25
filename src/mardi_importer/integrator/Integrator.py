@@ -57,8 +57,15 @@ class Integrator:
         )
 
     def check_or_create_db_table(self):
-        # check if db table is there
-        # if not, create
+        """
+        Check if db table for id mapping is there; if not, create.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         with self.engine.connect() as connection:
             metadata = db.MetaData()
             if not db.inspect(self.engine).has_table("wb_id_mapping"):
@@ -73,7 +80,18 @@ class Integrator:
                 )
                 metadata.create_all(self.engine)
 
-    def insert_id_db(self, wikidata_id, internal_id, connection):
+    def insert_id_in_db(self, wikidata_id, internal_id, connection):
+        """
+        Insert wikidata_id and internal_id into mapping table.
+
+        Args:
+            wikidata_id: Wikidata id
+            internal_id: local wiki id
+            connection: sqlalchemy connection object
+
+        Returns:
+            None
+        """
         metadata = db.MetaData()
         table = db.Table(
             "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
@@ -83,12 +101,23 @@ class Integrator:
         result = connection.execute(ins)
 
     def create_units(self, id_list, languages, recurse):
-        """Downloads data from wikidata and saves them
-        as IntegratorUnits
+        """Function for creating units. Primary units, which are units
+        referenced in id_list, are created together with units for the properties
+        and property targets in the claims, as well as properties and targets in
+        the claim references, if given.
+
+        Args:
+            id_list: List of wikidata ids to be imported
+            languages: list of desired languages
+            recurse: if we want to import claims
+
+        Returns:
+            None (all units are added to self.primary_integrator_units
+                and self.secondary_integrator_units)
         """
         self.change_config(instance="wikidata")
-        # always import wikidata entity id
-        id_list.append("Q111513370")
+        # for each of the primary items in id_list,
+        # add it and all it links to
         for item_id in id_list:
             (
                 labels,
@@ -101,21 +130,18 @@ class Integrator:
                 wikidata_id=item_id, languages=languages, recurse=recurse
             )
 
+            # if we also want to import the claims
             if recurse == True:
-                # for each of the ids in the claims, get stuff with recurse = False
-                # and add to secondary
+                # add secondary units, where secondary units are the properties
                 for secondary_id in claims:
                     # add property
                     self.add_secondary_units(unit_id=secondary_id, languages=languages)
 
-                    # add target
                     for relation in claims[secondary_id]:
-                        if "id" in relation["mainsnak"]["datavalue"][
-                            "value"
-                        ] and isinstance(
-                            relation["mainsnak"]["datavalue"]["value"], dict
-                        ):
-                            target_id = relation["mainsnak"]["datavalue"]["value"]["id"]
+                        value = relation["mainsnak"]["datavalue"]["value"]
+                        if "id" in value and isinstance(value, dict):
+                            target_id = value["id"]
+                            # add property target if it is an entity
                             self.add_secondary_units(
                                 unit_id=target_id, languages=languages
                             )
@@ -127,20 +153,20 @@ class Integrator:
                                 self.add_secondary_units(
                                     unit_id=ref_id, languages=languages
                                 )
-                                # for each target of this property in references, add item if it is an item
+                                # for each target of this property in references,
+                                # add item if it is an item
                                 for ref_snak in references[ref_id]:
-                                    if "id" in ref_snak["datavalue"][
-                                        "value"
-                                    ] and isinstance(
-                                        ref_snak["datavalue"]["value"], dict
+                                    ref_value = ref_snak["datavalue"]["value"]
+                                    if "id" in ref_value and isinstance(
+                                        ref_value, dict
                                     ):
+                                        # add target of property in references
                                         self.add_secondary_units(
-                                            unit_id=ref_snak["datavalue"]["value"][
-                                                "id"
-                                            ],
+                                            unit_id=ref_value["id"],
                                             languages=languages,
                                         )
 
+            # add primary unit
             self.primary_integrator_units[item_id] = IntegratorUnit(
                 labels=labels,
                 descriptions=descriptions,
@@ -152,6 +178,16 @@ class Integrator:
             )
 
     def add_secondary_units(self, unit_id, languages):
+        """Function for creating secondary units, where a
+        secondary unit is an entity unit that does not contain claims.
+
+        Args:
+            unit_id: wikidata id
+            languages: desired languages to be pulled
+
+        Returns:
+            None (created units are added to self.secondary_integrator_units)
+        """
         if unit_id not in self.secondary_integrator_units:
             (
                 labels,
@@ -175,18 +211,23 @@ class Integrator:
             )
 
     def check_entity_exists(self, unit, wikidata_id, connection):
-        """Check if entity exists using wbsearchentity with label
+        """Check if entity exists with a lookup (in this order) in
+        self.id_mapping, db table and wiki. Add to where it is missing,
+        if it only exists in some of them.
 
         Args:
-            unit: an IntegratorUnit
+           unit: an IntegratorUnit
+           wikidata_id
+           connection: sqlalchemy connection
         Returns:
-            bool: Entity already exists or not
+           bool: Entity already exists or not
         """
-        # check if id is in id mapping
+        # if the id is in id mapping, the entity
+        # has been created in this run
         if wikidata_id in self.id_mapping:
             return True
 
-        # check if id in db
+        # check if entity is in db
         metadata = db.MetaData()
         table = db.Table(
             "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
@@ -195,187 +236,187 @@ class Integrator:
             table.columns.wikidata_id == wikidata_id,
         )
         db_result = connection.execute(sql).fetchone()
+        # if it is in db, it already exists
+        # and should be added to the db mapping
+        # to speed up the lookup
         if db_result:
-            # add to id mapping, because it already exists
             self.id_mapping[wikidata_id] = db_result["internal_id"]
             return True
 
-        # if unit is not in dict and not in db, try str search to see if it already exists in wiki
+        # if unit is not in dict and not in db, try string search
+        # to see if it already exists in wiki
         result = search_entities(
             search_string=unit.labels["en"],
             language="en",
             search_type=unit.entity_type,
             dict_result=True,
         )
+        # if is in neither of the three, it does not exist
         if not result:
             return False
         else:
+            # try to find an instance where label (for properties)
+            # or label and description (for items) match the
+            # entity information
             for subdict in result:
                 if subdict["label"] == unit.labels["en"]:
                     # for properties, the label is unique
                     if wikidata_id[0] == "P":
-                        # insert into mapping
                         self.id_mapping[wikidata_id] = subdict["id"]
-                        # insert into db
-                        self.insert_id_db(wikidata_id, subdict["id"], connection)
+                        self.insert_id_in_db(wikidata_id, subdict["id"], connection)
                         return True
-                    # an item is unqiue in combination (label, description)
+                    # an item is unique in combination (label, description)
                     elif wikidata_id[0] == "Q":
+                        # if, additionally to label, the description also matches
                         if subdict["description"] == unit.descriptions["en"]:
-                            # insert into mapping
                             self.id_mapping[wikidata_id] = subdict["id"]
-                            # insert into db
-                            self.insert_id_db(wikidata_id, subdict["id"], connection)
+                            self.insert_id_in_db(wikidata_id, subdict["id"], connection)
                             return True
                     else:
                         sys.exit(
                             "Exception: wikidata id starts with letter other than Q or P"
                         )
+            # if no entity was found where
+            # the required params match, it does
+            # not exist
             return False
 
     def import_items(self):
-        """Import items in self.integrator units or update"""
+        """Function for importing or updating entities in local
+        wikibase instance. Import primary and secondary units.
+        """
         self.change_config(instance="local")
-        test_login = self.change_login(instance="local")
+        login = self.change_login(instance="local")
 
         with self.engine.connect() as connection:
+            # add secondary units first so they are available for linking in the first
+            # units and claims
             for wikidata_id, unit in self.secondary_integrator_units.items():
-
+                # if the secondary unit already exists, there is no reason to
+                # create it
                 if self.check_entity_exists(
                     unit=unit, wikidata_id=wikidata_id, connection=connection
                 ):
                     continue
-                if wikidata_id[0] == "Q":
-                    entity = self.wikibase_integrator.item.new()
-                    # entity.datatype = "wikibase-item"
-                elif wikidata_id[0] == "P":
-                    entity = self.wikibase_integrator.property.new()
-                    entity.datatype = unit.datatype
-                for lang, val in unit.labels.items():
-                    entity.labels.set(language=lang, value=val)
-                for lang, val in unit.descriptions.items():
-                    entity.descriptions.set(language=lang, value=val)
-                for lang, val_list in unit.aliases.items():
-                    for val in val_list:
-                        entity.aliases.set(language=lang, values=val)
+                entity = self.make_entity(wikidata_id, unit)
+                entity_description = entity.write(login=login)
 
-                try:
-                    entity_description = entity.write(login=test_login)
-                except:
-                    print(wikidata_id)
-                    if wikidata_id in self.id_mapping:
-                        print(self.id_mapping[wikidata_id])
-                    else:
-                        print("Nope!")
-                    print(unit.labels)
-                    print(unit.descriptions)
-                    print(unit.aliases)
-                    print(unit.datatype)
-                    self.engine.dispose()
-                    sys.exit("Nope!!")
-                # insert mapping into db
-                self.insert_id_db(
+                self.insert_id_in_db(
                     wikidata_id=wikidata_id,
                     internal_id=entity_description.id,
                     connection=connection,
                 )
-                # insert mapping into dict
                 self.id_mapping[wikidata_id] = entity_description.id
 
             for wikidata_id, unit in self.primary_integrator_units.items():
-                # import primary like secondary
                 if self.check_entity_exists(
                     unit=unit, wikidata_id=wikidata_id, connection=connection
                 ):
-                    # here, nothing needs to be inserted into id_mapping or db,
-                    # as it is already there
                     # if the entity already exists, update
+                    # does not need to be added to db or mapping, as this
+                    # already happens in the check_entity_exists function
                     internal_id = self.id_mapping[wikidata_id]
-                    if wikidata_id[0] == "Q":
-                        entity = self.wikibase_integrator.item.get(
-                            entity_id=internal_id
-                        )
-                    elif wikidata_id[0] == "P":
-                        entity = self.wikibase_integrator.property.get(
-                            entity_id=internal_id
-                        )
-                        entity.datatype = unit.datatype
-                    for lang, val in unit.descriptions.items():
-                        # descriptions are not replaced,
-                        # new ones are only added if there was no old one
-                        entity.descriptions.set(
-                            language=lang,
-                            value=val,
-                            action_if_exists=ActionIfExists.KEEP,
-                        )
-                    # this should not create duplicates, but append non-existing aliases
-                    for lang, val_list in unit.aliases.items():
-                        for val in val_list:
-                            entity.aliases.set(language=lang, values=val)
-                    print("now befoire makingclaims")
-                    claims = self.make_claims(unit=unit)
-                    # add new claims if they are different from old claims
-                    print("now before appending claims")
-                    entity.claims.add(
-                        claims,
-                        ActionIfExists.APPEND_OR_REPLACE,
-                    )
-                    print("now after appending claims")
-                    entity_description = entity.write(login=test_login)
+                    entity = self.make_entity(wikidata_id, unit, internal_id)
+                    entity_description = entity.write(login=login)
 
                 else:
                     # add new entity
-                    if wikidata_id[0] == "Q":
-                        entity = self.wikibase_integrator.item.new()
-                    elif wikidata_id[0] == "P":
-                        entity = self.wikibase_integrator.property.new()
-                    for lang, val in unit.labels.items():
-                        entity.labels.set(language=lang, value=val)
-                    for lang, val in unit.descriptions.items():
-                        entity.descriptions.set(language=lang, value=val)
-                    for lang, val_list in unit.aliases.items():
-                        for val in val_list:
-                            entity.aliases.set(language=lang, values=val)
-                    claims = self.make_claims(unit=unit)
-                    entity.claims.add(claims)
-
-                    try:
-                        entity_description = entity.write(login=test_login)
-                    except Exception as e:
-                        print(e)
-                        print(wikidata_id)
-                        print(unit.labels)
-                        print(unit.descriptions)
-                        print(unit.aliases)
-                        print(claims)
-                        sys.exit("ewehfoi")
+                    entity = self.make_entity(wikidata_id, unit, make_claims=True)
+                    entity_description = entity.write(login=login)
                     # insert mapping into db
-                    self.insert_id_db(
+                    self.insert_id_in_db(
                         wikidata_id=wikidata_id,
                         internal_id=entity_description.id,
                         connection=connection,
                     )
                     self.id_mapping[wikidata_id] = entity_description.id
 
+    def make_entity(self, wikidata_id, unit, internal_id=None, make_claims=False):
+        """Function for creating new entity
+        of type property or item. Also add labels, descriptions,
+        aliases and claims, where appropriate.
+
+        Args:
+            wikidata_id
+            unit: integrator unit; needed for datatype
+            internal_id: optional; if given, get entity instead of creating
+            make claims: bool, decides if claims are made when entity is
+                    created; if it is updated, they are always made
+
+        Returns:
+            entity
+        """
+        if internal_id:
+            if wikidata_id[0] == "Q":
+                entity = self.wikibase_integrator.item.get(entity_id=internal_id)
+            elif wikidata_id[0] == "P":
+                entity = self.wikibase_integrator.property.get(entity_id=internal_id)
+                # each property needs a dataype
+                entity.datatype = unit.datatype
+            for lang, val in unit.descriptions.items():
+                # descriptions are not replaced,
+                # new ones are only added if there was no old one
+                entity.descriptions.set(
+                    language=lang,
+                    value=val,
+                    action_if_exists=ActionIfExists.KEEP,
+                )
+            # if only updating, claims are always made
+            claims = self.make_claims(unit=unit)
+            # add new claims if they are different from old claims
+            entity.claims.add(
+                claims,
+                ActionIfExists.APPEND_OR_REPLACE,
+            )
+        else:
+            if wikidata_id[0] == "Q":
+                entity = self.wikibase_integrator.item.new()
+            elif wikidata_id[0] == "P":
+                entity = self.wikibase_integrator.property.new()
+                # each property needs a datatype
+                entity.datatype = unit.datatype
+            for lang, val in unit.labels.items():
+                entity.labels.set(language=lang, value=val)
+            for lang, val in unit.descriptions.items():
+                entity.descriptions.set(language=lang, value=val)
+            if make_claims:
+                claims = self.make_claims(unit=unit)
+                entity.claims.add(claims)
+        # this will not create duplicates, even if entity already exists
+        for lang, val_list in unit.aliases.items():
+            for val in val_list:
+                entity.aliases.set(language=lang, values=val)
+
+        return entity
+
     def make_claims(self, unit):
-        print("MAKING CLAIMS!!")
+        """Function for making claims, including their references.
+
+        Args:
+            unit: unit for which claims should be made
+
+        Returns:
+            claims
+        """
         claims = []
         for prop_nr, info in unit.claims.items():
+            # there can be several targets for one property
             for relation in info:
-                print(relation)
                 if "datavalue" in relation["mainsnak"]:
-                    # add references
                     ref_list = []
+                    # if there are references for the claim
                     if "references" in relation:
                         references = relation["references"][0]["snaks"]
+                        # for each property in references
                         for ref_id in references:
+                            # add reference property targets
                             for ref_snak in references[ref_id]:
                                 ref_list.append(
                                     self.get_target(
                                         ref_snak["datavalue"], prop_nr=ref_id
                                     )
                                 )
-
+                    # add claim property targets
                     target = self.get_target(
                         relation["mainsnak"]["datavalue"],
                         prop_nr=prop_nr,
@@ -391,6 +432,19 @@ class Integrator:
         )
 
     def get_target(self, data_value, prop_nr, references=None):
+        """Function for returning a property target of the type
+        String, Item, MonolingualText, Time, CommonsMedia, ExternalID,
+        Form, GeoSHape, GlobeCoordinate, Lexeme, Math, MusicalNotation,
+        Quantity, Sense, TabularData or URL.
+
+        Args:
+            data_value: datavalue dict from wikidata for the target
+            prop_nr: property id
+            references: references for claim
+
+        Returns:
+            object of one of the above mentioned types
+        """
         if data_value["type"] == "string":
             return String(
                 value=data_value["value"],
@@ -508,16 +562,34 @@ class Integrator:
             sys.exit("Unknown data value type")
 
     def get_wikidata_information(self, wikidata_id, languages, recurse):
+        """Function for getting information about a wikidata entity.
+
+        Args:
+            wikidata_id: the wikidata id
+            languages: languages for which the information should be pulled
+            recurse: do we also want the entities claims or not?
+
+        Returns:
+            labels: entity labels in languages
+            descriptions: entity descriptions in languages
+            aliases: entity aliases in languages
+            claims: either claims or None, depending on recurse
+            entity_type: entity type
+            datatype: entity datatype
+        """
         labels = {}
         descriptions = {}
         aliases = {}
         if wikidata_id[0] == "Q":
             entity = self.wikibase_integrator.item.get(entity_id=wikidata_id).get_json()
+            # datatype is only relevant for properties
             datatype = None
         elif wikidata_id[0] == "P":
             entity = self.wikibase_integrator.property.get(
                 entity_id=wikidata_id
             ).get_json()
+            # datatype describes what kind of data a property
+            # links to
             datatype = entity["datatype"]
         for lang in languages:
             label_info = entity["labels"].get(lang)
@@ -541,6 +613,16 @@ class Integrator:
         return (labels, descriptions, aliases, claims, entity_type, datatype)
 
     def change_config(self, instance):
+        """
+        Function for changing the config to allow using wikidata and local instance.
+        Also set user agent to avoid warning.
+
+        Args:
+            instance: Instance name (choice between wikidata and local)
+
+        Returns:
+            None
+        """
         wbi_config["USER_AGENT"] = "zuse_wikibase_importer"
         if instance == "wikidata":
             wbi_config["MEDIAWIKI_API_URL"] = "https://www.wikidata.org/w/api.php"
@@ -554,10 +636,18 @@ class Integrator:
             sys.exit("Invalid instance")
 
     def change_login(self, instance):
+        """
+        Function for using in as a botuser; needed for editing local data.
+
+        Args:
+            instance: Instance name (choice between wikidata and local)
+
+        Returns:
+            wbi login instance
+        """
         if instance == "wikidata":
             pass
         elif instance == "local":
-            # from wikibaseintegrator import wbi_login
             login_instance = wbi_login.Clientlogin(
                 user=os.environ.get("BOTUSER_NAME"),
                 password=os.environ.get("BOTUSER_PW"),

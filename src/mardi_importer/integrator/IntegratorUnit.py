@@ -3,7 +3,7 @@ from urllib.parse import ParseResultBytes
 
 
 class IntegratorUnit:
-    """What this is supposed to be:
+    """
     Unit for a specific Wiki Item
     """
 
@@ -19,20 +19,3 @@ class IntegratorUnit:
         self.datatype = datatype
         self.imported = False
         self.local_id = None
-
-
-# def check_local_instance(self):
-#    """Checks local wikibase instance to see if this Unit
-#    already exists;
-#    """
-#   wikibase_integrator
-#    pass
-
-#  def create(self):
-#      """Creates new entry set imported from wikidata"""
-#       #write returns something, does it give the new id??
-#       pass
-
-# def update(self):
-#      """Updates existing entity set imported from wikidata?"""
-#      pass

@@ -23,7 +23,7 @@
 /*******************************/
 /* Disable UI error-reporting  */
 /*******************************/
-ini_set( 'display_errors', '0' );
+ini_set('display_errors', '0');
 # increase memory limit
 ini_set('memory_limit', '2G');
 
@@ -32,6 +32,9 @@ $wgGroupPermissions['*']['createaccount'] = false;
 
 # Restrict anonymous editing
 $wgGroupPermissions['*']['edit'] = false;
+
+# remove rate limits for bots
+$wgGroupPermissions['bot']['noratelimit'] = true;
 
 # Set name of the wiki
 $wgSitename = 'MaRDI portal';
@@ -139,3 +142,16 @@ $wgMathSearchBaseXBackendUrl = "http://formulasearch:1985/basex/";
 
 $wgMathFullRestbaseURL = 'https://wikimedia.org/api/rest_';
 $wgMathMathMLUrl = 'https://mathoid-beta.wmflabs.org';
+
+#increase string size limits
+$wgWBRepoSettings['string-limits'] = [
+    'VT:string' => [
+        'length' => 4000,
+    ],
+    'multilang' => [
+        'length' => 1000, // length constraint
+    ],
+    'VT:monolingualtext' => [
+        'length' => 1000,
+    ],
+];

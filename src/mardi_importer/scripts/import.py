@@ -53,9 +53,9 @@ def main():
 
         i = Integrator(conf_path=args.conf_path)
         i.check_or_create_db_table()
-        i.create_units(
-            id_list=["Q177", "Q192783"], languages=["en", "de"], recurse=True
-        )
+        id_list = i.create_id_list_from_file("/config/Properties_to_import_from_WD.txt")
+        # id_list=["Q177", "Q192783"]
+        i.create_units(id_list=id_list, languages=["en", "de"], recurse=True)
         i.import_items()
         i.engine.dispose()
 

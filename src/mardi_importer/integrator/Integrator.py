@@ -4,6 +4,7 @@ from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.datatypes import (
     Item,
+    Property,
     String,
     MonolingualText,
     Time,
@@ -25,6 +26,7 @@ from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
 import os
 import sqlalchemy as db
+import datetime
 
 import sys
 
@@ -42,10 +44,14 @@ class Integrator:
     def __init__(self, conf_path) -> None:
         self.primary_integrator_units = {}
         self.secondary_integrator_units = {}  # items mentioned in statements
+        # list of wikidata ids that do not have the required language and
+        # should therefore not be imported
+        self.invalid_wikidata_ids = []
         self.wikibase_integrator = WikibaseIntegrator()
         self.imported_items = []
         config_parser = IntegratorConfigParser(conf_path)
         self.config_dict = config_parser.parse_config()
+        self.wikidata_linker_id = None
         # wikidata id to imported id
         self.id_mapping = {}
         db_user = os.environ["DB_USER"]
@@ -115,12 +121,20 @@ class Integrator:
             None (all units are added to self.primary_integrator_units
                 and self.secondary_integrator_units)
         """
+        # needs to be before change_config, because it gets
+        # change to local in add_local_entity
+        self.wikidata_linker_id = self.add_local_entity(
+            entity_type="property",
+            labels={"en": "has_wikidata_id"},
+            descriptions={"en": "has a wikidata id"},
+            datatype="external-id",
+        )
         self.change_config(instance="wikidata")
         # for each of the primary items in id_list,
         # add it and all it links to
 
-        self.create_wikidata_id_unit(languages)
         for item_id in id_list:
+            print(f"Creating entity {item_id}")
             (
                 labels,
                 descriptions,
@@ -131,7 +145,12 @@ class Integrator:
             ) = self.get_wikidata_information(
                 wikidata_id=item_id, languages=languages, recurse=recurse
             )
-
+            # if label does not exist
+            # in desired languages,or not in eglish, do not
+            # add entity
+            if not labels or "en" not in labels:
+                self.invalid_wikidata_ids.append(item_id)
+                continue
             # if we also want to import the claims
             if recurse == True:
                 # add secondary units, where secondary units are the properties
@@ -140,7 +159,11 @@ class Integrator:
                     self.add_secondary_units(unit_id=secondary_id, languages=languages)
 
                     for relation in claims[secondary_id]:
+                        # exclude edge cases
+                        if relation["mainsnak"]["snaktype"] in ["somevalue", "novalue"]:
+                            continue
                         value = relation["mainsnak"]["datavalue"]["value"]
+
                         if "id" in value and isinstance(value, dict):
                             target_id = value["id"]
                             # add property target if it is an entity
@@ -179,36 +202,12 @@ class Integrator:
                 datatype=datatype,
             )
 
-    def create_wikidata_id_unit(self, languages):
-        """Function for creating unit for Wikidata entity
-        ID entity, as this needs to be available right away.
-
-        Args:
-            languages
-
-        Returns:
-            None (unit gets added as self.wikidata_id_unit)
-        """
-        wikidata_id = "Q111513370"
-        (
-            labels,
-            descriptions,
-            aliases,
-            claims,
-            entity_type,
-            datatype,
-        ) = self.get_wikidata_information(
-            wikidata_id=wikidata_id, languages=languages, recurse=False
-        )
-        self.wikidata_id_unit = IntegratorUnit(
-            labels=labels,
-            descriptions=descriptions,
-            aliases=aliases,
-            entity_type=entity_type,
-            claims=claims,
-            wikidata_id=wikidata_id,
-            datatype=datatype,
-        )
+    def create_id_list_from_file(self, file):
+        id_list = []
+        with open(file, "r") as file:
+            for line in file:
+                id_list.append(line.strip())
+        return id_list
 
     def add_secondary_units(self, unit_id, languages):
         """Function for creating secondary units, where a
@@ -232,7 +231,12 @@ class Integrator:
             ) = self.get_wikidata_information(
                 wikidata_id=unit_id, languages=languages, recurse=False
             )
-
+            # if labels are not available in
+            # desired languages, or not in english, unit should not
+            # be added
+            if not labels or "en" not in labels:
+                self.invalid_wikidata_ids.append(unit_id)
+                return
             self.secondary_integrator_units[unit_id] = IntegratorUnit(
                 labels=labels,
                 descriptions=descriptions,
@@ -322,10 +326,10 @@ class Integrator:
         login = self.change_login(instance="local")
 
         with self.engine.connect() as connection:
-            self.import_wikidata_id_unit(connection=connection, login=login)
             # add secondary units first so they are available for linking in the first
             # units and claims
             for wikidata_id, unit in self.secondary_integrator_units.items():
+                print(f"Importing entity {wikidata_id}")
                 # if the secondary unit already exists, there is no reason to
                 # create it
                 if self.check_entity_exists(
@@ -333,6 +337,7 @@ class Integrator:
                 ):
                     continue
                 entity = self.make_entity(wikidata_id, unit)
+
                 entity_description = entity.write(login=login)
 
                 self.insert_id_in_db(
@@ -343,6 +348,7 @@ class Integrator:
                 self.id_mapping[wikidata_id] = entity_description.id
 
             for wikidata_id, unit in self.primary_integrator_units.items():
+                print(f"Importing entity {wikidata_id}")
                 if self.check_entity_exists(
                     unit=unit, wikidata_id=wikidata_id, connection=connection
                 ):
@@ -365,33 +371,6 @@ class Integrator:
                     )
                     self.id_mapping[wikidata_id] = entity_description.id
 
-    def import_wikidata_id_unit(self, connection, login):
-        """Function for importing wikidata id unit,
-        because it needs to be there first.
-
-        Args:
-            connection: sqlalchemy connection object
-            login: login object
-
-        Returns:
-            None
-        """
-        wikidata_id = self.wikidata_id_unit.wikidata_id
-        unit = self.wikidata_id_unit
-        if not self.check_entity_exists(
-            unit=self.wikidata_id_unit,
-            wikidata_id=wikidata_id,
-            connection=connection,
-        ):
-            entity = self.make_entity(wikidata_id, unit)
-            entity_description = entity.write(login=login)
-            self.insert_id_in_db(
-                wikidata_id=wikidata_id,
-                internal_id=entity_description.id,
-                connection=connection,
-            )
-            self.id_mapping[wikidata_id] = entity_description.id
-
     def make_entity(self, wikidata_id, unit, internal_id=None, make_claims=False):
         """Function for creating new entity
         of type property or item. Also add labels, descriptions,
@@ -410,7 +389,7 @@ class Integrator:
 
         wikidata_id_claim = ExternalID(
             value=wikidata_id,
-            prop_nr=self.id_mapping[self.wikidata_id_unit.wikidata_id],
+            prop_nr=self.wikidata_linker_id,
             references=[[]],
         )
 
@@ -450,7 +429,7 @@ class Integrator:
                 entity.descriptions.set(language=lang, value=val)
             if make_claims:
                 claims = self.make_claims(unit=unit)
-                claims.append = wikidata_id_claim
+                claims.append(wikidata_id_claim)
                 entity.claims.add(claims)
             else:
                 entity.claims.add([wikidata_id_claim])
@@ -472,6 +451,8 @@ class Integrator:
         """
         claims = []
         for prop_nr, info in unit.claims.items():
+            if prop_nr in self.invalid_wikidata_ids:
+                continue
             # there can be several targets for one property
             for relation in info:
                 if "datavalue" in relation["mainsnak"]:
@@ -479,16 +460,30 @@ class Integrator:
                     # if there are references for the claim
                     if "references" in relation:
                         references = relation["references"][0]["snaks"]
-                        # for each property in references
                         for ref_id in references:
+                            if ref_id in self.invalid_wikidata_ids:
+                                continue
                             # add reference property targets
                             for ref_snak in references[ref_id]:
-                                ref_list.append(
-                                    self.get_target(
-                                        ref_snak["datavalue"], prop_nr=ref_id
-                                    )
+                                # if it is an entity and the id is in the invalid ids, skip
+                                if ref_snak["datavalue"]["type"] == "wikibase-entityid":
+                                    if (
+                                        ref_snak["datavalue"]["value"]["id"]
+                                        in self.invalid_wikidata_ids
+                                    ):
+                                        continue
+                                target = self.get_target(
+                                    ref_snak["datavalue"], prop_nr=ref_id
                                 )
+                                ref_list.append(target)
                     # add claim property targets
+                    # if it is an entity and the id is in the invalid ids, skip
+                    if relation["mainsnak"]["datavalue"]["type"] == "wikibase-entityid":
+                        if (
+                            relation["mainsnak"]["datavalue"]["value"]["id"]
+                            in self.invalid_wikidata_ids
+                        ):
+                            continue
                     target = self.get_target(
                         relation["mainsnak"]["datavalue"],
                         prop_nr=prop_nr,
@@ -496,12 +491,6 @@ class Integrator:
                     )
                     claims.append(target)
         return claims
-
-    def make_wikidata_claim(self, target_id):
-        return ExternalID(
-            value=target_id,
-            prop_nr=self.id_mapping["Q111513370"],
-        )
 
     def get_target(self, data_value, prop_nr, references=None):
         """Function for returning a property target of the type
@@ -517,6 +506,7 @@ class Integrator:
         Returns:
             object of one of the above mentioned types
         """
+        value_dict = data_value["value"]
         if data_value["type"] == "string":
             return String(
                 value=data_value["value"],
@@ -524,11 +514,19 @@ class Integrator:
                 references=references,
             )
         elif data_value["type"] == "wikibase-entityid":
-            return Item(
-                value=self.id_mapping[data_value["value"]["id"]],
-                prop_nr=self.id_mapping[prop_nr],
-                references=references,
-            )
+            internal_id = self.id_mapping[data_value["value"]["id"]]
+            if internal_id[0] == "P":
+                return Property(
+                    value=internal_id,
+                    prop_nr=self.id_mapping[prop_nr],
+                    references=references,
+                )
+            else:
+                return Item(
+                    value=internal_id,
+                    prop_nr=self.id_mapping[prop_nr],
+                    references=references,
+                )
         elif data_value["type"] == "monolingualtext":
             return MonolingualText(
                 text=data_value["value"]["text"],
@@ -538,12 +536,14 @@ class Integrator:
             )
         elif data_value["type"] == "time":
             return Time(
-                time=data_value["value"]["time"],
-                timezone=data_value["value"]["timezone"],
-                before=data_value["value"]["before"],
-                after=data_value["value"]["after"],
-                precision=data_value["value"]["precision"],
-                calendarmodel=data_value["value"]["calendarmodel"],
+                time=self.get_value(keyword="time", value_dict=value_dict),
+                timezone=self.get_value(keyword="timezone", value_dict=value_dict),
+                before=self.get_value(keyword="before", value_dict=value_dict),
+                after=self.get_value(keyword="after", value_dict=value_dict),
+                precision=self.get_value(keyword="precision", value_dict=value_dict),
+                calendarmodel=self.get_value(
+                    keyword="calendarmodel", value_dict=value_dict
+                ),
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
             )
@@ -573,12 +573,14 @@ class Integrator:
             )
         elif data_value["type"] == "globecoordinate":
             return GlobeCoordinate(
-                latitude=data_value["value"]["latitude"],
-                longitude=data_value["value"]["longitude"],
-                altitude=data_value["value"]["altitude"],
-                precision=data_value["value"]["precision"],
-                globe=data_value["value"]["globe"],
-                wikibase_url=data_value["value"]["wikibase_url"],
+                latitude=self.get_value(keyword="latitude", value_dict=value_dict),
+                longitude=self.get_value(keyword="longitude", value_dict=value_dict),
+                altitude=self.get_value(keyword="altitude", value_dict=value_dict),
+                precision=self.get_value(keyword="precision", value_dict=value_dict),
+                globe=self.get_value(keyword="globe", value_dict=value_dict),
+                wikibase_url=self.get_value(
+                    keyword="wikibase_url", value_dict=value_dict
+                ),
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
             )
@@ -602,11 +604,17 @@ class Integrator:
             )
         elif data_value["type"] == "quantity":
             return Quantity(
-                amount=data_value["value"]["amount"],
-                upper_bound=data_value["value"]["upper_bound"],
-                lower_bound=data_value["value"]["lower_bound"],
-                unit=data_value["value"]["unit"],
-                wikibase_url=data_value["value"]["wikibase_url"],
+                amount=self.get_value(keyword="amount", value_dict=value_dict),
+                upper_bound=self.get_value(
+                    keyword="upper_bound", value_dict=value_dict
+                ),
+                lower_bound=self.get_value(
+                    keyword="lower_bound", value_dict=value_dict
+                ),
+                unit=self.get_value(keyword="unit", value_dict=value_dict),
+                wikibase_url=self.get_value(
+                    keyword="wikibase_url", value_dict=value_dict
+                ),
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
             )
@@ -632,6 +640,37 @@ class Integrator:
         else:
             print(data_value)
             sys.exit("Unknown data value type")
+
+    def get_value(self, keyword, value_dict):
+        """Function for getting a keyword from a
+            value dict, if it exists, else None
+
+        Args:
+            keyword
+            value_dict
+
+        Returns:
+            value or None
+        """
+        if keyword in value_dict:
+            if keyword == "time":
+                timeformat = "+%Y-%m-%dT00:00:00Z"
+                time = value_dict["time"]
+                try:
+                    datetime.datetime.strptime(time, timeformat)
+                except:
+                    # some timestamps are invalid (e.g. +2007-00-00T00:00:00Z)
+                    # and have to be set to a valid value --> 01 instead of 00
+                    time = time.split("-")
+                    if time[1] == "00":
+                        time[1] = "01"
+                    if time[2].startswith("00"):
+                        time[2] = "01" + time[2][2:]
+                    time = ("-").join(time)
+                return time
+            return value_dict[keyword]
+        else:
+            return None
 
     def get_wikidata_information(self, wikidata_id, languages, recurse):
         """Function for getting information about a wikidata entity.
@@ -695,7 +734,7 @@ class Integrator:
         Returns:
             None
         """
-        wbi_config["USER_AGENT"] = "zuse_wikibase_importer"
+        wbi_config["USER_AGENT"] = "zuse_wlocalikibase_importer"
         if instance == "wikidata":
             wbi_config["MEDIAWIKI_API_URL"] = "https://www.wikidata.org/w/api.php"
             wbi_config["SPARQL_ENDPOINT_URL"] = "https://query.wikidata.org/sparql"
@@ -729,118 +768,120 @@ class Integrator:
             sys.exit("Invalid instance")
         return login_instance
 
+    def add_local_entity(
+        self,
+        entity_type,
+        labels,
+        descriptions,
+        aliases=None,
+        datatype=None,
+        claims={},
+    ):
+        """Function for creating custom entities for local wikibase instance
 
-def add_local_entity(
-    self,
-    entity_type,
-    labels,
-    descriptions,
-    aliases=None,
-    datatype=None,
-    claims={},
-):
-    """Function for creating custom entities for local wikibase instance
+        Args:
+            entity_type: choice from 'item' and 'property'
+            labels: format: {language:value,...}; there must at least be an english label
+            descriptions: format: {language:value,...}; there must a least be an english description
+            aliases: format: {language: [val1,val2,...],...}
+            datatype: required if entity is a property; describes what type
+                a property links to; specified in wikibaseintegrator.datatypes
+            claims: dict; format: {internal_property_id: [{datavalue_dict: datavalue_dict, references: {internal_property_id: [datavalue_dict,...]}},...]}
+                where datavalue_dict = {'type': target_type, 'value': info_dict} where info_dict contains information as
+                specified in self.get_target
+                all ids referenced in this must already exist in local instance
 
-    Args:
-        entity_type: choice from 'item' and 'property'
-        labels: format: {language:value,...}; there must at least be an english label
-        descriptions: format: {language:value,...}; there must a least be an english description
-        aliases: format: {language: [val1,val2,...],...}
-        datatype: required if entity is a property; describes what type
-            a property links to; specified in wikibaseintegrator.datatypes
-        claims: dict; format: {internal_property_id: [{datavalue_dict: datavalue_dict, references: {internal_property_id: [datavalue_dict,...]}},...]}
-            where datavalue_dict = {'type': target_type, 'value': info_dict} where info_dict contains information as
-            specified in self.get_target
-            all ids referenced in this must already exist in local instance
+        Returns:
+            None
+        """
 
-    Returns:
-        None
-    """
+        self.change_config(instance="local")
+        login = self.change_login(instance="local")
+        id_if_exists = self.check_local_entity(
+            labels=labels, descriptions=descriptions, entity_type=entity_type
+        )
+        if entity_type == "item":
+            if id_if_exists:
+                entity = self.wikibase_integrator.item.get(entity_id=id_if_exists)
+            else:
+                entity = self.wikibase_integrator.item.new()
+        elif entity_type == "property":
+            if id_if_exists:
+                entity = self.wikibase_integrator.property.get(entity_id=id_if_exists)
+            else:
+                entity = self.wikibase_integrator.property.new()
+            if datatype:
+                entity.datatype = datatype
+            else:
+                sys.exit("For entity type 'property', a datatype must be specified")
+        for lang, val in labels.items():
+            entity.labels.set(language=lang, value=val)
+        for lang, val in descriptions.items():
+            entity.descriptions.set(language=lang, value=val)
+        if aliases:
+            for lang, vals in aliases.items():
+                for val in vals:
+                    entity.aliases.set(language=lang, values=val)
 
-    self.change_config(instance="local")
-    login = self.change_login(instance="local")
-    id_if_exists = check_local_entity(
-        labels=labels, descriptions=descriptions, entity_type=entity_type
-    )
-    if entity_type == "item":
-        if id_if_exists:
-            entity = self.wikibase_integrator.item.get(entity_id=id_if_exists)
-        else:
-            entity = self.wikibase_integrator.item.new()
-    elif entity_type == "property":
-        if id_if_exists:
-            entity = self.wikibase_integrator.property.get(entity_id=id_if_exists)
-        else:
-            entity = self.wikibase_integrator.property.new()
-        if datatype:
-            entity.datatype = datatype
-        else:
-            sys.exit("For entity type 'property', a datatype must be specified")
-    for lang, val in labels.items():
-        entity.labels.set(language=lang, value=val)
-    for lang, val in descriptions.items():
-        entity.descriptions.set(language=lang, value=val)
-    if aliases:
-        for lang, vals in aliases.items():
-            for val in vals:
-                entity.aliases.set(language=lang, values=val)
-
-    claim_list = []
-    for property_id, claim_dicts in claims.items():
-        for claim_dict in claim_dicts:
-            ref_list = []
-            if "references" in claim_dict:
-                for ref_id, refs in claim_dict["references"].items():
-                    for ref in refs:
-                        ref_list.append(self.get_target(data_value=ref, prop_nr=ref_id))
-            claim_list.append(
-                self.get_target(
-                    data_value=claim_dict["datavalue_dict"],
-                    prop_nr=property_id,
-                    references=list(ref_list),
+        claim_list = []
+        for property_id, claim_dicts in claims.items():
+            for claim_dict in claim_dicts:
+                ref_list = []
+                if "references" in claim_dict:
+                    for ref_id, refs in claim_dict["references"].items():
+                        for ref in refs:
+                            ref_list.append(
+                                self.get_target(data_value=ref, prop_nr=ref_id)
+                            )
+                claim_list.append(
+                    self.get_target(
+                        data_value=claim_dict["datavalue_dict"],
+                        prop_nr=property_id,
+                        references=list(ref_list),
+                    )
                 )
-            )
-    entity.claims.add(
-        claim_list,
-        ActionIfExists.APPEND_OR_REPLACE,
-    )
+        entity.claims.add(
+            claim_list,
+            ActionIfExists.APPEND_OR_REPLACE,
+        )
+        entity_description = entity.write(login=login)
+        return entity_description.id
 
+    def check_local_entity(self, labels, descriptions, entity_type):
+        """Function for checking if a new entity is
+        present in the local wiki
 
-def check_local_entity(labels, descriptions, entity_type):
-    """Function for checking if a new entity is
-    present in the local wiki
+        Args:
+            labels
+            descriptions
+            entity_type: item or property
 
-    Args:
-        labels
-        descriptions
-        entity_type: item or property
-
-    Returns:
-        None or id, if it is in the local wiki
-    """
-    result = search_entities(
-        search_string=labels["en"],
-        language="en",
-        search_type=entity_type,
-        dict_result=True,
-    )
-    if not result:
-        return None
-    else:
-        # try to find an instance where label (for properties)
-        # or label and description (for items) match the
-        # entity information
-        for subdict in result:
-            if subdict["label"] == labels["en"]:
-                # for properties, the label is unique
-                if entity_type == "property":
-                    return subdict["id"]
-                # an item is unique in combination (label, description)
-                elif entity_type == "item":
-                    # if, additionally to label, the description also matches
-                    if subdict["description"] == descriptions["en"]:
+        Returns:
+            None or id, if it is in the local wiki
+        """
+        result = search_entities(
+            search_string=labels["en"],
+            language="en",
+            search_type=entity_type,
+            dict_result=True,
+        )
+        if not result:
+            return None
+        else:
+            # try to find an instance where label (for properties)
+            # or label and description (for items) match the
+            # entity information
+            for subdict in result:
+                if subdict["label"] == labels["en"]:
+                    # for properties, the label is unique
+                    if entity_type == "property":
                         return subdict["id"]
-        # if no entity was found where
-        # the required params match, it does
-        # not exist
-        return None
+                    # an item is unique in combination (label, description)
+                    elif entity_type == "item":
+                        # if, additionally to label, the description also matches
+                        if subdict["description"] == descriptions["en"]:
+                            return subdict["id"]
+            # if no entity was found where
+            # the required params match, it does
+            # not exist
+            return None

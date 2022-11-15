@@ -14,9 +14,6 @@ class IntegratorUnit:
         if not self.labels:
             raise Exception("Error: Unit labels cannot be empty.")
         self.descriptions = descriptions
-        if not self.descriptions and entity_type == "property":
-            print(wikidata_id)
-            raise Exception("Error: Unit descriptions cannot be empty.")
         self.aliases = aliases
         self.entity_type = entity_type
         self.claims = claims

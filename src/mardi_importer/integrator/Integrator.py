@@ -172,24 +172,25 @@ class Integrator:
                             )
 
                         if "references" in relation:
-                            references = relation["references"][0]["snaks"]
-                            for ref_id in references:
-                                # add property name of reference
-                                self.add_secondary_units(
-                                    unit_id=ref_id, languages=languages
-                                )
-                                # for each target of this property in references,
-                                # add item if it is an item
-                                for ref_snak in references[ref_id]:
-                                    ref_value = ref_snak["datavalue"]["value"]
-                                    if "id" in ref_value and isinstance(
-                                        ref_value, dict
-                                    ):
-                                        # add target of property in references
-                                        self.add_secondary_units(
-                                            unit_id=ref_value["id"],
-                                            languages=languages,
-                                        )
+                            for single_reference in relation["references"]:
+                                references = single_reference["snaks"]
+                                for ref_id in references:
+                                    # add property name of reference
+                                    self.add_secondary_units(
+                                        unit_id=ref_id, languages=languages
+                                    )
+                                    # for each target of this property in references,
+                                    # add item if it is an item
+                                    for ref_snak in references[ref_id]:
+                                        ref_value = ref_snak["datavalue"]["value"]
+                                        if "id" in ref_value and isinstance(
+                                            ref_value, dict
+                                        ):
+                                            # add target of property in references
+                                            self.add_secondary_units(
+                                                unit_id=ref_value["id"],
+                                                languages=languages,
+                                            )
 
             # add primary unit
             self.primary_integrator_units[item_id] = IntegratorUnit(
@@ -459,23 +460,30 @@ class Integrator:
                     ref_list = []
                     # if there are references for the claim
                     if "references" in relation:
-                        references = relation["references"][0]["snaks"]
-                        for ref_id in references:
-                            if ref_id in self.invalid_wikidata_ids:
-                                continue
-                            # add reference property targets
-                            for ref_snak in references[ref_id]:
-                                # if it is an entity and the id is in the invalid ids, skip
-                                if ref_snak["datavalue"]["type"] == "wikibase-entityid":
+                        # there can be multiple refs with multiple parts
+                        for single_reference in relation["references"]:
+                            single_ref_list = []
+                            references = single_reference["snaks"]
+                            for ref_id in references:
+                                if ref_id in self.invalid_wikidata_ids:
+                                    continue
+                                # add reference property targets
+                                for ref_snak in references[ref_id]:
+                                    # if it is an entity and the id is in the invalid ids, skip
                                     if (
-                                        ref_snak["datavalue"]["value"]["id"]
-                                        in self.invalid_wikidata_ids
+                                        ref_snak["datavalue"]["type"]
+                                        == "wikibase-entityid"
                                     ):
-                                        continue
-                                target = self.get_target(
-                                    ref_snak["datavalue"], prop_nr=ref_id
-                                )
-                                ref_list.append(target)
+                                        if (
+                                            ref_snak["datavalue"]["value"]["id"]
+                                            in self.invalid_wikidata_ids
+                                        ):
+                                            continue
+                                    target = self.get_target(
+                                        ref_snak["datavalue"], prop_nr=ref_id
+                                    )
+                                    single_ref_list.append(target)
+                            ref_list.append(single_ref_list)
                     # add claim property targets
                     # if it is an entity and the id is in the invalid ids, skip
                     if relation["mainsnak"]["datavalue"]["type"] == "wikibase-entityid":

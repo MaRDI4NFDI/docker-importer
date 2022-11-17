@@ -1,6 +1,7 @@
 from mardi_importer.integrator.IntegratorUnit import IntegratorUnit
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
 from wikibaseintegrator import WikibaseIntegrator
+from wikibaseintegrator.models import Qualifiers
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.datatypes import (
     Item,
@@ -191,6 +192,24 @@ class Integrator:
                                                 unit_id=ref_value["id"],
                                                 languages=languages,
                                             )
+                        if "qualifiers" in relation:
+                            for qual_id, qual in relation["qualifiers"].items():
+                                # add property name of qualifier
+                                self.add_secondary_units(
+                                    unit_id=qual_id, languages=languages
+                                )
+                                # for each target of this property in qualifiers,
+                                # add item if it is an item
+                                for qual_snak in qual:
+                                    qual_value = qual_snak["datavalue"]["value"]
+                                    if "id" in qual_value and isinstance(
+                                        qual_value, dict
+                                    ):
+                                        # add target of property in qualifiers
+                                        self.add_secondary_units(
+                                            unit_id=qual_value["id"],
+                                            languages=languages,
+                                        )
 
             # add primary unit
             self.primary_integrator_units[item_id] = IntegratorUnit(
@@ -358,7 +377,12 @@ class Integrator:
                     # already happens in the check_entity_exists function
                     internal_id = self.id_mapping[wikidata_id]
                     entity = self.make_entity(wikidata_id, unit, internal_id)
-                    entity_description = entity.write(login=login)
+                    try:
+                        entity_description = entity.write(login=login)
+                    except Exception as e:
+                        print(e)
+                        print(unit.claims)
+                        sys.exit()
 
                 else:
                     # add new entity
@@ -458,6 +482,7 @@ class Integrator:
             for relation in info:
                 if "datavalue" in relation["mainsnak"]:
                     ref_list = []
+                    qual_object = Qualifiers()
                     # if there are references for the claim
                     if "references" in relation:
                         # there can be multiple refs with multiple parts
@@ -484,6 +509,27 @@ class Integrator:
                                     )
                                     single_ref_list.append(target)
                             ref_list.append(single_ref_list)
+                    if "qualifiers" in relation:
+                        qualifiers = relation["qualifiers"]
+                        for qual_id, qual in qualifiers.items():
+                            if qual_id in self.invalid_wikidata_ids:
+                                continue
+                            # add qualifier property targets
+                            for qual_snak in qual:
+                                # if it is an entity and the id is in the invalid ids, skip
+                                if (
+                                    qual_snak["datavalue"]["type"]
+                                    == "wikibase-entityid"
+                                ):
+                                    if (
+                                        qual_snak["datavalue"]["value"]["id"]
+                                        in self.invalid_wikidata_ids
+                                    ):
+                                        continue
+                                target = self.get_target(
+                                    qual_snak["datavalue"], prop_nr=qual_id
+                                )
+                                qual_object.add(target)
                     # add claim property targets
                     # if it is an entity and the id is in the invalid ids, skip
                     if relation["mainsnak"]["datavalue"]["type"] == "wikibase-entityid":
@@ -496,11 +542,12 @@ class Integrator:
                         relation["mainsnak"]["datavalue"],
                         prop_nr=prop_nr,
                         references=list(ref_list),
+                        qualifiers=qual_object,
                     )
                     claims.append(target)
         return claims
 
-    def get_target(self, data_value, prop_nr, references=None):
+    def get_target(self, data_value, prop_nr, references=None, qualifiers=None):
         """Function for returning a property target of the type
         String, Item, MonolingualText, Time, CommonsMedia, ExternalID,
         Form, GeoSHape, GlobeCoordinate, Lexeme, Math, MusicalNotation,
@@ -510,6 +557,7 @@ class Integrator:
             data_value: datavalue dict from wikidata for the target
             prop_nr: property id
             references: references for claim
+            qualifiers: qualifiers for claim
 
         Returns:
             object of one of the above mentioned types
@@ -520,6 +568,7 @@ class Integrator:
                 value=data_value["value"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "wikibase-entityid":
             internal_id = self.id_mapping[data_value["value"]["id"]]
@@ -528,12 +577,14 @@ class Integrator:
                     value=internal_id,
                     prop_nr=self.id_mapping[prop_nr],
                     references=references,
+                    qualifiers=qualifiers,
                 )
             else:
                 return Item(
                     value=internal_id,
                     prop_nr=self.id_mapping[prop_nr],
                     references=references,
+                    qualifiers=qualifiers,
                 )
         elif data_value["type"] == "monolingualtext":
             return MonolingualText(
@@ -541,6 +592,7 @@ class Integrator:
                 language=data_value["value"]["language"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "time":
             return Time(
@@ -554,30 +606,35 @@ class Integrator:
                 ),
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "commonsmedia":
             return CommonsMedia(
                 value=data_value["value"]["commonsmedia"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "external-id":
             return ExternalID(
                 value=data_value["value"]["external-id"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "wikibase-form":
             return Form(
                 value=data_value["value"]["wikibase-form"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "geo-shape":
             return GeoShape(
                 value=data_value["value"]["geo-shape"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "globecoordinate":
             return GlobeCoordinate(
@@ -591,24 +648,28 @@ class Integrator:
                 ),
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "wikibase-lexeme":
             return Lexeme(
                 value=data_value["value"]["wikibase-lexeme"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "math":
             return Math(
                 value=data_value["value"]["math"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "musical-notation":
             return MusicalNotation(
                 value=data_value["value"]["musical notation"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "quantity":
             return Quantity(
@@ -625,24 +686,28 @@ class Integrator:
                 ),
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "wikibase-sense":
             return Sense(
                 value=data_value["value"]["wikibase-sense"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "tabular-data":
             return TabularData(
                 value=data_value["value"]["tabular-data"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
         elif data_value["type"] == "url":
             return URL(
                 value=data_value["value"]["url"],
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
+                qualifiers=qualifiers,
             )
 
         else:
@@ -676,6 +741,11 @@ class Integrator:
                         time[2] = "01" + time[2][2:]
                     time = ("-").join(time)
                 return time
+            if keyword != "wikibase_url":
+                val = value_dict[keyword]
+                # url in non-url field
+                if isinstance(val, str) and "www.wikidata" in val:
+                    return None
             return value_dict[keyword]
         else:
             return None

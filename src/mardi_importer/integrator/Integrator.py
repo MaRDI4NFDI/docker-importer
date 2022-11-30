@@ -107,6 +107,150 @@ class Integrator:
         ins = table.insert().values(wikidata_id=wikidata_id, internal_id=internal_id)
         result = connection.execute(ins)
 
+    def test_import(self, id_list, languages, recurse):
+        # needs to be before change_config, because it gets
+        # change to local in add_local_entity
+        self.wikidata_linker_id = self.add_local_entity(
+            entity_type="property",
+            labels={"en": "has_wikidata_id"},
+            descriptions={"en": "has a wikidata id"},
+            datatype="external-id",
+        )
+        self.change_config(instance="wikidata")
+        for entity_id in id_list:
+            entity = self.test_get_wikidata_information(
+                wikidata_id=entity_id, languages=languages, recurse=False
+            )
+            self.change_config(instance="local")
+            login = self.change_login(instance="local")
+            entity.id = None
+            # try:
+            # entity.write(login=login)
+            # except:
+            self.debug_write(entity)
+            sys.exit(f"wrote entity {entity_id}")
+        if recurse == True:
+            # make sure to also import everything in claims, refs and quals, also targets
+            # before importing, still check if it exists
+            # potentially exclude lexemes
+            # maybe exclude somevalue and novalue, but maybe not
+            # add wikidata id to claims
+            # make own method for writes
+            # check if it should be updated or only taken if it doesnt exist
+            # insert id in db and mapping
+            pass
+        # todo:
+        # if there are no labels for the desired language, rempove this value from claims
+
+    def test_get_wikidata_information(self, wikidata_id, languages, recurse):
+        if wikidata_id[0] == "Q":
+            entity = self.wikibase_integrator.item.get(entity_id=wikidata_id)
+        elif wikidata_id[0] == "P":
+            entity = self.wikibase_integrator.property.get(entity_id=wikidata_id)
+        else:
+            raise Exception(
+                f"Wrong ID format, should start with P or Q but ID is {wikidata_id}"
+            )
+        if not languages == "all":
+            # set labels in desired languages
+            label_dict = {
+                k: entity.labels.values[k]
+                for k in languages
+                if k in entity.labels.values
+            }
+            if not label_dict:
+                raise Exception("No labels left when using these languages")
+            entity.labels.values = label_dict
+            # set descriptions in desired languages
+            description_dict = {
+                k: entity.descriptions.values[k]
+                for k in languages
+                if k in entity.descriptions.values
+            }
+            entity.descriptions.values = description_dict
+            # set aliases in desired languages
+            alias_dict = {
+                k: entity.aliases.aliases[k]
+                for k in languages
+                if k in entity.aliases.aliases
+            }
+            entity.aliases.aliases = alias_dict
+        # set claims to None if recurse = False, else just leave them as is
+        if recurse == False:
+            from wikibaseintegrator.models.claims import Claims
+
+            entity.claims = Claims()
+
+        return entity
+
+    def debug_write(self, entity):
+        self.change_config(instance="local")
+        login = self.change_login(instance="local")
+        import ujson
+
+        data = entity.get_json()
+        print("!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(data)
+        print(type(data))
+        print(type(ujson.dumps(data)))
+
+        payload = {
+            "action": "wbeditentity",
+            "data": ujson.dumps(data),
+            "format": "json",
+            "token": "+\\",
+        }
+        is_bot = self.wikibase_integrator.is_bot
+        if is_bot:
+            payload.update({"bot": ""})
+        payload.update({"new": entity.type})
+        login = self.wikibase_integrator.login
+
+        from wikibaseintegrator.wbi_config import config
+
+        mediawiki_api_url = config["MEDIAWIKI_API_URL"]
+        user_agent = "WikibaseIntegrator/0.12.0"
+        headers = {"User-Agent": user_agent}
+        payload.update({"token": login.get_edit_token()})
+        session = login.get_session()
+
+        response = None
+        import requests
+
+        from time import sleep
+        import json
+
+        for n in range(100):
+            try:
+                response = session.request(
+                    method="POST",
+                    url=mediawiki_api_url,
+                    data=payload,
+                    headers=headers,
+                )
+            except requests.exceptions.ConnectionError as e:
+                print("Connection error: %s. Sleeping for %d seconds.", e, 60)
+                sleep(60)
+                continue
+            if response.status_code in (500, 502, 503, 504):
+                print(
+                    "Service unavailable (HTTP Code %d). Sleeping for %d seconds.",
+                    response.status_code,
+                    60,
+                )
+                sleep(60)
+                continue
+            break
+        response.raise_for_status()
+        print(response.content)
+        print("????????????????????/")
+        print(response.request.body)
+        print(response.request.headers)
+        print(mediawiki_api_url)
+        json_data = response.json()
+        print(json_data)
+        sys.exit("Exited")
+
     def create_units(self, id_list, languages, recurse):
         """Function for creating units. Primary units, which are units
         referenced in id_list, are created together with units for the properties
@@ -156,7 +300,10 @@ class Integrator:
             if recurse == True:
                 # add secondary units, where secondary units are the properties
                 for secondary_id in claims:
+                    if secondary_id[0] == "L":
+                        continue
                     # add property
+                    print(secondary_id)
                     self.add_secondary_units(unit_id=secondary_id, languages=languages)
 
                     for relation in claims[secondary_id]:
@@ -167,6 +314,9 @@ class Integrator:
 
                         if "id" in value and isinstance(value, dict):
                             target_id = value["id"]
+                            # exclude lexemes
+                            if target_id[0] == "L":
+                                continue
                             # add property target if it is an entity
                             self.add_secondary_units(
                                 unit_id=target_id, languages=languages
@@ -176,6 +326,8 @@ class Integrator:
                             for single_reference in relation["references"]:
                                 references = single_reference["snaks"]
                                 for ref_id in references:
+                                    if ref_id[0] == "L":
+                                        continue
                                     # add property name of reference
                                     self.add_secondary_units(
                                         unit_id=ref_id, languages=languages
@@ -187,13 +339,16 @@ class Integrator:
                                         if "id" in ref_value and isinstance(
                                             ref_value, dict
                                         ):
-                                            # add target of property in references
-                                            self.add_secondary_units(
-                                                unit_id=ref_value["id"],
-                                                languages=languages,
-                                            )
+                                            if ref_value["id"][0] != "L":
+                                                # add target of property in references
+                                                self.add_secondary_units(
+                                                    unit_id=ref_value["id"],
+                                                    languages=languages,
+                                                )
                         if "qualifiers" in relation:
                             for qual_id, qual in relation["qualifiers"].items():
+                                if qual_id[0] == "L":
+                                    continue
                                 # add property name of qualifier
                                 self.add_secondary_units(
                                     unit_id=qual_id, languages=languages
@@ -201,15 +356,17 @@ class Integrator:
                                 # for each target of this property in qualifiers,
                                 # add item if it is an item
                                 for qual_snak in qual:
-                                    qual_value = qual_snak["datavalue"]["value"]
-                                    if "id" in qual_value and isinstance(
-                                        qual_value, dict
-                                    ):
-                                        # add target of property in qualifiers
-                                        self.add_secondary_units(
-                                            unit_id=qual_value["id"],
-                                            languages=languages,
-                                        )
+                                    if "datavalue" in qual_snak:
+                                        qual_value = qual_snak["datavalue"]["value"]
+                                        if "id" in qual_value and isinstance(
+                                            qual_value, dict
+                                        ):
+                                            if qual_value["id"][0] != "L":
+                                                # add target of property in qualifiers
+                                                self.add_secondary_units(
+                                                    unit_id=qual_value["id"],
+                                                    languages=languages,
+                                                )
 
             # add primary unit
             self.primary_integrator_units[item_id] = IntegratorUnit(
@@ -240,6 +397,7 @@ class Integrator:
         Returns:
             None (created units are added to self.secondary_integrator_units)
         """
+        print(f"unit id from inside add secondary units: {unit_id}")
         if unit_id not in self.secondary_integrator_units:
             (
                 labels,
@@ -358,7 +516,84 @@ class Integrator:
                     continue
                 entity = self.make_entity(wikidata_id, unit)
 
-                entity_description = entity.write(login=login)
+                try:
+                    entity_description = entity.write(login=login)
+                except:
+                    #     ------------------------------------------------
+                    import ujson
+
+                    data = entity.get_json()
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(data)
+                    print(type(data))
+                    print(type(ujson.dumps(data)))
+
+                    payload = {
+                        "action": "wbeditentity",
+                        "data": ujson.dumps(data),
+                        "format": "json",
+                        "token": "+\\",
+                    }
+                    is_bot = self.wikibase_integrator.is_bot
+                    if is_bot:
+                        payload.update({"bot": ""})
+                    payload.update({"new": entity.type})
+                    login = self.wikibase_integrator.login
+
+                    # json_result: dict = mediawiki_api_call_helper(data=payload, login=login, allow_anonymous=allow_anonymous, is_bot=is_bot, **kwargs)
+
+                    from wikibaseintegrator.wbi_config import config
+
+                    mediawiki_api_url = config["MEDIAWIKI_API_URL"]
+                    user_agent = "WikibaseIntegrator/0.12.0"
+                    headers = {"User-Agent": user_agent}
+                    payload.update({"token": login.get_edit_token()})
+                    session = login.get_session()
+
+                    response = None
+                    import requests
+
+                    # session = requests.Session()
+                    from time import sleep
+                    import json
+
+                    for n in range(100):
+                        try:
+                            response = session.request(
+                                method="POST",
+                                url=mediawiki_api_url,
+                                data=payload,
+                                headers=headers,
+                            )
+                        except requests.exceptions.ConnectionError as e:
+                            print(
+                                "Connection error: %s. Sleeping for %d seconds.", e, 60
+                            )
+                            sleep(60)
+                            continue
+                        if response.status_code in (500, 502, 503, 504):
+                            print(
+                                "Service unavailable (HTTP Code %d). Sleeping for %d seconds.",
+                                response.status_code,
+                                60,
+                            )
+                            sleep(60)
+                            continue
+                        break
+                    response.raise_for_status()
+                    print(response.content)
+                    print("????????????????????/")
+                    print(response.request.body)
+                    print(response.request.headers)
+                    print(mediawiki_api_url)
+                    json_data = response.json()
+                    print(json_data)
+                    print(f"wikidata id: {wikidata_id}")
+                    sys.exit("Exited")
+                    # -----------------------------------------------------
+                    print(unit.claims)
+                    print(entity.claims)
+                    sys.exit("unit claim exit")
 
                 self.insert_id_in_db(
                     wikidata_id=wikidata_id,
@@ -382,7 +617,8 @@ class Integrator:
                     except Exception as e:
                         print(e)
                         print(unit.claims)
-                        sys.exit()
+                        print(entity.claims)
+                        sys.exit("second entity make")
 
                 else:
                     # add new entity
@@ -425,6 +661,8 @@ class Integrator:
                 entity = self.wikibase_integrator.property.get(entity_id=internal_id)
                 # each property needs a dataype
                 entity.datatype = unit.datatype
+                if unit.dataype == "wikibase-form":
+                    entity.datatype = "string"
             for lang, val in unit.descriptions.items():
                 # descriptions are not replaced,
                 # new ones are only added if there was no old one
@@ -509,27 +747,29 @@ class Integrator:
                                     )
                                     single_ref_list.append(target)
                             ref_list.append(single_ref_list)
-                    if "qualifiers" in relation:
-                        qualifiers = relation["qualifiers"]
-                        for qual_id, qual in qualifiers.items():
-                            if qual_id in self.invalid_wikidata_ids:
-                                continue
-                            # add qualifier property targets
-                            for qual_snak in qual:
-                                # if it is an entity and the id is in the invalid ids, skip
-                                if (
-                                    qual_snak["datavalue"]["type"]
-                                    == "wikibase-entityid"
-                                ):
-                                    if (
-                                        qual_snak["datavalue"]["value"]["id"]
-                                        in self.invalid_wikidata_ids
-                                    ):
-                                        continue
-                                target = self.get_target(
-                                    qual_snak["datavalue"], prop_nr=qual_id
-                                )
-                                qual_object.add(target)
+                    # if "qualifiers" in relation:
+                    #     qualifiers = relation["qualifiers"]
+                    #     for qual_id, qual in qualifiers.items():
+                    #         if qual_id in self.invalid_wikidata_ids:
+                    #             continue
+                    #         # add qualifier property targets
+                    #         for qual_snak in qual:
+                    #             if not "datavalue" in qual_snak:
+                    #                 continue
+                    #             # if it is an entity and the id is in the invalid ids, skip
+                    #             if (
+                    #                 qual_snak["datavalue"]["type"]
+                    #                 == "wikibase-entityid"
+                    #             ):
+                    #                 if (
+                    #                     qual_snak["datavalue"]["value"]["id"]
+                    #                     in self.invalid_wikidata_ids
+                    #                 ):
+                    #                     continue
+                    #             target = self.get_target(
+                    #                 qual_snak["datavalue"], prop_nr=qual_id
+                    #             )
+                    #             qual_object.add(target)
                     # add claim property targets
                     # if it is an entity and the id is in the invalid ids, skip
                     if relation["mainsnak"]["datavalue"]["type"] == "wikibase-entityid":
@@ -542,7 +782,7 @@ class Integrator:
                         relation["mainsnak"]["datavalue"],
                         prop_nr=prop_nr,
                         references=list(ref_list),
-                        qualifiers=qual_object,
+                        qualifiers=None,  # qual_object,
                     )
                     claims.append(target)
         return claims
@@ -623,8 +863,14 @@ class Integrator:
                 qualifiers=qualifiers,
             )
         elif data_value["type"] == "wikibase-form":
-            return Form(
-                value=data_value["value"]["wikibase-form"],
+            # return Form(
+            #     value=data_value["value"]["wikibase-form"],
+            #     prop_nr=self.id_mapping[prop_nr],
+            #     references=references,
+            #     qualifiers=qualifiers,
+            # )
+            return String(
+                value="test",
                 prop_nr=self.id_mapping[prop_nr],
                 references=references,
                 qualifiers=qualifiers,
@@ -769,6 +1015,7 @@ class Integrator:
         labels = {}
         descriptions = {}
         aliases = {}
+        print(f"wikidata id from inside get information: {wikidata_id}")
         if wikidata_id[0] == "Q":
             entity = self.wikibase_integrator.item.get(entity_id=wikidata_id).get_json()
             # datatype is only relevant for properties
@@ -777,9 +1024,19 @@ class Integrator:
             entity = self.wikibase_integrator.property.get(
                 entity_id=wikidata_id
             ).get_json()
+            test = self.wikibase_integrator.property.get(entity_id=wikidata_id)
+            print(test.descriptions.values)
+            print(test.claims.claims)
+            print(type(test.claims.claims))
+            print(list(test.claims.claims))
+            sys.exit("test exit")
             # datatype describes what kind of data a property
             # links to
             datatype = entity["datatype"]
+        else:
+            raise Exception(
+                f"Wrong ID format, should start with P, Q or L, but ID is {wikidata_id}"
+            )
         for lang in languages:
             label_info = entity["labels"].get(lang)
             if label_info:

@@ -21,6 +21,7 @@ def get_parser():
     parser = ArgumentParser()
     parser.add_argument("--mode", type=str, required=True, choices=["ZBMath", "CRAN"])
     parser.add_argument("--conf_path", required=False)
+    parser.add_argument("--wikidata_id_file_path", required=False)
     return parser
 
 
@@ -53,8 +54,11 @@ def main():
 
         i = Integrator(conf_path=args.conf_path)
         i.check_or_create_db_table()
-        id_list = i.create_id_list_from_file("/config/Properties_to_import_from_WD.txt")
-        # id_list=["Q177", "Q192783"]
+        id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
+        # id_list = ["Q177", "Q192783"]
+        # id_list = ["P5830"]
+        # id_list = ["Q937"]
+        i.test_import(id_list=id_list, languages=["en", "de"], recurse=True)
         i.create_units(id_list=id_list, languages=["en", "de"], recurse=True)
         i.import_items()
         i.engine.dispose()

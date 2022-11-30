@@ -82,6 +82,7 @@ wfLoadExtension('MathSearch');
 wfLoadExtension('Lockdown');
 wfLoadExtension('TwitterWidget');
 wfLoadExtension('SyntaxHighlight_GeSHi');
+wfLoadExtension( 'WikibaseLexeme' );
 wfLoadExtension('ExternalContent');
 
 $wgWBRepoSettings['formatterUrlProperty'] = 'P10';

@@ -57,7 +57,7 @@ def main():
         # id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
         # id_list = ["Q177", "Q192783"]
         # id_list = ["P5830"]
-        id_list = ["Q115681322"]
+        id_list = ["Q937"]
         i.test_import(id_list=id_list, languages=["en", "de"], recurse=True)
         i.create_units(id_list=id_list, languages=["en", "de"], recurse=True)
         i.import_items()
@@ -78,3 +78,30 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def check_value_links(self, snak, languages, login):
+    if "datatype" in snak:
+        data = snak["datavalue"]["value"]
+        if snak["datatype"] == "quantity":
+            if "unit" in data:
+                unit_string = data["unit"]
+                if "www.wikidata.org/" in unit_string:
+                    uid = unit_string.split("/")[-1]
+                    local_id = self.write_claim_entities(
+                        wikidata_id=uid,
+                        languages=languages,
+                        login=login,
+                    )
+                    data["unit"] = local_id
+        elif snak["datatype"] == "globecoordinate":
+            if "globe" in data:
+                globe_string = data["globe"]
+                if "www.wikidata.org/" in globe_string:
+                    uid = globe_string.split("/")[-1]
+                    local_id = self.write_claim_entities(
+                        wikidata_id=uid,
+                        languages=languages,
+                        login=login,
+                    )
+                    data["value"]["globe"] = local_id

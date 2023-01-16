@@ -122,7 +122,7 @@ class Integrator:
         login = self.change_login(instance="local")
         for wikidata_id in id_list:
             print(f"current wikidata entity id: {wikidata_id}")
-            entity = self.test_get_wikidata_information(
+            entity = self.get_wikidata_information(
                 wikidata_id=wikidata_id, languages=languages, recurse=recurse
             )
             if not entity:
@@ -134,24 +134,35 @@ class Integrator:
             if not self.test_check_entity_exists(entity, wikidata_id, self.connection):
                 self.change_config(instance="local")
                 login = self.change_login(instance="local")
-                self.change_config(instance="local")
-                login = self.change_login(instance="local")
-                new_id = entity.write(login=login, as_new=True)
+                new_id = entity.write(login=login, as_new=True).id
 
                 self.id_mapping[wikidata_id] = new_id
-                self.insert_id_in_db(wikidata_id, new_id, self.connection)
+                try:
+                    self.insert_id_in_db(wikidata_id, new_id, self.connection)
+                except:
+                    print("both wikidata id and new id should be ids, not items")
+                    print("first wikidata, then new")
+                    print(wikidata_id)
+                    print(new_id)
+                    sys.exit("sql exit")
+
             # if it is there
             else:
+                self.change_config(instance="local")
                 if wikidata_id[0] == "Q":
                     local_entity = self.wikibase_integrator.item.get(
-                        entity_id=wikidata_id
+                        entity_id=self.id_mapping[wikidata_id]
                     )
                 elif wikidata_id[0] == "P":
                     local_entity = self.wikibase_integrator.property.get(
-                        entity_id=wikidata_id
+                        entity_id=self.id_mapping[wikidata_id]
                     )
                 # replace descriptions
-                local_entity.descriptions = entity.description
+                try:
+                    local_entity.descriptions = entity.description
+                except:
+                    pass
+                    # local_entity.descriptions=None
                 # replace aliases["mainsnak"]ases
                 # add new claims if they are different from old claims
                 local_entity.claims.add(
@@ -160,14 +171,21 @@ class Integrator:
                 )
                 self.change_config(instance="local")
                 login = self.change_login(instance="local")
+                # try:
                 local_entity.write(login=login)
+                # except Exception as e:
+                #   print(local_entity)
+                #     print(recurse)
+                #     # print where claim id is P25
+                #     print(local_entity.claims.get("P40"))
+                #   sys.exit("testing")
 
         # todo:
         # if there are no labels for the desired language, rempove this value from claims
         sys.exit("Test exit")
 
-    def test_write_claim_entities(self, wikidata_id, languages, login):
-        entity = self.test_get_wikidata_information(
+    def write_claim_entities(self, wikidata_id, languages, login):
+        entity = self.get_wikidata_information(
             wikidata_id=wikidata_id, languages=languages, recurse=False
         )
         if not entity:
@@ -183,7 +201,7 @@ class Integrator:
             # do not insert anywhere, that already gets done when checking
             return self.id_mapping[wikidata_id]
 
-    def test_get_wikidata_information(self, wikidata_id, languages, recurse):
+    def get_wikidata_information(self, wikidata_id, languages, recurse):
         self.change_config(instance="wikidata")
         if wikidata_id[0] == "Q":
             entity = self.wikibase_integrator.item.get(entity_id=wikidata_id)
@@ -234,14 +252,16 @@ class Integrator:
             "wikibase-property",
             "wikibase-lexeme",
         ]
-        claims = entity.claims.claims
+        import copy
+
+        claims = copy.deepcopy(entity.claims.claims)
         # todo: completely replace entity.claims.claims
         # --> make a new dict with new_propid : new claim_list
         new_claims = {}
         # each property can have several targets
         for prop_id, claim_list in claims.items():
             local_claim_list = []
-            local_prop_id = self.test_write_claim_entities(
+            local_prop_id = self.write_claim_entities(
                 wikidata_id=prop_id, languages=languages, login=login
             )
             if not local_prop_id:
@@ -252,37 +272,56 @@ class Integrator:
                 c_dict = c.get_json()
                 if c_dict["mainsnak"]["datatype"] in entity_names:
                     if c_dict["mainsnak"]["datavalue"]:
-                        local_mainsnak_id = self.test_write_claim_entities(
+                        local_mainsnak_id = self.write_claim_entities(
                             wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
                             languages=languages,
                             login=login,
                         )
                         if not local_mainsnak_id:
                             continue
+                        self.check_value_links(
+                            snak=c_dict["mainsnak"], languages=languages, login=login
+                        )
                         # c_dict.pop("id")
                         # c_dict["id"] = None
                         c_dict["mainsnak"]["datavalue"]["value"][
                             "id"
                         ] = local_mainsnak_id
-                        c_dict["mainsnak"]["datavalue"]["value"][
-                            "numeric-id"
-                        ] = local_mainsnak_id[1:]
+                        c_dict["mainsnak"]["datavalue"]["value"]["numeric-id"] = int(
+                            local_mainsnak_id[1:]
+                        )
                         c_dict["mainsnak"]["property"] = local_prop_id
+                        # to avoid problem with missing reference hash
+                        if "references" in c_dict:
+                            c_dict.pop("references")
                         new_c = Claim().from_json(c_dict)
+                        # try:
+                        #     new_c = Claim().from_json(c_dict)
+                        # except:
+                        #     print(prop_id)
+                        #     print(c_dict)
+                        #     print(list(c_dict))
+                        #     print(c_dict["references"])
+                        #     sys.exit("testing")
+                        new_c.id = None
                     else:
                         continue
+                else:
+                    new_c = c
+                    new_c.mainsnak.property_number = local_prop_id
+                    new_c.id = None
                 # get reference details
                 ref_list = c.references.references
                 if ref_list:
                     new_ref_list = []
                     for ref in ref_list:
                         # snaks_order = []
-                        new_ref_snak_dict = {}
+                        new_ref_snak_dict = {}  # this??
                         ref_snak_dict = ref.get_json()
                         for ref_prop_id, ref_snak_list in ref_snak_dict[
                             "snaks"
                         ].items():
-                            new_ref_prop_id = self.test_write_claim_entities(
+                            new_ref_prop_id = self.write_claim_entities(
                                 wikidata_id=ref_prop_id,
                                 languages=languages,
                                 login=login,
@@ -293,7 +332,7 @@ class Integrator:
                             new_ref_snak_list = []
                             for ref_snak in ref_snak_list:
                                 if ref_snak["datatype"] in entity_names:
-                                    new_ref_snak_id = self.test_write_claim_entities(
+                                    new_ref_snak_id = self.write_claim_entities(
                                         wikidata_id=ref_snak["datavalue"]["value"][
                                             "id"
                                         ],
@@ -302,20 +341,30 @@ class Integrator:
                                     )
                                     if not new_ref_snak_id:
                                         continue
+                                    self.check_value_links(
+                                        snak=ref_snak,
+                                        languages=languages,
+                                        login=login,
+                                    )
                                     ref_snak["datavalue"]["value"][
                                         "id"
                                     ] = new_ref_snak_id
-                                    ref_snak["datavalue"]["value"][
-                                        "numeric-id"
-                                    ] = new_ref_snak_id[1:]
-                                    ref_snak["property"] = new_ref_prop_id
+                                    ref_snak["datavalue"]["value"]["numeric-id"] = int(
+                                        new_ref_snak_id[1:]
+                                    )
+                                ref_snak["property"] = new_ref_prop_id
                                 new_ref_snak_list.append(ref_snak)
                             new_ref_snak_dict[new_ref_prop_id] = new_ref_snak_list
+                            # if ref_prop_id == "P4656":
+                            #     print(new_ref_snak_dict)
+                            #     sys.exit("teststing")
                         complete_new_ref_snak_dict = {}
                         complete_new_ref_snak_dict["hash"] = None
                         complete_new_ref_snak_dict["snaks"] = new_ref_snak_dict
                         complete_new_ref_snak_dict["snaks-order"] = []
                         r = Reference()
+                        # print(r.from_json(json_data=complete_new_ref_snak_dict))
+                        # sys.exit("testing")
                         try:
                             new_ref_list.append(
                                 r.from_json(json_data=complete_new_ref_snak_dict)
@@ -324,40 +373,66 @@ class Integrator:
                             print(e)
                             print(complete_new_ref_snak_dict)
                             sys.exit("ref from json failed exot")
+
                     new_c.references.references = new_ref_list
+                # new_c.references.references = Reference()  # delete
                 # get qualifier details
                 qual_dict = c.qualifiers.get_json()
                 new_qual_dict = {}
+                test_check = False
                 for qual_id, qual_list in qual_dict.items():
-                    new_qual_id = self.test_write_claim_entities(
+                    new_qual_id = self.write_claim_entities(
                         wikidata_id=qual_id, languages=languages, login=login
                     )
+                    if new_qual_id == "P43":
+                        test_check = True
+                        print("first found!")
+                        print(qual_list)
+                    else:
+                        print(f"Nope! This is qwual id {new_qual_id}")
                     if not new_qual_id:
                         continue
                     new_qual_list = []
                     for qual_val in qual_list:
                         if qual_val["datatype"] in entity_names:
-                            new_qual_val_id = self.test_write_claim_entities(
+                            new_qual_val_id = self.write_claim_entities(
                                 wikidata_id=qual_val["datavalue"]["value"]["id"],
                                 languages=languages,
                                 login=login,
                             )
                             if not new_qual_val_id:
                                 continue
+                            self.check_value_links(
+                                snak=qual_val,
+                                languages=languages,
+                                login=login,
+                            )
                             qual_val["datavalue"]["value"]["id"] = new_qual_val_id
-                            qual_val["datavalue"]["value"][
-                                "numeric-id"
-                            ] = new_qual_val_id[1:]
-                            qual_val["property"] = new_qual_id
+                            qual_val["datavalue"]["value"]["numeric-id"] = int(
+                                new_qual_val_id[1:]
+                            )
+                        qual_val["property"] = new_qual_id
+                        self.check_value_links(
+                            snak=qual_val,
+                            languages=languages,
+                            login=login,
+                        )
+                        if new_qual_id == "P43":
+                            print("qual val")
+                            print(qual_val)
+                            print("qual_list")
+                            print(qual_list)
+                            # sys.exit("foundz it")
                         new_qual_list.append(qual_val)
                     new_qual_dict[new_qual_id] = new_qual_list
                 q = Qualifiers()
                 new_c.qualifiers = q.from_json(json_data=new_qual_dict)
+                if test_check:
+                    print(new_c.qualifiers)
+                    # sys.exit("found it!")
                 local_claim_list.append(new_c)
             new_claims[local_prop_id] = local_claim_list
         entity.claims.claims = new_claims
-        print(entity.get_json())
-        return entity
 
     def test_check_entity_exists(self, entity, wikidata_id, connection):
         """Check if entity exists with a lookup (in this order) in
@@ -518,6 +593,48 @@ class Integrator:
             for line in file:
                 id_list.append(line.strip())
         return id_list
+
+    def check_value_links(self, snak, languages, login):
+        self.change_config("local")
+        # print(wbi_config["WIKIBASE_URL"])
+        if "datatype" in snak:
+            data = snak["datavalue"]["value"]
+            if snak["datatype"] == "quantity":
+                # print("snak!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+                # print(snak)
+                # sys.exit("taesting")
+                if "unit" in data:
+                    unit_string = data["unit"]
+                    if "www.wikidata.org/" in unit_string:
+                        uid = unit_string.split("/")[-1]
+                        local_id = self.write_claim_entities(
+                            wikidata_id=uid,
+                            languages=languages,
+                            login=login,
+                        )
+                        print(wbi_config["WIKIBASE_URL"])
+                        print(wbi_config["WIKIBASE_URL"] + "/entity/" + local_id)
+                        data["unit"] = wbi_config["WIKIBASE_URL"] + "entity/" + local_id
+                # print(snak)
+                # sys.exit("unit snak testingh")
+            elif snak["datatype"] == "globecoordinate":
+                # print("snak!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+                # print(snak)
+                if "globe" in data:
+                    globe_string = data["globe"]
+                    if "www.wikidata.org/" in globe_string:
+                        uid = globe_string.split("/")[-1]
+                        local_id = self.write_claim_entities(
+                            wikidata_id=uid,
+                            languages=languages,
+                            login=login,
+                        )
+                        data["value"]["globe"] = (
+                            wbi_config["WIKIBASE_URL"] + "entity/" + local_id
+                        )
+                # print(snak)
+                # print("globe snak testing")
+                # sys.exit("globe")
 
     def change_config(self, instance):
         """

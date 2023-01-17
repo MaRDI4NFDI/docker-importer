@@ -191,7 +191,16 @@ class Integrator:
         if not entity:
             return None
         if not self.test_check_entity_exists(entity, wikidata_id, self.connection):
-            local_id = entity.write(login=login, as_new=True).id
+            print(wikidata_id)
+            try:
+                local_id = entity.write(login=login, as_new=True).id
+            except Exception as e:
+                print(e)
+                print(wikidata_id)
+                print(entity)
+                print(entity.datatype)
+                print(entity.claims)
+                sys.exit("testing")
             self.id_mapping[wikidata_id] = local_id
             self.insert_id_in_db(wikidata_id, local_id, self.connection)
             # also add to db just like normal ones
@@ -271,7 +280,7 @@ class Integrator:
             for c in claim_list:
                 c_dict = c.get_json()
                 if c_dict["mainsnak"]["datatype"] in entity_names:
-                    if c_dict["mainsnak"]["datavalue"]:
+                    if "datavalue" in c_dict["mainsnak"]:
                         local_mainsnak_id = self.write_claim_entities(
                             wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
                             languages=languages,
@@ -332,6 +341,8 @@ class Integrator:
                             new_ref_snak_list = []
                             for ref_snak in ref_snak_list:
                                 if ref_snak["datatype"] in entity_names:
+                                    if not "datavalue" in ref_snak:
+                                        continue
                                     new_ref_snak_id = self.write_claim_entities(
                                         wikidata_id=ref_snak["datavalue"]["value"][
                                             "id"
@@ -395,6 +406,8 @@ class Integrator:
                     new_qual_list = []
                     for qual_val in qual_list:
                         if qual_val["datatype"] in entity_names:
+                            if not "datavalue" in qual_val:
+                                continue
                             new_qual_val_id = self.write_claim_entities(
                                 wikidata_id=qual_val["datavalue"]["value"]["id"],
                                 languages=languages,
@@ -598,6 +611,8 @@ class Integrator:
         self.change_config("local")
         # print(wbi_config["WIKIBASE_URL"])
         if "datatype" in snak:
+            if "datavalue" not in snak:
+                return
             data = snak["datavalue"]["value"]
             if snak["datatype"] == "quantity":
                 # print("snak!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")

@@ -43,7 +43,9 @@ class Integrator:
     - use bot user for this
     """
 
-    def __init__(self, conf_path) -> None:
+    def __init__(self, conf_path, languages) -> None:
+        self.languages = languages
+
         self.primary_integrator_units = {}
         self.secondary_integrator_units = {}  # items mentioned in statements
         # list of wikidata ids that do not have the required language and
@@ -109,27 +111,26 @@ class Integrator:
         ins = table.insert().values(wikidata_id=wikidata_id, internal_id=internal_id)
         result = connection.execute(ins)
 
-    def test_import(self, id_list, languages, recurse):
-        # needs to be before change_config, because it gets
-        # change to local in add_local_entity
-        # self.wikidata_linker_id = self.add_local_entity(
-        #     entity_type="property",
-        #     labels={"en": "has_wikidata_id"},
-        #     descriptions={"en": "has a wikidata id"},
-        #     datatype="external-id",
-        # )
+    def import_entities(self, id_list, recurse):
         self.change_config(instance="local")
         login = self.change_login(instance="local")
+        self.add_linker_id(login=login)
         for wikidata_id in id_list:
+            if wikidata_id[0] == "L":
+                print(
+                    "Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
+                )
+                continue
             print(f"current wikidata entity id: {wikidata_id}")
             entity = self.get_wikidata_information(
-                wikidata_id=wikidata_id, languages=languages, recurse=recurse
+                wikidata_id=wikidata_id, recurse=recurse
             )
             if not entity:
                 print(f"No labels for entity with id {wikidata_id}, skipping")
                 continue
             if recurse == True:
-                self.test_convert_claim_ids(entity, languages, login)
+                self.convert_claim_ids(entity, login)
+                self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             # if it is not there yet
             if not self.test_check_entity_exists(entity, wikidata_id, self.connection):
                 self.change_config(instance="local")
@@ -169,6 +170,8 @@ class Integrator:
                     entity.claims,
                     ActionIfExists.APPEND_OR_REPLACE,
                 )
+                # to also add this for older imports
+                self.add_linker_claim(entity=local_entity, wikidata_id=wikidata_id)
                 self.change_config(instance="local")
                 login = self.change_login(instance="local")
                 # try:
@@ -182,15 +185,53 @@ class Integrator:
 
         # todo:
         # if there are no labels for the desired language, rempove this value from claims
-        sys.exit("Test exit")
 
-    def write_claim_entities(self, wikidata_id, languages, login):
-        entity = self.get_wikidata_information(
-            wikidata_id=wikidata_id, languages=languages, recurse=False
+    def add_linker_claim(self, entity, wikidata_id):
+        linker_json = {
+            "mainsnak": {
+                "snaktype": "value",
+                "property": self.linker_id,
+                "datatype": "string",
+                "datavalue": {"value": wikidata_id, "type": "string"},
+            },
+            "type": "statement",
+            "id": "",
+            "rank": "normal",
+        }
+
+        claim = Claim().from_json(linker_json)
+        claim.id = None
+        entity.add_claims(claim)
+
+    def get_linker_id(self, label_string_en):
+        result = search_entities(
+            search_string=label_string_en,
+            language="en",
+            search_type="property",
+            dict_result=True,
         )
+        if not result:
+            return None
+        else:
+            return result[0]["id"]
+
+    def add_linker_id(self, login):
+        label_string_en = "has wikidata id"
+        linker_id = self.get_linker_id(label_string_en=label_string_en)
+        if not linker_id:
+            prop = self.wikibase_integrator.property.new()
+            prop.labels.set(language="en", value=label_string_en)
+            prop.descriptions.set(language="en", value="has a wikidata id")
+            prop.datatype = "string"
+            linker_id = prop.write(login=login, as_new=True).id
+        self.linker_id = linker_id
+
+    def write_claim_entities(self, wikidata_id, login):
+        entity = self.get_wikidata_information(wikidata_id=wikidata_id, recurse=False)
         if not entity:
             return None
         if not self.test_check_entity_exists(entity, wikidata_id, self.connection):
+            self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             print(wikidata_id)
             try:
                 local_id = entity.write(login=login, as_new=True).id
@@ -210,7 +251,7 @@ class Integrator:
             # do not insert anywhere, that already gets done when checking
             return self.id_mapping[wikidata_id]
 
-    def get_wikidata_information(self, wikidata_id, languages, recurse):
+    def get_wikidata_information(self, wikidata_id, recurse):
         self.change_config(instance="wikidata")
         if wikidata_id[0] == "Q":
             entity = self.wikibase_integrator.item.get(entity_id=wikidata_id)
@@ -218,13 +259,13 @@ class Integrator:
             entity = self.wikibase_integrator.property.get(entity_id=wikidata_id)
         else:
             raise Exception(
-                f"Wrong ID format, should start with P or Q but ID is {wikidata_id}"
+                f"Wrong ID format, should start with P, L or Q but ID is {wikidata_id}"
             )
-        if not languages == "all":
+        if not self.languages == "all":
             # set labels in desired languages
             label_dict = {
                 k: entity.labels.values[k]
-                for k in languages
+                for k in self.languages
                 if k in entity.labels.values
             }
             if not label_dict:
@@ -233,14 +274,14 @@ class Integrator:
             # set descriptions in desired languages
             description_dict = {
                 k: entity.descriptions.values[k]
-                for k in languages
+                for k in self.languages
                 if k in entity.descriptions.values
             }
             entity.descriptions.values = description_dict
             # set aliases in desired languages
             alias_dict = {
                 k: entity.aliases.aliases[k]
-                for k in languages
+                for k in self.languages
                 if k in entity.aliases.aliases
             }
             entity.aliases.aliases = alias_dict
@@ -255,11 +296,10 @@ class Integrator:
 
         return entity
 
-    def test_convert_claim_ids(self, entity, languages, login):
+    def convert_claim_ids(self, entity, login):
         entity_names = [
             "wikibase-item",
             "wikibase-property",
-            "wikibase-lexeme",
         ]
         import copy
 
@@ -270,9 +310,7 @@ class Integrator:
         # each property can have several targets
         for prop_id, claim_list in claims.items():
             local_claim_list = []
-            local_prop_id = self.write_claim_entities(
-                wikidata_id=prop_id, languages=languages, login=login
-            )
+            local_prop_id = self.write_claim_entities(wikidata_id=prop_id, login=login)
             if not local_prop_id:
                 print("local id skipped")
                 continue
@@ -283,14 +321,11 @@ class Integrator:
                     if "datavalue" in c_dict["mainsnak"]:
                         local_mainsnak_id = self.write_claim_entities(
                             wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
-                            languages=languages,
                             login=login,
                         )
                         if not local_mainsnak_id:
                             continue
-                        self.check_value_links(
-                            snak=c_dict["mainsnak"], languages=languages, login=login
-                        )
+                        self.check_value_links(snak=c_dict["mainsnak"], login=login)
                         # c_dict.pop("id")
                         # c_dict["id"] = None
                         c_dict["mainsnak"]["datavalue"]["value"][
@@ -315,6 +350,8 @@ class Integrator:
                         new_c.id = None
                     else:
                         continue
+                elif c_dict["mainsnak"]["datatype"] == "wikibase-lexeme":
+                    continue
                 else:
                     new_c = c
                     new_c.mainsnak.property_number = local_prop_id
@@ -332,7 +369,6 @@ class Integrator:
                         ].items():
                             new_ref_prop_id = self.write_claim_entities(
                                 wikidata_id=ref_prop_id,
-                                languages=languages,
                                 login=login,
                             )
                             if not new_ref_prop_id:
@@ -347,14 +383,12 @@ class Integrator:
                                         wikidata_id=ref_snak["datavalue"]["value"][
                                             "id"
                                         ],
-                                        languages=languages,
                                         login=login,
                                     )
                                     if not new_ref_snak_id:
                                         continue
                                     self.check_value_links(
                                         snak=ref_snak,
-                                        languages=languages,
                                         login=login,
                                     )
                                     ref_snak["datavalue"]["value"][
@@ -363,6 +397,8 @@ class Integrator:
                                     ref_snak["datavalue"]["value"]["numeric-id"] = int(
                                         new_ref_snak_id[1:]
                                     )
+                                elif ref_snak["datatype"] == "wikibase-lexeme":
+                                    continue
                                 ref_snak["property"] = new_ref_prop_id
                                 new_ref_snak_list.append(ref_snak)
                             new_ref_snak_dict[new_ref_prop_id] = new_ref_snak_list
@@ -393,7 +429,7 @@ class Integrator:
                 test_check = False
                 for qual_id, qual_list in qual_dict.items():
                     new_qual_id = self.write_claim_entities(
-                        wikidata_id=qual_id, languages=languages, login=login
+                        wikidata_id=qual_id, login=login
                     )
                     if new_qual_id == "P43":
                         test_check = True
@@ -410,24 +446,23 @@ class Integrator:
                                 continue
                             new_qual_val_id = self.write_claim_entities(
                                 wikidata_id=qual_val["datavalue"]["value"]["id"],
-                                languages=languages,
                                 login=login,
                             )
                             if not new_qual_val_id:
                                 continue
                             self.check_value_links(
                                 snak=qual_val,
-                                languages=languages,
                                 login=login,
                             )
                             qual_val["datavalue"]["value"]["id"] = new_qual_val_id
                             qual_val["datavalue"]["value"]["numeric-id"] = int(
                                 new_qual_val_id[1:]
                             )
+                        elif qual_val["datatype"] == "wikibase-lexeme":
+                            continue
                         qual_val["property"] = new_qual_id
                         self.check_value_links(
                             snak=qual_val,
-                            languages=languages,
                             login=login,
                         )
                         if new_qual_id == "P43":
@@ -607,7 +642,7 @@ class Integrator:
                 id_list.append(line.strip())
         return id_list
 
-    def check_value_links(self, snak, languages, login):
+    def check_value_links(self, snak, login):
         self.change_config("local")
         # print(wbi_config["WIKIBASE_URL"])
         if "datatype" in snak:
@@ -624,7 +659,6 @@ class Integrator:
                         uid = unit_string.split("/")[-1]
                         local_id = self.write_claim_entities(
                             wikidata_id=uid,
-                            languages=languages,
                             login=login,
                         )
                         print(wbi_config["WIKIBASE_URL"])
@@ -641,7 +675,6 @@ class Integrator:
                         uid = globe_string.split("/")[-1]
                         local_id = self.write_claim_entities(
                             wikidata_id=uid,
-                            languages=languages,
                             login=login,
                         )
                         data["value"]["globe"] = (

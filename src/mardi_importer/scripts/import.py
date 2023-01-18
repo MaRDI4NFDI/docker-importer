@@ -52,15 +52,13 @@ def main():
 
         from mardi_importer.integrator.Integrator import Integrator
 
-        i = Integrator(conf_path=args.conf_path)
+        i = Integrator(conf_path=args.conf_path, languages=["en", "de"])
         i.check_or_create_db_table()
-        id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
+        # id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
         # id_list = ["Q177", "Q192783"]
-        # id_list = ["P5830"]
+        id_list = ["P5830"]
         # id_list = ["Q937"]
-        i.test_import(id_list=id_list, languages=["en", "de"], recurse=True)
-        i.create_units(id_list=id_list, languages=["en", "de"], recurse=True)
-        i.import_items()
+        i.import_entities(id_list=id_list, recurse=True)
         i.engine.dispose()
 
     elif args.mode == "CRAN":

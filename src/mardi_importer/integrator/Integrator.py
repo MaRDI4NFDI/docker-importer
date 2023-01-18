@@ -1,61 +1,27 @@
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.models.qualifiers import Qualifiers
-from wikibaseintegrator.models.claims import Claim
+from wikibaseintegrator.models.claims import Claim, Claims
 from wikibaseintegrator.models.references import Reference
 from wikibaseintegrator.wbi_config import config as wbi_config
-from wikibaseintegrator.datatypes import (
-    Item,
-    Property,
-    String,
-    MonolingualText,
-    Time,
-    CommonsMedia,
-    ExternalID,
-    Form,
-    GeoShape,
-    GlobeCoordinate,
-    Lexeme,
-    Math,
-    MusicalNotation,
-    Quantity,
-    Sense,
-    TabularData,
-    URL,
-)
 from wikibaseintegrator import wbi_login
 from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
 import os
 import sqlalchemy as db
-import datetime
 
 import sys
 
 
 class Integrator:
-    """What this is supposed to do:
-    - import one or many entities
-    - filter by languages
-    - not their dependencies or import them one level deep
-    - have a connection to wikidata for pulling and one to
-        local wiki for posting
-    - use bot user for this
-    """
-
     def __init__(self, conf_path, languages) -> None:
         self.languages = languages
-
-        self.primary_integrator_units = {}
-        self.secondary_integrator_units = {}  # items mentioned in statements
-        # list of wikidata ids that do not have the required language and
-        # should therefore not be imported
-        self.invalid_wikidata_ids = []
         self.wikibase_integrator = WikibaseIntegrator()
         self.imported_items = []
         config_parser = IntegratorConfigParser(conf_path)
         self.config_dict = config_parser.parse_config()
-        self.wikidata_linker_id = None
+        # local id of property for linking to wikidata id
+        self.linker_id = None
         # wikidata id to imported id
         self.id_mapping = {}
         db_user = os.environ["DB_USER"]
@@ -112,16 +78,29 @@ class Integrator:
         result = connection.execute(ins)
 
     def import_entities(self, id_list, recurse):
+        """Function for importing entities from wikidata
+        into the local instance
+
+        Args:
+            id_list: List of strings of wikidata entity ids (Lexemes not supported)
+            recurse: whether to import claims for the entities in id_list
+
+        Returns:
+            None
+        """
+        # config should be on local unless it is
+        # required to be on remote
         self.change_config(instance="local")
-        login = self.change_login(instance="local")
-        self.add_linker_id(login=login)
+        # does not work in init, so it is here
+        self.change_login(instance="local")
+        self.set_linker_id()
         for wikidata_id in id_list:
             if wikidata_id[0] == "L":
                 print(
-                    "Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
+                    f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
                 )
                 continue
-            print(f"current wikidata entity id: {wikidata_id}")
+            print(f"importing entity {wikidata_id}")
             entity = self.get_wikidata_information(
                 wikidata_id=wikidata_id, recurse=recurse
             )
@@ -129,27 +108,18 @@ class Integrator:
                 print(f"No labels for entity with id {wikidata_id}, skipping")
                 continue
             if recurse == True:
-                self.convert_claim_ids(entity, login)
+                self.convert_claim_ids(entity)
                 self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             # if it is not there yet
-            if not self.test_check_entity_exists(entity, wikidata_id, self.connection):
-                self.change_config(instance="local")
-                login = self.change_login(instance="local")
-                new_id = entity.write(login=login, as_new=True).id
+            if not self.check_entity_exists(entity, wikidata_id, self.connection):
+                new_id = entity.write(
+                    login=self.wikibase_integrator.login, as_new=True
+                ).id
 
                 self.id_mapping[wikidata_id] = new_id
-                try:
-                    self.insert_id_in_db(wikidata_id, new_id, self.connection)
-                except:
-                    print("both wikidata id and new id should be ids, not items")
-                    print("first wikidata, then new")
-                    print(wikidata_id)
-                    print(new_id)
-                    sys.exit("sql exit")
-
+                self.insert_id_in_db(wikidata_id, new_id, self.connection)
             # if it is there
             else:
-                self.change_config(instance="local")
                 if wikidata_id[0] == "Q":
                     local_entity = self.wikibase_integrator.item.get(
                         entity_id=self.id_mapping[wikidata_id]
@@ -159,12 +129,7 @@ class Integrator:
                         entity_id=self.id_mapping[wikidata_id]
                     )
                 # replace descriptions
-                try:
-                    local_entity.descriptions = entity.description
-                except:
-                    pass
-                    # local_entity.descriptions=None
-                # replace aliases["mainsnak"]ases
+                local_entity.descriptions = entity.descriptions
                 # add new claims if they are different from old claims
                 local_entity.claims.add(
                     entity.claims,
@@ -172,21 +137,18 @@ class Integrator:
                 )
                 # to also add this for older imports
                 self.add_linker_claim(entity=local_entity, wikidata_id=wikidata_id)
-                self.change_config(instance="local")
-                login = self.change_login(instance="local")
-                # try:
-                local_entity.write(login=login)
-                # except Exception as e:
-                #   print(local_entity)
-                #     print(recurse)
-                #     # print where claim id is P25
-                #     print(local_entity.claims.get("P40"))
-                #   sys.exit("testing")
-
-        # todo:
-        # if there are no labels for the desired language, rempove this value from claims
+                local_entity.write(login=self.wikibase_integrator.login)
 
     def add_linker_claim(self, entity, wikidata_id):
+        """Function for in-place addition of a claim with the
+        property that points to the wikidata id
+        to the local entity
+
+        Args:
+            entity: wikibaeintegrator entity whose claims
+                    this should be added to
+            wikidata_id: wikidata id of the wikidata item
+        """
         linker_json = {
             "mainsnak": {
                 "snaktype": "value",
@@ -204,6 +166,16 @@ class Integrator:
         entity.add_claims(claim)
 
     def get_linker_id(self, label_string_en):
+        """Function for getting linker_id from the local
+        instance by using search_entities function.
+        If it does not exist yet, returns None.
+
+        Args:
+            label_string_en: string with the english label
+
+        Returns:
+            linker_id or None
+        """
         result = search_entities(
             search_string=label_string_en,
             language="en",
@@ -215,7 +187,12 @@ class Integrator:
         else:
             return result[0]["id"]
 
-    def add_linker_id(self, login):
+    def set_linker_id(self):
+        """Function for setting self.linker_id of the local property that links to the
+        wikidata id. Gets linker_id from local instance or creates it.
+
+        Returns: None
+        """
         label_string_en = "has wikidata id"
         linker_id = self.get_linker_id(label_string_en=label_string_en)
         if not linker_id:
@@ -223,35 +200,46 @@ class Integrator:
             prop.labels.set(language="en", value=label_string_en)
             prop.descriptions.set(language="en", value="has a wikidata id")
             prop.datatype = "string"
-            linker_id = prop.write(login=login, as_new=True).id
+            linker_id = prop.write(login=self.wikibase_integrator.login, as_new=True).id
         self.linker_id = linker_id
 
-    def write_claim_entities(self, wikidata_id, login):
+    def write_claim_entities(self, wikidata_id):
+        """Function for importing entities that are mentioned
+        in claims from wikidata to the local wikibase instance
+
+        Args:
+            wikidata_id(str): id of the entity to be imported
+
+        Returns:
+            local id or None, if the entity had no labels
+        """
         entity = self.get_wikidata_information(wikidata_id=wikidata_id, recurse=False)
+        # if entity had no labels
         if not entity:
             return None
-        if not self.test_check_entity_exists(entity, wikidata_id, self.connection):
+        if not self.check_entity_exists(entity, wikidata_id, self.connection):
             self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
-            print(wikidata_id)
-            try:
-                local_id = entity.write(login=login, as_new=True).id
-            except Exception as e:
-                print(e)
-                print(wikidata_id)
-                print(entity)
-                print(entity.datatype)
-                print(entity.claims)
-                sys.exit("testing")
+            local_id = entity.write(
+                login=self.wikibase_integrator.login, as_new=True
+            ).id
             self.id_mapping[wikidata_id] = local_id
             self.insert_id_in_db(wikidata_id, local_id, self.connection)
-            # also add to db just like normal ones
             return local_id
         else:
-            # if it does exist, only update --> get sth with this id with get;
-            # do not insert anywhere, that already gets done when checking
+            # if it does exist, do nothing,
+            # as it does not contain claims anyway
             return self.id_mapping[wikidata_id]
 
     def get_wikidata_information(self, wikidata_id, recurse):
+        """Function for pulling wikidata information
+
+        Args:
+            wikidata_id(str): wikidata id of the desired entity
+            recurse (Bool): if claims should also be imported
+
+        Returns: wikibase integrator entity or None, if the entity has no labels
+
+        """
         self.change_config(instance="wikidata")
         if wikidata_id[0] == "Q":
             entity = self.wikibase_integrator.item.get(entity_id=wikidata_id)
@@ -261,6 +249,7 @@ class Integrator:
             raise Exception(
                 f"Wrong ID format, should start with P, L or Q but ID is {wikidata_id}"
             )
+        self.change_config(instance="local")
         if not self.languages == "all":
             # set labels in desired languages
             label_dict = {
@@ -268,9 +257,12 @@ class Integrator:
                 for k in self.languages
                 if k in entity.labels.values
             }
+            # if there are no labels, this is not
+            # a valid entity
             if not label_dict:
                 return None
             entity.labels.values = label_dict
+
             # set descriptions in desired languages
             description_dict = {
                 k: entity.descriptions.values[k]
@@ -278,6 +270,7 @@ class Integrator:
                 if k in entity.descriptions.values
             }
             entity.descriptions.values = description_dict
+
             # set aliases in desired languages
             alias_dict = {
                 k: entity.aliases.aliases[k]
@@ -285,49 +278,43 @@ class Integrator:
                 if k in entity.aliases.aliases
             }
             entity.aliases.aliases = alias_dict
-        # set claims to None if recurse = False, else just leave them as is
         if recurse == False:
-            from wikibaseintegrator.models.claims import Claims
-
             entity.claims = Claims()
-
-        # necessary because otherwise, this can't be written to local instance
-        # entity.id = None
-
         return entity
 
-    def convert_claim_ids(self, entity, login):
+    def convert_claim_ids(self, entity):
+        """Function for in-place conversion of wikidata
+        ids found in claims into local ids
+
+        Args:
+            entity
+
+        Returns:
+            None
+        """
         entity_names = [
             "wikibase-item",
             "wikibase-property",
         ]
-        import copy
-
-        claims = copy.deepcopy(entity.claims.claims)
-        # todo: completely replace entity.claims.claims
-        # --> make a new dict with new_propid : new claim_list
+        claims = entity.claims.claims
         new_claims = {}
-        # each property can have several targets
+        # structure of claims: Dict[str,List[Claim]]
+        # where str is the property id
         for prop_id, claim_list in claims.items():
             local_claim_list = []
-            local_prop_id = self.write_claim_entities(wikidata_id=prop_id, login=login)
+            local_prop_id = self.write_claim_entities(wikidata_id=prop_id)
             if not local_prop_id:
-                print("local id skipped")
+                print("Warning: local id skipped")
                 continue
-            # get target id if it is an entity
             for c in claim_list:
                 c_dict = c.get_json()
                 if c_dict["mainsnak"]["datatype"] in entity_names:
                     if "datavalue" in c_dict["mainsnak"]:
                         local_mainsnak_id = self.write_claim_entities(
                             wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
-                            login=login,
                         )
                         if not local_mainsnak_id:
                             continue
-                        self.check_value_links(snak=c_dict["mainsnak"], login=login)
-                        # c_dict.pop("id")
-                        # c_dict["id"] = None
                         c_dict["mainsnak"]["datavalue"]["value"][
                             "id"
                         ] = local_mainsnak_id
@@ -339,150 +326,132 @@ class Integrator:
                         if "references" in c_dict:
                             c_dict.pop("references")
                         new_c = Claim().from_json(c_dict)
-                        # try:
-                        #     new_c = Claim().from_json(c_dict)
-                        # except:
-                        #     print(prop_id)
-                        #     print(c_dict)
-                        #     print(list(c_dict))
-                        #     print(c_dict["references"])
-                        #     sys.exit("testing")
                         new_c.id = None
                     else:
                         continue
                 elif c_dict["mainsnak"]["datatype"] == "wikibase-lexeme":
                     continue
                 else:
+                    self.convert_entity_links(snak=c_dict["mainsnak"])
                     new_c = c
                     new_c.mainsnak.property_number = local_prop_id
                     new_c.id = None
                 # get reference details
-                ref_list = c.references.references
-                if ref_list:
-                    new_ref_list = []
-                    for ref in ref_list:
-                        # snaks_order = []
-                        new_ref_snak_dict = {}  # this??
-                        ref_snak_dict = ref.get_json()
-                        for ref_prop_id, ref_snak_list in ref_snak_dict[
-                            "snaks"
-                        ].items():
-                            new_ref_prop_id = self.write_claim_entities(
-                                wikidata_id=ref_prop_id,
-                                login=login,
-                            )
-                            if not new_ref_prop_id:
-                                continue
-                            # snaks_order.append(new_ref_prop_id)
-                            new_ref_snak_list = []
-                            for ref_snak in ref_snak_list:
-                                if ref_snak["datatype"] in entity_names:
-                                    if not "datavalue" in ref_snak:
-                                        continue
-                                    new_ref_snak_id = self.write_claim_entities(
-                                        wikidata_id=ref_snak["datavalue"]["value"][
-                                            "id"
-                                        ],
-                                        login=login,
-                                    )
-                                    if not new_ref_snak_id:
-                                        continue
-                                    self.check_value_links(
-                                        snak=ref_snak,
-                                        login=login,
-                                    )
-                                    ref_snak["datavalue"]["value"][
-                                        "id"
-                                    ] = new_ref_snak_id
-                                    ref_snak["datavalue"]["value"]["numeric-id"] = int(
-                                        new_ref_snak_id[1:]
-                                    )
-                                elif ref_snak["datatype"] == "wikibase-lexeme":
-                                    continue
-                                ref_snak["property"] = new_ref_prop_id
-                                new_ref_snak_list.append(ref_snak)
-                            new_ref_snak_dict[new_ref_prop_id] = new_ref_snak_list
-                            # if ref_prop_id == "P4656":
-                            #     print(new_ref_snak_dict)
-                            #     sys.exit("teststing")
-                        complete_new_ref_snak_dict = {}
-                        complete_new_ref_snak_dict["hash"] = None
-                        complete_new_ref_snak_dict["snaks"] = new_ref_snak_dict
-                        complete_new_ref_snak_dict["snaks-order"] = []
-                        r = Reference()
-                        # print(r.from_json(json_data=complete_new_ref_snak_dict))
-                        # sys.exit("testing")
-                        try:
-                            new_ref_list.append(
-                                r.from_json(json_data=complete_new_ref_snak_dict)
-                            )
-                        except Exception as e:
-                            print(e)
-                            print(complete_new_ref_snak_dict)
-                            sys.exit("ref from json failed exot")
-
-                    new_c.references.references = new_ref_list
-                # new_c.references.references = Reference()  # delete
+                new_references = self.get_references(c)
+                if new_references:
+                    new_c.references.references = new_references
                 # get qualifier details
-                qual_dict = c.qualifiers.get_json()
-                new_qual_dict = {}
-                test_check = False
-                for qual_id, qual_list in qual_dict.items():
-                    new_qual_id = self.write_claim_entities(
-                        wikidata_id=qual_id, login=login
-                    )
-                    if new_qual_id == "P43":
-                        test_check = True
-                        print("first found!")
-                        print(qual_list)
-                    else:
-                        print(f"Nope! This is qwual id {new_qual_id}")
-                    if not new_qual_id:
-                        continue
-                    new_qual_list = []
-                    for qual_val in qual_list:
-                        if qual_val["datatype"] in entity_names:
-                            if not "datavalue" in qual_val:
-                                continue
-                            new_qual_val_id = self.write_claim_entities(
-                                wikidata_id=qual_val["datavalue"]["value"]["id"],
-                                login=login,
-                            )
-                            if not new_qual_val_id:
-                                continue
-                            self.check_value_links(
-                                snak=qual_val,
-                                login=login,
-                            )
-                            qual_val["datavalue"]["value"]["id"] = new_qual_val_id
-                            qual_val["datavalue"]["value"]["numeric-id"] = int(
-                                new_qual_val_id[1:]
-                            )
-                        elif qual_val["datatype"] == "wikibase-lexeme":
-                            continue
-                        qual_val["property"] = new_qual_id
-                        self.check_value_links(
-                            snak=qual_val,
-                            login=login,
-                        )
-                        if new_qual_id == "P43":
-                            print("qual val")
-                            print(qual_val)
-                            print("qual_list")
-                            print(qual_list)
-                            # sys.exit("foundz it")
-                        new_qual_list.append(qual_val)
-                    new_qual_dict[new_qual_id] = new_qual_list
-                q = Qualifiers()
-                new_c.qualifiers = q.from_json(json_data=new_qual_dict)
-                if test_check:
-                    print(new_c.qualifiers)
-                    # sys.exit("found it!")
+                new_qualifiers = self.get_qualifiers(c)
+                new_c.qualifiers = new_qualifiers
                 local_claim_list.append(new_c)
             new_claims[local_prop_id] = local_claim_list
         entity.claims.claims = new_claims
 
-    def test_check_entity_exists(self, entity, wikidata_id, connection):
+    def get_references(self, claim):
+        """Function for creating references from wikidata references
+        and in place adding them to the claim
+
+        Args:
+            claim: a wikibaseintegrator claim
+
+        Returns:
+            List with references, can also be an empty list
+        """
+        entity_names = [
+            "wikibase-item",
+            "wikibase-property",
+        ]
+        # format: List(Reference)
+        ref_list = claim.references.references
+        if not ref_list:
+            return None
+        new_ref_list = []
+        for ref in ref_list:
+            new_snak_dict = {}
+            snak_dict = ref.get_json()
+            for prop_id, snak_list in snak_dict["snaks"].items():
+                new_snak_list = []
+                new_prop_id = self.write_claim_entities(
+                    wikidata_id=prop_id,
+                )
+                if not new_prop_id:
+                    continue
+                for snak in snak_list:
+                    if snak["datatype"] in entity_names:
+                        if not "datavalue" in snak:
+                            continue
+                        new_snak_id = self.write_claim_entities(
+                            wikidata_id=snak["datavalue"]["value"]["id"],
+                        )
+                        if not new_snak_id:
+                            continue
+                        snak["datavalue"]["value"]["id"] = new_snak_id
+                        snak["datavalue"]["value"]["numeric-id"] = int(new_snak_id[1:])
+                    elif snak["datatype"] == "wikibase-lexeme":
+                        continue
+                    else:
+                        self.convert_entity_links(
+                            snak=snak,
+                        )
+                    snak["property"] = new_prop_id
+                    new_snak_list.append(snak)
+                new_snak_dict[new_prop_id] = new_snak_list
+            complete_new_snak_dict = {}
+            complete_new_snak_dict["hash"] = None
+            complete_new_snak_dict["snaks"] = new_snak_dict
+            complete_new_snak_dict["snaks-order"] = []
+            r = Reference()
+            new_ref_list.append(r.from_json(json_data=complete_new_snak_dict))
+        return new_ref_list
+
+    def get_qualifiers(self, claim):
+        """Function for creating qualifiers from wikidata qualifiers
+        and in place adding them to the claim
+
+        Args:
+            claim: a wikibaseintegrator claim
+
+        Returns:
+            Qualifiers object, can also be an empty object
+        """
+        entity_names = [
+            "wikibase-item",
+            "wikibase-property",
+        ]
+        qual_dict = claim.qualifiers.get_json()
+        new_qual_dict = {}
+        for qual_id, qual_list in qual_dict.items():
+            new_qual_id = self.write_claim_entities(wikidata_id=qual_id)
+            if not new_qual_id:
+                continue
+            new_qual_list = []
+            for qual_val in qual_list:
+                if qual_val["datatype"] in entity_names:
+                    if not "datavalue" in qual_val:
+                        continue
+                    new_qual_val_id = self.write_claim_entities(
+                        wikidata_id=qual_val["datavalue"]["value"]["id"],
+                    )
+                    if not new_qual_val_id:
+                        continue
+                    qual_val["datavalue"]["value"]["id"] = new_qual_val_id
+                    qual_val["datavalue"]["value"]["numeric-id"] = int(
+                        new_qual_val_id[1:]
+                    )
+                elif qual_val["datatype"] == "wikibase-lexeme":
+                    continue
+                else:
+                    self.convert_entity_links(
+                        snak=qual_val,
+                    )
+                qual_val["property"] = new_qual_id
+                new_qual_list.append(qual_val)
+            new_qual_dict[new_qual_id] = new_qual_list
+        q = Qualifiers()
+        qualifiers = q.from_json(json_data=new_qual_dict)
+        return qualifiers
+
+    def check_entity_exists(self, entity, wikidata_id, connection):
         """Check if entity exists with a lookup (in this order) in
         self.id_mapping, db table and wiki. Add to where it is missing,
         if it only exists in some of them.
@@ -496,12 +465,8 @@ class Integrator:
         """
         # if the id is in id mapping, the entity
         # has been created in this run
-        self.change_config(instance="local")
         if wikidata_id in self.id_mapping:
-            print(self.id_mapping[wikidata_id])
             return True
-        else:
-            print("not in id mapping")
 
         # check if entity is in db
         metadata = db.MetaData()
@@ -516,31 +481,21 @@ class Integrator:
         # and should be added to the db mapping
         # to speed up the lookup
         if db_result:
-            print(" db result")
-            print(db_result)
             self.id_mapping[wikidata_id] = db_result["internal_id"]
             return True
 
         # if unit is not in dict and not in db, try string search
         # to see if it already exists in wiki
-        try:
-            result = search_entities(
-                search_string=str(entity.labels.get("en")),
-                language="en",
-                search_type=entity.type,
-                dict_result=True,
-            )
-        except:
-            test = str(entity.labels.get("en"))
-            print(test)
-            print(type(test))
-            sys.exit("result exit")
+        result = search_entities(
+            search_string=str(entity.labels.get("en")),
+            language="en",
+            search_type=entity.type,
+            dict_result=True,
+        )
         # if is in neither of the three, it does not exist
         if not result:
             return False
         else:
-            print(" result")
-            print(result)
             # try to find an instance where label (for properties)
             # or label and description (for items) match the
             # entity information
@@ -567,127 +522,57 @@ class Integrator:
             # not exist
             return False
 
-    def debug_write(self, entity):
-        self.change_config(instance="local")
-        login = self.change_login(instance="local")
-        import ujson
-
-        data = entity.get_json()
-        print("!!!!!!!!!!!!!!!!!!!!!!!!")
-        print(data)
-        print(type(data))
-        print(type(ujson.dumps(data)))
-
-        payload = {
-            "action": "wbeditentity",
-            "data": ujson.dumps(data),
-            "format": "json",
-            "token": "+\\",
-        }
-        is_bot = self.wikibase_integrator.is_bot
-        if is_bot:
-            payload.update({"bot": ""})
-        payload.update({"new": entity.type})
-        login = self.wikibase_integrator.login
-
-        from wikibaseintegrator.wbi_config import config
-
-        mediawiki_api_url = config["MEDIAWIKI_API_URL"]
-        user_agent = "WikibaseIntegrator/0.12.0"
-        headers = {"User-Agent": user_agent}
-        payload.update({"token": login.get_edit_token()})
-        session = login.get_session()
-
-        response = None
-        import requests
-
-        from time import sleep
-        import json
-
-        for n in range(100):
-            try:
-                response = session.request(
-                    method="POST",
-                    url=mediawiki_api_url,
-                    data=payload,
-                    headers=headers,
-                )
-            except requests.exceptions.ConnectionError as e:
-                print("Connection error: %s. Sleeping for %d seconds.", e, 60)
-                sleep(60)
-                continue
-            if response.status_code in (500, 502, 503, 504):
-                print(
-                    "Service unavailable (HTTP Code %d). Sleeping for %d seconds.",
-                    response.status_code,
-                    60,
-                )
-                sleep(60)
-                continue
-            break
-        response.raise_for_status()
-        print(response.content)
-        print("????????????????????/")
-        print(response.request.body)
-        print(response.request.headers)
-        print(mediawiki_api_url)
-        json_data = response.json()
-        print(json_data)
-        sys.exit("Exited")
-
     def create_id_list_from_file(self, file):
+        """Function for creating a list of ids
+        from a while where each id is in a new line
+
+        Args:
+            file: path to file
+
+        Returns: list of ids
+        """
         id_list = []
         with open(file, "r") as file:
             for line in file:
                 id_list.append(line.strip())
         return id_list
 
-    def check_value_links(self, snak, login):
-        self.change_config("local")
-        # print(wbi_config["WIKIBASE_URL"])
-        if "datatype" in snak:
-            if "datavalue" not in snak:
-                return
-            data = snak["datavalue"]["value"]
-            if snak["datatype"] == "quantity":
-                # print("snak!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-                # print(snak)
-                # sys.exit("taesting")
-                if "unit" in data:
-                    unit_string = data["unit"]
-                    if "www.wikidata.org/" in unit_string:
-                        uid = unit_string.split("/")[-1]
-                        local_id = self.write_claim_entities(
-                            wikidata_id=uid,
-                            login=login,
-                        )
-                        print(wbi_config["WIKIBASE_URL"])
-                        print(wbi_config["WIKIBASE_URL"] + "/entity/" + local_id)
-                        data["unit"] = wbi_config["WIKIBASE_URL"] + "entity/" + local_id
-                # print(snak)
-                # sys.exit("unit snak testingh")
-            elif snak["datatype"] == "globecoordinate":
-                # print("snak!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-                # print(snak)
-                if "globe" in data:
-                    globe_string = data["globe"]
-                    if "www.wikidata.org/" in globe_string:
-                        uid = globe_string.split("/")[-1]
-                        local_id = self.write_claim_entities(
-                            wikidata_id=uid,
-                            login=login,
-                        )
-                        data["value"]["globe"] = (
-                            wbi_config["WIKIBASE_URL"] + "entity/" + local_id
-                        )
-                # print(snak)
-                # print("globe snak testing")
-                # sys.exit("globe")
+    def convert_entity_links(self, snak):
+        """Function for in-place conversion of unit for quantity and globe for globecoordinate
+        to a link to the local entity instead of a link to the wikidata entity.
+
+        Args:
+            snak: a wikibaseintegrator snak
+
+        Returns:
+            None
+        """
+        if "datatype" not in snak or "datavalue" not in snak:
+            return
+        data = snak["datavalue"]["value"]
+        if snak["datatype"] == "quantity":
+            if "unit" in data:
+                link_string = data["unit"]
+                key_string = "unit"
+        elif snak["datatype"] == "globecoordinate":
+            if "globe" in data:
+                link_string = data["globe"]
+                key_string = "globe"
+        else:
+            return
+        if "www.wikidata.org/" in link_string:
+            uid = link_string.split("/")[-1]
+            local_id = self.write_claim_entities(
+                wikidata_id=uid,
+            )
+            data[key_string] = wbi_config["WIKIBASE_URL"] + "entity/" + local_id
 
     def change_config(self, instance):
         """
         Function for changing the config to allow using wikidata and local instance.
         Also set user agent to avoid warning.
+        Setting config to local should be default, after switching to remote.
+        it should be switched back
 
         Args:
             instance: Instance name (choice between wikidata and local)
@@ -712,10 +597,11 @@ class Integrator:
         Function for using in as a botuser; needed for editing local data.
 
         Args:
-            instance: Instance name (choice between wikidata and local)
+            instance: Instance name (choice between wikidata and local; however,
+            wikidata does not do anything as a login there is not needed at the moment)
 
         Returns:
-            wbi login instance
+            None
         """
         if instance == "wikidata":
             pass
@@ -727,4 +613,3 @@ class Integrator:
             self.wikibase_integrator.login = login_instance
         else:
             sys.exit("Invalid instance")
-        return login_instance

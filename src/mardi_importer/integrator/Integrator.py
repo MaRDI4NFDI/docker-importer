@@ -14,10 +14,10 @@ from wikibaseintegrator.datatypes import String
 import sys
 
 
-class Integrator:
+class MardiIntegrator(WikibaseIntegrator):
     def __init__(self, conf_path, languages) -> None:
+        super(MardiIntegrator, self).__init__()
         self.languages = languages
-        self.wikibase_integrator = WikibaseIntegrator()
         self.imported_items = []
         config_parser = IntegratorConfigParser(conf_path)
         self.config_dict = config_parser.parse_config()
@@ -113,20 +113,16 @@ class Integrator:
                 self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             # if it is not there yet
             if not self.check_entity_exists(entity, wikidata_id):
-                new_id = entity.write(
-                    login=self.wikibase_integrator.login, as_new=True
-                ).id
+                new_id = entity.write(login=self.login, as_new=True).id
 
                 self.id_mapping[wikidata_id] = new_id
                 self.insert_id_in_db(wikidata_id, new_id)
             # if it is there
             else:
                 if wikidata_id[0] == "Q":
-                    local_entity = self.wikibase_integrator.item.get(
-                        entity_id=self.id_mapping[wikidata_id]
-                    )
+                    local_entity = self.item.get(entity_id=self.id_mapping[wikidata_id])
                 elif wikidata_id[0] == "P":
-                    local_entity = self.wikibase_integrator.property.get(
+                    local_entity = self.property.get(
                         entity_id=self.id_mapping[wikidata_id]
                     )
                 # replace descriptions
@@ -138,7 +134,7 @@ class Integrator:
                 )
                 # to also add this for older imports
                 self.add_linker_claim(entity=local_entity, wikidata_id=wikidata_id)
-                local_entity.write(login=self.wikibase_integrator.login)
+                local_entity.write(login=self.login)
 
     def add_linker_claim(self, entity, wikidata_id):
         """Function for in-place addition of a claim with the
@@ -187,11 +183,11 @@ class Integrator:
         label_string_en = "has wikidata id"
         linker_id = self.get_linker_id(label_string_en=label_string_en)
         if not linker_id:
-            prop = self.wikibase_integrator.property.new()
+            prop = self.property.new()
             prop.labels.set(language="en", value=label_string_en)
             prop.descriptions.set(language="en", value="has a wikidata id")
             prop.datatype = "string"
-            linker_id = prop.write(login=self.wikibase_integrator.login, as_new=True).id
+            linker_id = prop.write(login=self.login, as_new=True).id
         self.linker_id = linker_id
 
     def write_claim_entities(self, wikidata_id):
@@ -210,9 +206,7 @@ class Integrator:
             return None
         if not self.check_entity_exists(entity, wikidata_id):
             self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
-            local_id = entity.write(
-                login=self.wikibase_integrator.login, as_new=True
-            ).id
+            local_id = entity.write(login=self.login, as_new=True).id
             self.id_mapping[wikidata_id] = local_id
             self.insert_id_in_db(wikidata_id, local_id)
             return local_id
@@ -233,9 +227,9 @@ class Integrator:
         """
         self.change_config(instance="wikidata")
         if wikidata_id[0] == "Q":
-            entity = self.wikibase_integrator.item.get(entity_id=wikidata_id)
+            entity = self.item.get(entity_id=wikidata_id)
         elif wikidata_id[0] == "P":
-            entity = self.wikibase_integrator.property.get(entity_id=wikidata_id)
+            entity = self.property.get(entity_id=wikidata_id)
         else:
             raise Exception(
                 f"Wrong ID format, should start with P, L or Q but ID is {wikidata_id}"
@@ -601,6 +595,6 @@ class Integrator:
                 user=os.environ.get("BOTUSER_NAME"),
                 password=os.environ.get("BOTUSER_PW"),
             )
-            self.wikibase_integrator.login = login_instance
+            self.login = login_instance
         else:
             sys.exit("Invalid instance")

@@ -9,6 +9,7 @@ from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
 import os
 import sqlalchemy as db
+from wikibaseintegrator.datatypes import String
 
 import sys
 
@@ -31,7 +32,7 @@ class Integrator:
         self.engine = db.create_engine(
             f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
         )
-        self.connection = self.engine.connect()
+        self.check_or_create_db_table()
 
     def check_or_create_db_table(self):
         """
@@ -57,14 +58,13 @@ class Integrator:
                 )
                 metadata.create_all(self.engine)
 
-    def insert_id_in_db(self, wikidata_id, internal_id, connection):
+    def insert_id_in_db(self, wikidata_id, internal_id):
         """
         Insert wikidata_id and internal_id into mapping table.
 
         Args:
             wikidata_id: Wikidata id
             internal_id: local wiki id
-            connection: sqlalchemy connection object
 
         Returns:
             None
@@ -75,7 +75,8 @@ class Integrator:
         )
 
         ins = table.insert().values(wikidata_id=wikidata_id, internal_id=internal_id)
-        result = connection.execute(ins)
+        with self.engine.connect() as connection:
+            result = connection.execute(ins)
 
     def import_entities(self, id_list, recurse):
         """Function for importing entities from wikidata
@@ -111,13 +112,13 @@ class Integrator:
                 self.convert_claim_ids(entity)
                 self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             # if it is not there yet
-            if not self.check_entity_exists(entity, wikidata_id, self.connection):
+            if not self.check_entity_exists(entity, wikidata_id):
                 new_id = entity.write(
                     login=self.wikibase_integrator.login, as_new=True
                 ).id
 
                 self.id_mapping[wikidata_id] = new_id
-                self.insert_id_in_db(wikidata_id, new_id, self.connection)
+                self.insert_id_in_db(wikidata_id, new_id)
             # if it is there
             else:
                 if wikidata_id[0] == "Q":
@@ -149,20 +150,10 @@ class Integrator:
                     this should be added to
             wikidata_id: wikidata id of the wikidata item
         """
-        linker_json = {
-            "mainsnak": {
-                "snaktype": "value",
-                "property": self.linker_id,
-                "datatype": "string",
-                "datavalue": {"value": wikidata_id, "type": "string"},
-            },
-            "type": "statement",
-            "id": "",
-            "rank": "normal",
-        }
-
-        claim = Claim().from_json(linker_json)
-        claim.id = None
+        claim = String(
+            value=wikidata_id,
+            prop_nr=self.linker_id,
+        )
         entity.add_claims(claim)
 
     def get_linker_id(self, label_string_en):
@@ -217,13 +208,13 @@ class Integrator:
         # if entity had no labels
         if not entity:
             return None
-        if not self.check_entity_exists(entity, wikidata_id, self.connection):
+        if not self.check_entity_exists(entity, wikidata_id):
             self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             local_id = entity.write(
                 login=self.wikibase_integrator.login, as_new=True
             ).id
             self.id_mapping[wikidata_id] = local_id
-            self.insert_id_in_db(wikidata_id, local_id, self.connection)
+            self.insert_id_in_db(wikidata_id, local_id)
             return local_id
         else:
             # if it does exist, do nothing,
@@ -451,7 +442,7 @@ class Integrator:
         qualifiers = q.from_json(json_data=new_qual_dict)
         return qualifiers
 
-    def check_entity_exists(self, entity, wikidata_id, connection):
+    def check_entity_exists(self, entity, wikidata_id):
         """Check if entity exists with a lookup (in this order) in
         self.id_mapping, db table and wiki. Add to where it is missing,
         if it only exists in some of them.
@@ -459,7 +450,6 @@ class Integrator:
         Args:
            unit: an IntegratorUnit
            wikidata_id
-           connection: sqlalchemy connection
         Returns:
            bool: Entity already exists or not
         """
@@ -476,7 +466,8 @@ class Integrator:
         sql = db.select([table.columns.internal_id]).where(
             table.columns.wikidata_id == wikidata_id,
         )
-        db_result = connection.execute(sql).fetchone()
+        with self.engine.connect() as connection:
+            db_result = connection.execute(sql).fetchone()
         # if it is in db, it already exists
         # and should be added to the db mapping
         # to speed up the lookup
@@ -504,14 +495,14 @@ class Integrator:
                     # for properties, the label is unique
                     if wikidata_id[0] == "P":
                         self.id_mapping[wikidata_id] = subdict["id"]
-                        self.insert_id_in_db(wikidata_id, subdict["id"], connection)
+                        self.insert_id_in_db(wikidata_id, subdict["id"])
                         return True
                     # an item is unique in combination (label, description)
                     elif wikidata_id[0] == "Q":
                         # if, additionally to label, the description also matches
                         if subdict["description"] == entity.descriptions.get("en"):
                             self.id_mapping[wikidata_id] = subdict["id"]
-                            self.insert_id_in_db(wikidata_id, subdict["id"], connection)
+                            self.insert_id_in_db(wikidata_id, subdict["id"])
                             return True
                     else:
                         sys.exit(

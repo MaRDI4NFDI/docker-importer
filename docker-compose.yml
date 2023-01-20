@@ -190,3 +190,5 @@ volumes:
   mediawiki-mysql-data:
   elasticsearch-data:
   query-service-data:
+
+

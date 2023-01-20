@@ -21,11 +21,12 @@ def get_parser():
     parser = ArgumentParser()
     parser.add_argument("--mode", type=str, required=True, choices=["ZBMath", "CRAN"])
     parser.add_argument("--conf_path", required=False)
+    parser.add_argument("--wikidata_id_file_path", required=False)
     return parser
 
 
 def main():
-    logging.config.fileConfig('logging_config.ini', disable_existing_loggers=False)
+    logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
     args = get_parser().parse_args()
 
@@ -45,9 +46,20 @@ def main():
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
         )
-        data_source.write_data_dump()
-        data_source.process_data()
-        data_source.write_error_ids()
+        # data_source.write_data_dump()
+        # data_source.process_data()
+        # data_source.write_error_ids()
+
+        from mardi_importer.integrator.Integrator import MardiIntegrator
+
+        i = MardiIntegrator(conf_path=args.conf_path, languages=["en", "de"])
+        # i.check_or_create_db_table()
+        id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
+        # id_list = ["Q177", "Q192783"]
+        # id_list = ["P2927"]
+        # id_list = ["Q511761"]
+        i.import_entities(id_list=id_list, recurse=True)
+        i.engine.dispose()
 
     elif args.mode == "CRAN":
         # an object to create entities copied from Wikidata

@@ -1,3 +1,7 @@
+import os
+import sqlalchemy as db
+import sys
+
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.models.qualifiers import Qualifiers
@@ -7,32 +11,37 @@ from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator import wbi_login
 from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
-import os
-import sqlalchemy as db
 from wikibaseintegrator.datatypes import String
-
-import sys
-
 
 class MardiIntegrator(WikibaseIntegrator):
     def __init__(self, conf_path, languages) -> None:
         super(MardiIntegrator, self).__init__()
         self.languages = languages
-        self.imported_items = []
-        config_parser = IntegratorConfigParser(conf_path)
-        self.config_dict = config_parser.parse_config()
-        # local id of property for linking to wikidata id
-        self.linker_id = None
+
+        #config_parser = IntegratorConfigParser(conf_path)
+        #self.config_dict = config_parser.parse_config()
+
+        
         # wikidata id to imported id
         self.id_mapping = {}
+
+        self.login = self.initiate_config()
+        self.engine = self.create_engine()
+        self.check_or_create_db_table()
+        self.WikidataIntegrator = WikibaseIntegrator()
+
+        # local id of property for linking to wikidata id
+        self.linker_id = self.set_linker_id()
+
+    @staticmethod
+    def create_engine():
         db_user = os.environ["DB_USER"]
         db_pass = os.environ["DB_PASS"]
         db_name = os.environ["DB_NAME"]
         db_host = os.environ["DB_HOST"]
-        self.engine = db.create_engine(
+        return db.create_engine(
             f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
         )
-        self.check_or_create_db_table()
 
     def check_or_create_db_table(self):
         """
@@ -91,10 +100,10 @@ class MardiIntegrator(WikibaseIntegrator):
         """
         # config should be on local unless it is
         # required to be on remote
-        self.change_config(instance="local")
+        #self.change_config(instance="local")
         # does not work in init, so it is here
-        self.change_login(instance="local")
-        self.set_linker_id()
+        #self.change_login(instance="local")
+
         for wikidata_id in id_list:
             if wikidata_id[0] == "L":
                 print(
@@ -152,19 +161,19 @@ class MardiIntegrator(WikibaseIntegrator):
         )
         entity.add_claims(claim)
 
-    def get_linker_id(self, label_string_en):
+    def get_linker_id(self, label):
         """Function for getting linker_id from the local
         instance by using search_entities function.
         If it does not exist yet, returns None.
 
         Args:
-            label_string_en: string with the english label
+            label: string with the english label
 
         Returns:
             linker_id or None
         """
         result = search_entities(
-            search_string=label_string_en,
+            search_string=label,
             language="en",
             search_type="property",
             dict_result=True,
@@ -174,21 +183,29 @@ class MardiIntegrator(WikibaseIntegrator):
         else:
             return result[0]["id"]
 
-    def set_linker_id(self):
-        """Function for setting self.linker_id of the local property that links to the
-        wikidata id. Gets linker_id from local instance or creates it.
-
-        Returns: None
-        """
-        label_string_en = "has wikidata id"
-        linker_id = self.get_linker_id(label_string_en=label_string_en)
-        if not linker_id:
+    @staticmethod
+    def set_wikidata_PID():
+        label = "Wikidata PID"
+        wikidata_PID = self.get_linker_id(label)
+        if not wikidata_PID:
             prop = self.property.new()
-            prop.labels.set(language="en", value=label_string_en)
-            prop.descriptions.set(language="en", value="has a wikidata id")
+            prop.labels.set(language="en", value=label)
+            prop.descriptions.set(language="en", value="Identifier in Wikidata of the corresponding properties")
             prop.datatype = "string"
-            linker_id = prop.write(login=self.login, as_new=True).id
-        self.linker_id = linker_id
+            wikidata_PID = prop.write(login=self.login, as_new=True).id
+        return wikidata_PID
+
+    @staticmethod
+    def set_wikidata_QID():
+        label = "Wikidata QID"
+        wikidata_QID = self.get_linker_id(label)
+        if not wikidata_QID:
+            prop = self.property.new()
+            prop.labels.set(language="en", value=label)
+            prop.descriptions.set(language="en", value="Corresponding QID in Wikidata")
+            prop.datatype = "string"
+            wikidata_QID = prop.write(login=self.login, as_new=True).id
+        return wikidata_QID
 
     def write_claim_entities(self, wikidata_id):
         """Function for importing entities that are mentioned
@@ -200,7 +217,7 @@ class MardiIntegrator(WikibaseIntegrator):
         Returns:
             local id or None, if the entity had no labels
         """
-        entity = self.get_wikidata_information(wikidata_id=wikidata_id, recurse=False)
+        entity = self.get_wikidata_information(wikidata_id=wikidata_id)
         # if entity had no labels
         if not entity:
             return None
@@ -215,7 +232,7 @@ class MardiIntegrator(WikibaseIntegrator):
             # as it does not contain claims anyway
             return self.id_mapping[wikidata_id]
 
-    def get_wikidata_information(self, wikidata_id, recurse):
+    def get_wikidata_information(self, wikidata_id, recurse=False):
         """Function for pulling wikidata information
 
         Args:
@@ -225,16 +242,17 @@ class MardiIntegrator(WikibaseIntegrator):
         Returns: wikibase integrator entity or None, if the entity has no labels
 
         """
-        self.change_config(instance="wikidata")
         if wikidata_id[0] == "Q":
-            entity = self.item.get(entity_id=wikidata_id)
+            print('AAAAAAAAAAAA')
+            entity = self.WikidataIntegrator.item.get(entity_id=wikidata_id)
+            print('BBBBBBBBBBBB')
         elif wikidata_id[0] == "P":
-            entity = self.property.get(entity_id=wikidata_id)
+            entity = self.WikidataIntegrator.property.get(entity_id=wikidata_id)
         else:
             raise Exception(
                 f"Wrong ID format, should start with P, L or Q but ID is {wikidata_id}"
             )
-        self.change_config(instance="local")
+
         if not self.languages == "all":
             # set labels in desired languages
             label_dict = {
@@ -263,7 +281,7 @@ class MardiIntegrator(WikibaseIntegrator):
                 if k in entity.aliases.aliases
             }
             entity.aliases.aliases = alias_dict
-        if recurse == False:
+        if not recurse:
             entity.claims = Claims()
         return entity
 
@@ -598,3 +616,12 @@ class MardiIntegrator(WikibaseIntegrator):
             self.login = login_instance
         else:
             sys.exit("Invalid instance")
+
+    def initiate_config(self):
+        wbi_config["MEDIAWIKI_API_URL"] = os.environ.get("MEDIAWIKI_API_URL")
+        wbi_config["SPARQL_ENDPOINT_URL"] = os.environ.get("SPARQL_ENDPOINT_URL")
+        wbi_config["WIKIBASE_URL"] = os.environ.get("WIKIBASE_URL")
+        return wbi_login.Clientlogin(
+            user=os.environ.get("BOTUSER_NAME"),
+            password=os.environ.get("BOTUSER_PW"),
+        )

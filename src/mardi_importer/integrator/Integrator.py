@@ -12,7 +12,7 @@ from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator import wbi_login
 from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
-from wikibaseintegrator.datatypes import String
+from wikibaseintegrator.datatypes import ExternalID
 
 class MardiIntegrator(WikibaseIntegrator):
     def __init__(self, conf_path, languages) -> None:
@@ -34,9 +34,9 @@ class MardiIntegrator(WikibaseIntegrator):
         self.check_or_create_db_table()
         self.WikidataIntegrator = WikibaseIntegrator()
 
-
-        # local id of property for linking to wikidata id
-        self.linker_id = self.set_linker_id()
+        # local id of properties for linking to wikidata PID/QID
+        self.wikidata_PID = self.set_wikidata_PID()
+        self.wikidata_QID = self.set_wikidata_QID()
 
     @staticmethod
     def create_engine():
@@ -127,7 +127,7 @@ class MardiIntegrator(WikibaseIntegrator):
                 self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
             # if it is not there yet
             if not self.check_entity_exists(entity, wikidata_id):
-                new_id = entity.write(login=self.login, as_new=True).id
+                new_id = entity.write(login=self.login, as_new=True)
 
                 self.id_mapping[wikidata_id] = new_id
                 self.insert_id_in_db(wikidata_id, new_id)
@@ -160,56 +160,36 @@ class MardiIntegrator(WikibaseIntegrator):
                     this should be added to
             wikidata_id: wikidata id of the wikidata item
         """
-        claim = String(
+        if type(entity) == MardiItemEntity:
+            print('Item')
+        elif type(entity) == MardiPropertyEntity:
+            print('Property')
+        claim = ExternalID(
             value=wikidata_id,
             prop_nr=self.linker_id,
         )
         entity.add_claims(claim)
 
-    def get_linker_id(self, label):
-        """Function for getting linker_id from the local
-        instance by using search_entities function.
-        If it does not exist yet, returns None.
-
-        Args:
-            label: string with the english label
-
-        Returns:
-            linker_id or None
-        """
-        result = search_entities(
-            search_string=label,
-            language="en",
-            search_type="property",
-            dict_result=True,
-        )
-        if not result:
-            return None
-        else:
-            return result[0]["id"]
-
-    @staticmethod
-    def set_wikidata_PID():
+    def set_wikidata_PID(self):
         label = "Wikidata PID"
-        wikidata_PID = self.get_linker_id(label)
+        wikidata_PID = self.get_entity_id(label, "property")
         if not wikidata_PID:
             prop = self.property.new()
             prop.labels.set(language="en", value=label)
             prop.descriptions.set(language="en", value="Identifier in Wikidata of the corresponding properties")
             prop.datatype = "string"
-            wikidata_PID = prop.write(login=self.login, as_new=True).id
+            wikidata_PID = prop.write(login=self.login, as_new=True)
         return wikidata_PID
 
-    @staticmethod
-    def set_wikidata_QID():
+    def set_wikidata_QID(self):
         label = "Wikidata QID"
-        wikidata_QID = self.get_linker_id(label)
+        wikidata_QID = self.get_entity_id(label, "property")
         if not wikidata_QID:
             prop = self.property.new()
             prop.labels.set(language="en", value=label)
             prop.descriptions.set(language="en", value="Corresponding QID in Wikidata")
             prop.datatype = "string"
-            wikidata_QID = prop.write(login=self.login, as_new=True).id
+            wikidata_QID = prop.write(login=self.login, as_new=True)
         return wikidata_QID
 
     def write_claim_entities(self, wikidata_id):
@@ -228,7 +208,7 @@ class MardiIntegrator(WikibaseIntegrator):
             return None
         if not self.check_entity_exists(entity, wikidata_id):
             self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
-            local_id = entity.write(login=self.login, as_new=True).id
+            local_id = entity.write(login=self.login, as_new=True)
             self.id_mapping[wikidata_id] = local_id
             self.insert_id_in_db(wikidata_id, local_id)
             return local_id
@@ -248,9 +228,7 @@ class MardiIntegrator(WikibaseIntegrator):
 
         """
         if wikidata_id[0] == "Q":
-            print('AAAAAAAAAAAA')
             entity = self.WikidataIntegrator.item.get(entity_id=wikidata_id)
-            print('BBBBBBBBBBBB')
         elif wikidata_id[0] == "P":
             entity = self.WikidataIntegrator.property.get(entity_id=wikidata_id)
         else:
@@ -630,3 +608,30 @@ class MardiIntegrator(WikibaseIntegrator):
             user=os.environ.get("BOTUSER_NAME"),
             password=os.environ.get("BOTUSER_PW"),
         )
+
+    def get_entity_id(self, entity_str, entity_type):
+        if entity_str[0:4] != "wdt:" and entity_str[0:3] != "wd:":
+            if entity_type == "property":
+                new_property = MardiPropertyEntity(api=self).new()
+                new_property.labels.set(language='en', value=entity_str)
+                return new_property.get_PID()
+            elif entity_type == "item":
+                new_item = MardiItemEntity(api=self).new()
+                new_item.labels.set(language='en', value=entity_str)
+                return new_item.get_QID()
+        elif entity_str[0:4] == "wdt:":
+            wikidata_id = entity_str[4:]
+        elif entity_str[0:3] == "wd:":
+            wikidata_id = entity_str[3:]
+
+        with self.engine.connect() as connection:
+            metadata = db.MetaData()
+            table = db.Table(
+                "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
+            )
+            sql = db.select([table.columns.internal_id]).where(
+                table.columns.wikidata_id == wikidata_id,
+            )
+            db_result = connection.execute(sql).fetchone()
+            if db_result:
+                return db_result["internal_id"]

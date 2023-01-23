@@ -63,8 +63,8 @@ def main():
     elif args.mode == "CRAN":
 
         i = MardiIntegrator(conf_path=args.conf_path, languages=["en", "de"])
-        id_list = ["Q177"]
-        i.import_entities(id_list=id_list, recurse=True)
+        #id_list = ["Q177"]
+        #i.import_entities(id_list=id_list, recurse=True)
 
         # an object to create entities copied from Wikidata
         #entity_list = "/config/Properties_to_import_from_WD.txt"

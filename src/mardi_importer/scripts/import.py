@@ -14,6 +14,7 @@ from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
 from mardi_importer.cran.CRANEntityCreator import CRANEntityCreator
+from mardi_importer.integrator.Integrator import MardiIntegrator
 
 
 def get_parser():
@@ -50,8 +51,6 @@ def main():
         # data_source.process_data()
         # data_source.write_error_ids()
 
-        from mardi_importer.integrator.Integrator import MardiIntegrator
-
         i = MardiIntegrator(conf_path=args.conf_path, languages=["en", "de"])
         # i.check_or_create_db_table()
         id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
@@ -62,16 +61,21 @@ def main():
         i.engine.dispose()
 
     elif args.mode == "CRAN":
+
+        i = MardiIntegrator(conf_path=args.conf_path, languages=["en", "de"])
+        id_list = ["Q177"]
+        i.import_entities(id_list=id_list, recurse=True)
+
         # an object to create entities copied from Wikidata
-        entity_list = "/config/Properties_to_import_from_WD.txt"
-        entityCreator = CRANEntityCreator(entity_list)
+        #entity_list = "/config/Properties_to_import_from_WD.txt"
+        #entityCreator = CRANEntityCreator(entity_list)
 
         # an object to import metadata related to R packages from CRAN
-        data_source = CRANSource()
+        #data_source = CRANSource()
 
         # A wrapper for the import process
-        importer = Importer(entityCreator, data_source)
-        importer.import_all()
+        #importer = Importer(entityCreator, data_source)
+        #importer.import_all()
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import sqlalchemy as db
 import sys
 
 from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
+from mardi_importer.integrator.MardiEntities import MardiItemEntity, MardiPropertyEntity
 from wikibaseintegrator import WikibaseIntegrator
 from wikibaseintegrator.models.qualifiers import Qualifiers
 from wikibaseintegrator.models.claims import Claim, Claims
@@ -16,6 +17,9 @@ from wikibaseintegrator.datatypes import String
 class MardiIntegrator(WikibaseIntegrator):
     def __init__(self, conf_path, languages) -> None:
         super(MardiIntegrator, self).__init__()
+        self.item = MardiItemEntity(api=self)
+        self.property = MardiPropertyEntity(api=self)
+        
         self.languages = languages
 
         #config_parser = IntegratorConfigParser(conf_path)
@@ -29,6 +33,7 @@ class MardiIntegrator(WikibaseIntegrator):
         self.engine = self.create_engine()
         self.check_or_create_db_table()
         self.WikidataIntegrator = WikibaseIntegrator()
+
 
         # local id of property for linking to wikidata id
         self.linker_id = self.set_linker_id()

@@ -4,6 +4,7 @@ import sqlalchemy as db
 from wikibaseintegrator.entities.item import ItemEntity
 from wikibaseintegrator.entities.property import PropertyEntity
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
+from wikibaseintegrator.datatypes import ExternalID
 from mardi_importer.importer.Importer import ImporterException
 
 def handleModificationFailed(e):
@@ -14,6 +15,7 @@ def handleModificationFailed(e):
         for parameter in message['parameters']:
             result = re.search(r"\[\[\w*:(\w\d+)\|\w\d+\]\]", parameter)
             if result:
+                # Modify this to return an entity
                 return result.group(1)
 
 
@@ -24,10 +26,16 @@ class MardiItemEntity(ItemEntity):
     
     def write(self, **kwargs):
         try:
-            entity = super(MardiItemEntity, self).write(**kwargs)
-            return entity.id
+            entity = super().write(**kwargs)
+            return entity
         except ModificationFailed as e:
             return handleModificationFailed(e)
+
+    def get(self, **kwargs):
+        entity = super().get(**kwargs)
+        kwargs['entity_id'] = entity.id
+        json_data = super(ItemEntity, self)._get(**kwargs)
+        return MardiItemEntity(api=self.api).from_json(json_data=json_data['entities'][entity.id])
 
     def exists(self): 
         """Checks through the Wikibase DB if an item with same label
@@ -56,10 +64,10 @@ class MardiItemEntity(ItemEntity):
         if 'en' in self.labels.values:
             label = self.labels.values['en'].value
 
-        instance_QID = self.api.get_WB_identifier(instance, 'item')
+        instance_QID = self.api.get_entity_id(instance, 'item')
         if type(instance_QID) is list: instance_QID = instance_QID[0]
 
-        instance_of_PID = self.api.get_WB_identifier('instance of', 'property')
+        instance_of_PID = self.api.get_entity_id('instance of', 'property')
 
         item_QID_list = self.get_QID()
         for QID in item_QID_list:
@@ -79,7 +87,7 @@ class MardiItemEntity(ItemEntity):
         return False
 
     def get_value(self, prop_str):
-        prop_nr = self.api.get_WB_identifier(prop_str, 'property')
+        prop_nr = self.api.get_entity_id(prop_str, 'property')
         QID = self.exists()
         if QID:
             item = ItemEntity(api=self.api).new()
@@ -140,6 +148,22 @@ class MardiItemEntity(ItemEntity):
                 )
             
             return entity_id
+
+    def add_linker_claim(self, wikidata_id):
+        """Function for in-place addition of a claim with the
+        property that points to the wikidata id
+        to the local entity
+
+        Args:
+            entity: WikibaseIntegrator entity whose claims
+                    this should be added to
+            wikidata_id: wikidata id of the wikidata item
+        """
+        claim = ExternalID(
+            value=wikidata_id,
+            prop_nr=self.api.wikidata_QID,
+        )
+        self.add_claims(claim)
     
 
 class MardiPropertyEntity(PropertyEntity):
@@ -148,10 +172,16 @@ class MardiPropertyEntity(PropertyEntity):
     
     def write(self, **kwargs):
         try:
-            entity = super(MardiPropertyEntity, self).write(**kwargs)
-            return entity.id
+            entity = super().write(**kwargs)
+            return entity
         except ModificationFailed as e:
             return handleModificationFailed(e)
+
+    def get(self, **kwargs):
+        entity = super().get(**kwargs)
+        kwargs['entity_id'] = entity.id
+        json_data = super(PropertyEntity, self)._get(**kwargs)
+        return MardiPropertyEntity(api=self.api).from_json(json_data=json_data['entities'][entity.id])
 
     def exists(self): 
         """Checks through the Wikibase DB if a property with the 
@@ -200,3 +230,19 @@ class MardiPropertyEntity(PropertyEntity):
                 raise ImporterException(
                     "Error attempting to read mappings from database\n{}".format(e)
                 )
+
+    def add_linker_claim(self, wikidata_id):
+        """Function for in-place addition of a claim with the
+        property that points to the wikidata id
+        to the local entity
+
+        Args:
+            entity: WikibaseIntegrator entity whose claims
+                    this should be added to
+            wikidata_id: wikidata id of the wikidata item
+        """
+        claim = ExternalID(
+            value=wikidata_id,
+            prop_nr=self.api.wikidata_PID,
+        )
+        self.add_claims(claim)

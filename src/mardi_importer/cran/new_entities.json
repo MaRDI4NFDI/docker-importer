@@ -1,0 +1,39 @@
+{
+    "properties": [
+        {
+            "label": "License version",
+            "description": "License version identifier",
+            "datatype": "string"
+        },
+        {
+            "label": "imports",
+            "description": "Subject software imports object software",
+            "datatype": "wikibase-item"
+        }
+    ],
+    "items": [
+        {
+            "label": "File License",
+            "description": "Text file that contains license information",
+            "claims": {
+                "wdt:P31": "wd:Q207621"
+            }
+        },
+        {
+            "label": "ACM Software License Agreement",
+            "description": "Software License Agreement developed by the Association for Computing Machinery",
+            "claims": {
+                "wdt:P31": "wd:Q207621",
+                "wdt:P123": "wd:Q127992",
+                "wdt:P856": "https://www.acm.org/publications/policies/software-copyright-notice"
+            }
+        },
+        {
+            "label": "Unlimited License",
+            "description": "Unlimited Software License",
+            "claims": {
+                "wdt:P31": "wd:Q207621"
+            }
+        }
+    ]
+}

@@ -25,7 +25,7 @@ class Importer:
         """
         #self.dataSource.setup()
         self.dataSource.pull()
-        #self.dataSource.push()
+        self.dataSource.push()
 
 
 class ADataSource:

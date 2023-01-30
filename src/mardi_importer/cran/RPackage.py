@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from mardi_importer.wikibase.WBItem import WBItem
-from mardi_importer.wikibase.WBProperty import WBProperty
 from mardi_importer.wikibase.WBMapping import get_wbs_local_id
 from mardi_importer.wikibase.SPARQLUtils import SPARQL_exists
 from mardi_importer.crossref.Publication import Publication
@@ -40,7 +38,7 @@ class RPackage:
         maintainer:
           Software maintainer          
     """
-    def __init__(self, date, label, title):
+    def __init__(self, date, label, title, integrator):
         self.date = date
         self.label = label
         self.description = title
@@ -52,7 +50,18 @@ class RPackage:
         self.dependency = ""
         self.imports = ""
         self.maintainer = ""
-        self.ID = None
+        self.QID = None
+        self.api = integrator
+        self.item = self.init_item()
+
+    def init_item(self):
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.label)
+        item.descriptions.set(
+            language="en", 
+            value=self.description
+        )
+        return item  
 
     def pull(self):
         """Imports metadata from CRAN corresponding to the R package.
@@ -104,8 +113,9 @@ class RPackage:
         Returns: 
           String: Entity ID
         """
-        self.ID = WBItem(self.label).instance_exists("WD_Q73539779")
-        return self.ID
+        if self.QID: return self.QID
+        self.QID = self.item.is_instance_of('wd:Q73539779')
+        return self.QID
 
     def is_updated(self):
         """Checks if the WB item corresponding to the R package is up to date.
@@ -136,51 +146,54 @@ class RPackage:
         if self.pull():
 
             # Create R package Item with label
-            item = WBItem(self.label)
+            #item = WBItem(self.label)
 
             # Add description to the R package
-            item.add_description(self.description)
+            #item.add_description(self.description)
 
             # Instance of: R package
-            item.add_statement("WD_P31", "WD_Q73539779")
+            self.item.add_claim("wdt:P31", "wd:Q73539779")
 
             # R package CRAN URL
-            item.add_statement("WD_P2699", self.url)
+            self.item.add_claim("wdt:P2699", self.url)
 
             # Publication date
-            item.add_statement("WD_P5017", "+%sT00:00:00Z" % (self.date))
+            self.item.add_claim("wdt:P5017", "+%sT00:00:00Z" % (self.date))
 
             # Software version identifier
-            item.add_statement("WD_P348", self.version, WD_P577="+%sT00:00:00Z" % (self.date))
+            qualifier = [self.api.get_claim("wdt:P577", "+%sT00:00:00Z" % (self.date))]
+            self.item.add_claim("wdt:P348", self.version, qualifier=qualifier)
 
             # Authors
             author_ID = self.preprocess_authors()
             for author in author_ID:
-                item.add_statement("WD_P50", author)
+                self.item.add_claim("wdt:P50", author)
 
             # Maintainer
             maintainer_ID = self.preprocess_maintainer(author_ID)
-            item.add_statement("WD_P126", maintainer_ID)
+            self.item.add_claim("wdt:P126", maintainer_ID)
 
+            ##########################################################
+            
             # Licenses
-            self.add_licenses(item)
+            #self.add_licenses(item)
 
             # Dependencies
-            self.add_dependencies(item)
+            #self.add_dependencies(item)
 
             # Imports
-            self.add_imports(item)
+            #self.add_imports(item)
 
             # Related publication
-            publication_list = self.preprocess_publications(author_ID)
-            related_publication = WBProperty("related publication").label_exists()
-            for publication in publication_list:
-                item.add_statement(related_publication,publication)
+            #publication_list = self.preprocess_publications(author_ID)
+            #related_publication = WBProperty("related publication").label_exists()
+            #for publication in publication_list:
+            #    item.add_statement(related_publication,publication)
 
-            package_ID = item.create()
-            if package_ID:
-                log.info(f"Package created with ID {package_ID}.")
-                return package_ID
+            package = self.item.write()
+            if package.id:
+                log.info(f"Package created with ID {package.id}.")
+                return package.id
             else:
                 log.info(f"Package could not be created.")
                 return None
@@ -491,7 +504,7 @@ class RPackage:
             String: Package publication date in format DD-MM-YYYY.
         """
         try:
-            values = WBItem(ID=self.exists()).get_value("WD_P5017")
+            values = self.item.get_value("wdt:P5017")
             if len(values) > 0:
                 return values[0]
             return None

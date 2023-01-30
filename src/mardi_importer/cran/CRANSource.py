@@ -106,15 +106,18 @@ class CRANSource(ADataSource):
             package_date = self.packages.loc[i, "Date"]
             package_label = self.packages.loc[i, "Package"]
             package_title = self.packages.loc[i, "Title"]
-            package = RPackage(package_date, package_label, package_title)
+            package = RPackage(package_date, package_label, package_title, self.integrator)
             if package.exists():
                 if not package.is_updated():
-                    log.info(f"Package {package_label} found: Not up to date. Attempting update...")
-                    package.update()
+                    print('Package found. Not up to date')
+                    #log.info(f"Package {package_label} found: Not up to date. Attempting update...")
+                    #package.update()
                 else:
-                    log.info(f"Package {package_label} found: Already up to date.")
+                    print('Package found and up to date')
+                    #log.info(f"Package {package_label} found: Already up to date.")
             else:
-                log.info(f"Package {package_label} not found: Attempting item creation...")
+                print('Package not found')
+                #log.info(f"Package {package_label} not found: Attempting item creation...")
                 package.create()
 
             time.sleep(2)

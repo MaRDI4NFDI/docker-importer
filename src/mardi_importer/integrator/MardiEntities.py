@@ -57,9 +57,8 @@ class MardiItemEntity(ItemEntity):
             if description == item.descriptions.values.get('en'):
                 return QID
 
-    def add_claim(self, prop_nr, **kwargs):
-        claim = self.api.get_claim(prop_nr, **kwargs)
-
+    def add_claim(self, prop_nr, value, **kwargs):
+        claim = self.api.get_claim(prop_nr, value, **kwargs)
         self.claims.add(claim)
 
     def is_instance_of(self, instance):

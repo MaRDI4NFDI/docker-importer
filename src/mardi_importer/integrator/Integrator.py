@@ -627,12 +627,12 @@ class MardiIntegrator(WikibaseIntegrator):
             if db_result:
                 return db_result["local_id"]
 
-    def get_claim(self, prop_nr, **kwargs):
+    def get_claim(self, prop_nr, value, **kwargs):
         prop_nr = self.get_local_id_by_label(prop_nr, 'property')
         prop = self.property.get(entity_id=prop_nr)
         kwargs['prop_nr'] = prop_nr
+        kwargs['value'] = value
         if prop.datatype.value == 'wikibase-item':
-            value = kwargs['value']
             kwargs['value'] = self.get_local_id_by_label(value, 'item')
             return Item(**kwargs)
         elif prop.datatype.value == 'commonsMedia':

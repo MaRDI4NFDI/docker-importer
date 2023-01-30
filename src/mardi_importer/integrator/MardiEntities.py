@@ -1,10 +1,12 @@
 import re
 import sqlalchemy as db
+from sqlalchemy import and_
 
 from wikibaseintegrator.entities.item import ItemEntity
 from wikibaseintegrator.entities.property import PropertyEntity
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
-from wikibaseintegrator.datatypes import ExternalID
+from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
+                                          Sense, String, TabularData, Time)
 from mardi_importer.importer.Importer import ImporterException
 
 def handleModificationFailed(e):
@@ -25,6 +27,7 @@ class MardiItemEntity(ItemEntity):
         return MardiItemEntity(api=self.api, **kwargs)
     
     def write(self, **kwargs):
+        #print(self.claims)
         try:
             entity = super().write(**kwargs)
             return entity
@@ -53,9 +56,52 @@ class MardiItemEntity(ItemEntity):
         for QID in QID_list:
             item = ItemEntity(api=self.api).new()
             item = item.get(QID)
-            if description == self.descriptions.values.get('en'):
+            if description == item.descriptions.values.get('en'):
                 return QID
 
+    def add_claim(self, prop_nr, value):
+        prop_nr = self.api.get_local_id_by_label(prop_nr, 'property')
+        value = self.api.get_local_id_by_label(value, 'item')
+        prop = self.api.property.get(entity_id=prop_nr)
+
+        if prop.datatype.value == 'wikibase-item':
+            claim = Item(prop_nr='P180', value=value)
+        elif prop.datatype.value == 'commonsMedia':
+            pass
+        elif prop.datatype.value == 'external-id':
+            pass
+        elif prop.datatype.value == 'wikibase-form':
+            pass
+        elif prop.datatype.value == 'geo-shape':
+            pass
+        elif prop.datatype.value == 'globe-coordinate':
+            pass
+        elif prop.datatype.value == 'wikibase-item':
+            pass
+        elif prop.datatype.value == 'wikibase-lexeme':
+            pass
+        elif prop.datatype.value == 'math':
+            pass
+        elif prop.datatype.value == 'monolingualtext':
+            pass
+        elif prop.datatype.value == 'musical-notation':
+            pass
+        elif prop.datatype.value == 'wikibase-property':
+            pass
+        elif prop.datatype.value == 'quantity':
+            pass
+        elif prop.datatype.value == 'wikibase-sense':
+            pass
+        elif prop.datatype.value == 'string':
+            pass
+        elif prop.datatype.value == 'tabular-data':
+            pass
+        elif prop.datatype.value == 'time':
+            pass
+        elif prop.datatype.value == 'url':
+            pass
+
+        self.claims.add(claim)
 
     def is_instance_of(self, instance):
         """Checks if a given entity is an instance of 'instance' item 
@@ -64,10 +110,10 @@ class MardiItemEntity(ItemEntity):
         if 'en' in self.labels.values:
             label = self.labels.values['en'].value
 
-        instance_QID = self.api.get_entity_id(instance, 'item')
+        instance_QID = self.api.get_local_id_by_label(instance, 'item')
         if type(instance_QID) is list: instance_QID = instance_QID[0]
 
-        instance_of_PID = self.api.get_entity_id('instance of', 'property')
+        instance_of_PID = self.api.get_local_id_by_label('instance of', 'property')
 
         item_QID_list = self.get_QID()
         for QID in item_QID_list:
@@ -87,7 +133,7 @@ class MardiItemEntity(ItemEntity):
         return False
 
     def get_value(self, prop_str):
-        prop_nr = self.api.get_entity_id(prop_str, 'property')
+        prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
         QID = self.exists()
         if QID:
             item = ItemEntity(api=self.api).new()
@@ -119,9 +165,6 @@ class MardiItemEntity(ItemEntity):
                 wbt_item_terms = db.Table(
                     "wbt_item_terms", metadata, autoload=True, autoload_with=self.api.engine
                 )
-                wbt_property_terms = db.Table(
-                    "wbt_property_terms", metadata, autoload=True, autoload_with=self.api.engine
-                )
                 wbt_term_in_lang = db.Table(
                     "wbt_term_in_lang", metadata, autoload=True, autoload_with=self.api.engine
                 )
@@ -135,7 +178,7 @@ class MardiItemEntity(ItemEntity):
                         .join(wbt_term_in_lang, wbt_item_terms.columns.wbit_term_in_lang_id == wbt_term_in_lang.columns.wbtl_id)
                         .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                         .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
-                        .where(wbt_text.columns.wbx_text == bytes(label, "utf-8")))
+                        .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), wbt_term_in_lang.columns.wbtl_type_id == 1)))
                 results = connection.execute(query).fetchall()
                 entity_id = []
                 if results:
@@ -200,9 +243,6 @@ class MardiPropertyEntity(PropertyEntity):
         with self.api.engine.connect() as connection:
             metadata = db.MetaData()
             try:
-                wbt_item_terms = db.Table(
-                    "wbt_item_terms", metadata, autoload=True, autoload_with=self.api.engine
-                )
                 wbt_property_terms = db.Table(
                     "wbt_property_terms", metadata, autoload=True, autoload_with=self.api.engine
                 )
@@ -219,7 +259,7 @@ class MardiPropertyEntity(PropertyEntity):
                         .join(wbt_term_in_lang, wbt_term_in_lang.columns.wbtl_id == wbt_property_terms.columns.wbpt_term_in_lang_id)
                         .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                         .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
-                        .where(wbt_text.columns.wbx_text == bytes(label, "utf-8")))
+                        .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), wbt_term_in_lang.columns.wbtl_type_id == 1)))
                 prefix = "P"
                 results = connection.execute(query).fetchall()
                 if results:

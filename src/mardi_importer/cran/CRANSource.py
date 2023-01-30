@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 from mardi_importer.importer.Importer import ADataSource, ImporterException
+from mardi_importer.integrator.Integrator import MardiIntegrator
 from mardi_importer.cran.RPackage import RPackage
-import configparser
 import pandas as pd
 import time
+import json
+import os
 import logging
 log = logging.getLogger('CRANlogger')
 
@@ -23,7 +25,41 @@ class CRANSource(ADataSource):
     """
 
     def __init__(self):
+        self.integrator = MardiIntegrator()
+        self.filepath = os.path.realpath(os.path.dirname(__file__)) 
         self.packages = ""
+
+    def setup(self):
+        """Create all necessary properties and entities for CRAN
+        """
+        # Import entities from Wikidata
+        filename = self.filepath + "/wikidata_entities.txt"
+        self.integrator.import_entities(filename=filename)
+
+        # Create new required local entities
+        self.create_local_entities()
+
+    def create_local_entities(self):
+        filename = self.filepath + "/new_entities.json"
+        f = open(filename)
+        entities = json.load(f)
+
+        for prop_element in entities['properties']:
+            prop = self.integrator.property.new()
+            prop.labels.set(language='en', value=prop_element['label'])
+            prop.descriptions.set(language='en', value=prop_element['description'])
+            prop.datatype = prop_element['datatype']
+            if not prop.exists(): prop.write()
+
+        for item_element in entities['items']:
+            item = self.integrator.item.new()
+            item.labels.set(language='en', value=item_element['label'])
+            item.descriptions.set(language='en', value=item_element['description'])
+            for key, value in item_element['claims'].items():
+                item.add_claim(key,value)
+            #if not item.exists(): item.write()
+
+
 
     def pull(self):
         """Reads **date**, **package name** and **title** from the CRAN Repository URL.

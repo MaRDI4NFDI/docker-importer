@@ -9,11 +9,9 @@ import logging
 import logging.config
 from argparse import ArgumentParser
 from mardi_importer.importer.Importer import Importer, ImporterException
-from mardi_importer.wikidata.EntityCreator import EntityCreator
 from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
-from mardi_importer.cran.CRANEntityCreator import CRANEntityCreator
 from mardi_importer.integrator.Integrator import MardiIntegrator
 
 
@@ -62,20 +60,20 @@ def main():
 
     elif args.mode == "CRAN":
 
-        integrator = MardiIntegrator()
-        entity_id = "Q177"
-        integrator.import_entities(entity_id)
+        #integrator = MardiIntegrator()
+        #entity_id = "P31"
+        #integrator.import_entities(entity_id)
 
         # an object to create entities copied from Wikidata
         #entity_list = "/config/Properties_to_import_from_WD.txt"
         #entityCreator = CRANEntityCreator(entity_list)
 
         # an object to import metadata related to R packages from CRAN
-        #data_source = CRANSource()
+        data_source = CRANSource()
 
         # A wrapper for the import process
-        #importer = Importer(entityCreator, data_source)
-        #importer.import_all()
+        importer = Importer(data_source)
+        importer.import_all()
 
 
 if __name__ == "__main__":

@@ -5,8 +5,6 @@ from sqlalchemy import and_
 from wikibaseintegrator.entities.item import ItemEntity
 from wikibaseintegrator.entities.property import PropertyEntity
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
-from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
-                                          Sense, String, TabularData, Time)
 from mardi_importer.importer.Importer import ImporterException
 
 def handleModificationFailed(e):
@@ -59,47 +57,8 @@ class MardiItemEntity(ItemEntity):
             if description == item.descriptions.values.get('en'):
                 return QID
 
-    def add_claim(self, prop_nr, value):
-        prop_nr = self.api.get_local_id_by_label(prop_nr, 'property')
-        value = self.api.get_local_id_by_label(value, 'item')
-        prop = self.api.property.get(entity_id=prop_nr)
-
-        if prop.datatype.value == 'wikibase-item':
-            claim = Item(prop_nr='P180', value=value)
-        elif prop.datatype.value == 'commonsMedia':
-            pass
-        elif prop.datatype.value == 'external-id':
-            pass
-        elif prop.datatype.value == 'wikibase-form':
-            pass
-        elif prop.datatype.value == 'geo-shape':
-            pass
-        elif prop.datatype.value == 'globe-coordinate':
-            pass
-        elif prop.datatype.value == 'wikibase-item':
-            pass
-        elif prop.datatype.value == 'wikibase-lexeme':
-            pass
-        elif prop.datatype.value == 'math':
-            pass
-        elif prop.datatype.value == 'monolingualtext':
-            pass
-        elif prop.datatype.value == 'musical-notation':
-            pass
-        elif prop.datatype.value == 'wikibase-property':
-            pass
-        elif prop.datatype.value == 'quantity':
-            pass
-        elif prop.datatype.value == 'wikibase-sense':
-            pass
-        elif prop.datatype.value == 'string':
-            pass
-        elif prop.datatype.value == 'tabular-data':
-            pass
-        elif prop.datatype.value == 'time':
-            pass
-        elif prop.datatype.value == 'url':
-            pass
+    def add_claim(self, prop_nr, **kwargs):
+        claim = self.api.get_claim(prop_nr, **kwargs)
 
         self.claims.add(claim)
 

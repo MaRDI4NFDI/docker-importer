@@ -8,6 +8,8 @@ from wikibaseintegrator.models.qualifiers import Qualifiers
 from wikibaseintegrator.models.references import Reference
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
+from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
+                                          Sense, String, TabularData, Time)
 
 class MardiIntegrator(WikibaseIntegrator):
     def __init__(self, languages=["en", "de"]) -> None:
@@ -624,3 +626,44 @@ class MardiIntegrator(WikibaseIntegrator):
             db_result = connection.execute(sql).fetchone()
             if db_result:
                 return db_result["local_id"]
+
+    def get_claim(self, prop_nr, **kwargs):
+        prop_nr = self.get_local_id_by_label(prop_nr, 'property')
+        prop = self.property.get(entity_id=prop_nr)
+        kwargs['prop_nr'] = prop_nr
+        if prop.datatype.value == 'wikibase-item':
+            value = kwargs['value']
+            kwargs['value'] = self.get_local_id_by_label(value, 'item')
+            return Item(**kwargs)
+        elif prop.datatype.value == 'commonsMedia':
+            return CommonsMedia(**kwargs)
+        elif prop.datatype.value == 'external-id':
+            return ExternalID(**kwargs)
+        elif prop.datatype.value == 'wikibase-form':
+            return Form(**kwargs)
+        elif prop.datatype.value == 'geo-shape':
+            return GeoShape(**kwargs)
+        elif prop.datatype.value == 'globe-coordinate':
+            return GlobeCoordinate(**kwargs)
+        elif prop.datatype.value == 'wikibase-lexeme':
+            return Lexeme(**kwargs)
+        elif prop.datatype.value == 'math':
+            return Math(**kwargs)
+        elif prop.datatype.value == 'monolingualtext':
+            return MonolingualText(**kwargs)
+        elif prop.datatype.value == 'musical-notation':
+            return MusicalNotation(**kwargs)
+        elif prop.datatype.value == 'wikibase-property':
+            return Property(**kwargs)
+        elif prop.datatype.value == 'quantity':
+            return Quantity(**kwargs)
+        elif prop.datatype.value == 'wikibase-sense':
+            return Sense(**kwargs)
+        elif prop.datatype.value == 'string':
+            return String(**kwargs)
+        elif prop.datatype.value == 'tabular-data':
+            return TabularData(**kwargs)
+        elif prop.datatype.value == 'time':
+            return Time(**kwargs)
+        elif prop.datatype.value == 'url':
+            return URL(**kwargs)

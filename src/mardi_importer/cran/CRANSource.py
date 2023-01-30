@@ -56,8 +56,11 @@ class CRANSource(ADataSource):
             item.labels.set(language='en', value=item_element['label'])
             item.descriptions.set(language='en', value=item_element['description'])
             for key, value in item_element['claims'].items():
-                item.add_claim(key,value)
-            #if not item.exists(): item.write()
+                item.add_claim(key,value=value)
+            if not item.exists(): 
+                item.write()
+            else:
+                print(item.exists())
 
 
 

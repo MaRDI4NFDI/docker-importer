@@ -1,11 +1,6 @@
 {
     "properties": [
         {
-            "label": "License version",
-            "description": "License version identifier",
-            "datatype": "string"
-        },
-        {
             "label": "imports",
             "description": "Subject software imports object software",
             "datatype": "wikibase-item"

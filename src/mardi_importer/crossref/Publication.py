@@ -3,16 +3,14 @@
 
 from habanero import Crossref
 from requests.exceptions import HTTPError
-from mardi_importer.wikibase.WBItem import WBItem
 from mardi_importer.crossref.Author import Author
-from mardi_importer.wikibase.WBMapping import get_wbs_local_id
 import pandas as pd
 import re
 import logging
 log = logging.getLogger('CRANlogger')
 
 class Publication:
-    def __init__(self, doi):
+    def __init__(self, doi, integrator):
         self.doi = doi
         self.title = ""
         self.author = {}
@@ -33,6 +31,7 @@ class Publication:
         self.year = ""
         self.crossref = False
         self.related_authors = []
+        self.api = integrator
 
     def pull(self):
         try:
@@ -114,39 +113,42 @@ class Publication:
         return None
 
     def create(self):
-        if (self.crossref == False):
+        if not self.crossref:
             self.pull()
 
-        item = WBItem(self.title)
-        item.add_statement('WD_P31','WD_Q591041')
-        item.add_statement('WD_P356',self.doi)
+        item = self.api.item.new()
+        license_item.labels.set(language="en", value=self.title)
+        item.add_claim('wdt:P31','wd:Q591041')
+        item.add_claim('wdt:P356',self.doi)
         if len(self.title) > 0:
             if len(self.journal) > 0:
                 journal_id = self.preprocess_journal()
-                item.add_statement('WD_P1433', journal_id)
+                item.add_claim('wdt:P1433', journal_id)
                 if len(self.volume) > 0:
-                    item.add_statement('WD_P478', self.volume)
+                    item.add_claim('wdt:P478', self.volume)
                 if len(self.issue) > 0:
-                    item.add_statement('WD_P433', self.issue)
+                    item.add_claim('wdt:P433', self.issue)
                 if len(self.page) > 0:
-                    item.add_statement('WD_P304', self.page)
+                    item.add_claim('wdt:P304', self.page)
             elif len(self.book) > 0:
                 book_id = self.preprocess_book()
-                item.add_statement('WD_P1433', book_id)
+                item.add_claim('wdt:P1433', book_id)
             elif len(self.proceedings) > 0:
                 proceedings_id = self.preprocess_proceedings()
-                item.add_statement('WD_P1433', proceedings_id)
+                item.add_claim('wdt:P1433', proceedings_id)
             if len(self.day) > 0:
-                item.add_statement("WD_P577", f"+{self.year}-{self.month}-{self.day}T00:00:00Z")
+                item.add_claim("wdt:P577", time=f"+{self.year}-{self.month}-{self.day}T00:00:00Z")
             elif len(self.month) > 0:
-                item.add_statement("WD_P577", f"+{self.year}-{self.month}-00T00:00:00Z")
+                item.add_claim("wdt:P577", time=f"+{self.year}-{self.month}-00T00:00:00Z")
             elif len(self.year) > 0:
-                item.add_statement("WD_P577", f"+{self.year}-00-00T00:00:00Z")
+                item.add_claim("wdt:P577", time=f"+{self.year}-00-00T00:00:00Z")
             if len(self.author) > 0:
                 author_ID = self.preprocess_authors()
+                claims = []
                 for author in author_ID:
-                    item.add_statement("WD_P50", author)                
-        publication_ID = item.create()
+                    claims.append(self.api.get_claim("wdt:P50", author))
+                item.add_claims(claims)             
+        publication_ID = item.write().id
 
         if publication_ID:
             log.info(f"Publication created with ID {publication_ID}.")
@@ -154,10 +156,6 @@ class Publication:
         else:
             log.info(f"Publication could not be created.")
             return None
-
-    def add_related_authors(self, author_ID):
-        for author_qid in author_ID:
-            self.related_authors.append(author_qid)
 
     def preprocess_authors(self):
         """Processes the author information of each Publication. This includes:
@@ -172,76 +170,91 @@ class Publication:
         author_ID = []
         for author, orcid in self.author.items():
             author_qid = None
-            human = get_wbs_local_id("Q5")
-            orcid_id = get_wbs_local_id("P496")
+            human = "wd:Q5"
+            orcid_id = "wdt:P496"
             if orcid: 
-                author_qid = WBItem(author).instance_property_exists(human, orcid_id, orcid)
+                item = self.api.item.new()
+                item.labels.set(language="en", value=author)
+                author_qid = item.is_instance_of_with_property(human, orcid_id, orcid)
             if not author_qid:
                 author_qid = self.check_related_authors(author, orcid)
             if not author_qid:
-                author_item = Author(author)
-                if orcid:
-                    author_item.add_orcid(orcid)
-                author_qid = author_item.create()
-                self.related_authors.append(author_qid)
-            author_ID.append(author_qid)
+                if len(author) > 0:
+                    author_item = Author(author, self.api)
+                    if orcid:
+                        author_item.add_orcid(orcid)
+                    author_qid = author_item.create()
+                    self.related_authors.append(author_qid)
+            if author_qid:
+                author_ID.append(author_qid)
         return author_ID
 
     def check_related_authors(self, author, orcid):
         for related_author_id in self.related_authors:
-            related_author = WBItem(ID=related_author_id)
-            related_author_name = related_author.get_label_by_ID()
-            orcid_id = get_wbs_local_id("P496")
+            related_author = self.api.item.get(entity_id=related_author_id)
+            related_author_name = related_author.labels.values['en']
+            orcid_id = "wdt:P496"
             related_author_orcid = related_author.get_value(orcid_id)
             if len(related_author_orcid) > 0:
                 related_author_orcid = related_author_orcid[0]
             else:
                 related_author_orcid = None
-            if Author(related_author_name).compare_names(author):
+            corrected_name = Author(related_author_name, self.api).compare_names(author)
+            if corrected_name:
                 if not related_author_orcid and orcid:
-                    related_author.update_label(Author(related_author_name).compare_names(author))
-                    related_author.add_statement(orcid_id, orcid)
-                    related_author.update()
+                    new_author = self.api.item.new()
+                    new_author.labels.set(language="en", value=corrected_name)
+                    new_author.add_claim(orcid_id, orcid)
+                    new_author.claims.add(
+                        related_author.claims,
+                        ActionIfExists.APPEND_OR_REPLACE,
+                    )
                 return related_author_id
             if orcid != None and related_author_orcid == orcid:
                 return related_author_id
         return None
 
     def preprocess_journal(self):
-        item = WBItem(self.journal)
-        journal_id = item.instance_exists('WD_Q5633421')
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.journal)
+        journal_id = item.is_instance_of('wd:Q5633421')
         if journal_id:
             return journal_id
         else:
-            item.add_statement('WD_P31', 'WD_Q5633421')
+            item.add_claim('wdt:P31', 'wd:Q5633421')
+            claims = []
             if len(self.issn_print) > 0:
-                item.add_statement('WD_P236', self.issn_print, WD_P437="WD_Q1261026")
+                qualifier = [self.api.get_claim('wdt:P437', 'wd:Q1261026')]
+                claims.append(self.api.get_claim('wdt:P236', self.issn_print, qualifiers=qualifier))
             if len(self.issn_online) > 0:
-                item.add_statement('WD_P236', self.issn_online, WD_P437="WD_Q1714118")
-            return item.create()
+                qualifier = [self.api.get_claim('wdt:P437', 'wd:Q1714118')]
+                claims.append(self.api.get_claim('wdt:P236', self.issn_online, qualifiers=qualifier))
+            return item.write().id
 
     def preprocess_book(self):
-        item = WBItem(self.book)
-        book_id = item.instance_exists('WD_Q571')
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.book)
+        book_id = item.is_instance_of('wd:Q571')
         if book_id:
             return book_id
         else:
-            item.add_statement('WD_P31', 'WD_Q571')
+            item.add_claim('wdt:P31', 'wd:Q571')
             if len(self.isbn) == 13:
-                item.add_statement('WD_P212', self.isbn)
+                item.add_claim('wdt:P212', self.isbn)
             elif len(self.isbn) == 10:
-                item.add_statement('WD_P957', self.isbn)
-            return item.create()
+                item.add_claim('wdt:P957', self.isbn)
+            return item.write().id
 
     def preprocess_proceedings(self):
-        item = WBItem(self.proceedings)
-        proceedings_id = item.instance_exists('WD_Q1143604')
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.proceedings)
+        proceedings_id = item.is_instance_of('wd:Q1143604')
         if proceedings_id:
             return proceedings_id
         else:
-            item.add_statement('WD_P31', 'WD_Q1143604')
+            item.add_claim('wdt:P31', 'wd:Q1143604')
             if len(self.proceedings_month) > 0:
-                item.add_statement("WD_P577", f"+{self.proceedings_year}-{self.proceedings_month}-00T00:00:00Z")
+                item.add_claim("wdt:P577", time=f"+{self.proceedings_year}-{self.proceedings_month}-00T00:00:00Z")
             elif len(self.proceedings_year) > 0:
-                item.add_statement("WD_P577", f"+{self.proceedings_year}-00-00T00:00:00Z")
-            return item.create()
+                item.add_claim("wdt:P577", time=f"+{self.proceedings_year}-00-00T00:00:00Z")
+            return item.write().id

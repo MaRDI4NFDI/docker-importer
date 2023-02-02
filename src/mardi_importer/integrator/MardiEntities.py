@@ -5,6 +5,7 @@ from sqlalchemy import and_
 from wikibaseintegrator.entities.item import ItemEntity
 from wikibaseintegrator.entities.property import PropertyEntity
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
+from wikibaseintegrator.datatypes import ExternalID
 from mardi_importer.importer.Importer import ImporterException
 
 def handleModificationFailed(e):
@@ -25,7 +26,6 @@ class MardiItemEntity(ItemEntity):
         return MardiItemEntity(api=self.api, **kwargs)
     
     def write(self, **kwargs):
-        #print(self.claims)
         try:
             entity = super().write(**kwargs)
             return entity
@@ -57,7 +57,7 @@ class MardiItemEntity(ItemEntity):
             if description == item.descriptions.values.get('en'):
                 return QID
 
-    def add_claim(self, prop_nr, value, **kwargs):
+    def add_claim(self, prop_nr, value=None, **kwargs):
         claim = self.api.get_claim(prop_nr, value, **kwargs)
         self.claims.add(claim)
 
@@ -85,28 +85,33 @@ class MardiItemEntity(ItemEntity):
 
     def is_instance_of_with_property(self, instance, prop_str, value):
         item_QID = self.is_instance_of(instance)
+        prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
         if item_QID:
-            values = self.get_value(prop_str)
+            item = self.api.item.get(item_QID)
+            item_claims = item.get_json()['claims']
+            values = self.__return_values(prop_nr, item_claims)
             if value in values: return item_QID
-        return False
 
     def get_value(self, prop_str):
-        prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
         QID = self.exists()
         if QID:
             item = ItemEntity(api=self.api).new()
             item = item.get(QID)
             item_claims = item.get_json()['claims']
-            values = []
-            if prop_nr in item_claims:
-                for mainsnak in item_claims[prop_nr]:
-                    if mainsnak['mainsnak']['datatype'] == 'string':
-                        values.append(mainsnak['mainsnak']['datavalue']['value'])
-                    elif mainsnak['mainsnak']['datatype'] == 'wikibase-item':
-                        values.append(mainsnak['mainsnak']['datavalue']['value']['id'])
-                    elif mainsnak['mainsnak']['datatype'] == 'time':
-                        values.append(mainsnak['mainsnak']['datavalue']['value']['time'])
-            return values
+            prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
+            return self.__return_values(prop_nr, item_claims)
+    
+    def __return_values(self, prop_nr, claims):
+        values = []
+        if prop_nr in claims:
+            for mainsnak in claims[prop_nr]:
+                if mainsnak['mainsnak']['datatype'] == 'string':
+                    values.append(mainsnak['mainsnak']['datavalue']['value'])
+                elif mainsnak['mainsnak']['datatype'] == 'wikibase-item':
+                    values.append(mainsnak['mainsnak']['datavalue']['value']['id'])
+                elif mainsnak['mainsnak']['datatype'] == 'time':
+                    values.append(mainsnak['mainsnak']['datavalue']['value']['time'])
+        return values
 
     def get_QID(self):
         """Creates a list of QID of all items in the local wikibase with the

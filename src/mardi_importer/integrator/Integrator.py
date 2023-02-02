@@ -1,4 +1,5 @@
 import os
+import re
 import sqlalchemy as db
 
 from mardi_importer.integrator.MardiEntities import MardiItemEntity, MardiPropertyEntity
@@ -221,6 +222,9 @@ class MardiIntegrator(WikibaseIntegrator):
                 entity.add_linker_claim(wikidata_id)
                 
                 local_id = entity.exists()
+                if not local_id:
+                    local_id = self.query('local_id', wikidata_id)
+
                 if local_id:
                     # Update existing entity
                     if entity.type == "item":
@@ -601,7 +605,9 @@ class MardiIntegrator(WikibaseIntegrator):
         Returns:
            str: Local ID of the entity, if found.
         """
-        if entity_str[0:4] != "wdt:" and entity_str[0:3] != "wd:":
+        if re.match("^[PQ]\d+$", entity_str):
+            return entity_str
+        elif entity_str[0:4] != "wdt:" and entity_str[0:3] != "wd:":
             if entity_type == "property":
                 new_property = MardiPropertyEntity(api=self).new()
                 new_property.labels.set(language='en', value=entity_str)
@@ -627,13 +633,14 @@ class MardiIntegrator(WikibaseIntegrator):
             if db_result:
                 return db_result["local_id"]
 
-    def get_claim(self, prop_nr, value, **kwargs):
+    def get_claim(self, prop_nr, value=None, **kwargs):
         prop_nr = self.get_local_id_by_label(prop_nr, 'property')
         prop = self.property.get(entity_id=prop_nr)
         kwargs['prop_nr'] = prop_nr
         kwargs['value'] = value
         if prop.datatype.value == 'wikibase-item':
-            kwargs['value'] = self.get_local_id_by_label(value, 'item')
+            if value[0:3] == "wd:":
+                kwargs['value'] = self.get_local_id_by_label(value, 'item')
             return Item(**kwargs)
         elif prop.datatype.value == 'commonsMedia':
             return CommonsMedia(**kwargs)
@@ -650,6 +657,7 @@ class MardiIntegrator(WikibaseIntegrator):
         elif prop.datatype.value == 'math':
             return Math(**kwargs)
         elif prop.datatype.value == 'monolingualtext':
+            kwargs.pop("value")
             return MonolingualText(**kwargs)
         elif prop.datatype.value == 'musical-notation':
             return MusicalNotation(**kwargs)
@@ -664,6 +672,7 @@ class MardiIntegrator(WikibaseIntegrator):
         elif prop.datatype.value == 'tabular-data':
             return TabularData(**kwargs)
         elif prop.datatype.value == 'time':
+            kwargs.pop("value")
             return Time(**kwargs)
         elif prop.datatype.value == 'url':
             return URL(**kwargs)

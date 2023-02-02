@@ -145,12 +145,6 @@ class RPackage:
         """
         if self.pull():
 
-            # Create R package Item with label
-            #item = WBItem(self.label)
-
-            # Add description to the R package
-            #item.add_description(self.description)
-
             # Instance of: R package
             self.item.add_claim("wdt:P31", "wd:Q73539779")
 
@@ -158,38 +152,42 @@ class RPackage:
             self.item.add_claim("wdt:P2699", self.url)
 
             # Publication date
-            self.item.add_claim("wdt:P5017", "+%sT00:00:00Z" % (self.date))
+            self.item.add_claim("wdt:P5017", time="+%sT00:00:00Z" % (self.date))
 
             # Software version identifier
-            qualifier = [self.api.get_claim("wdt:P577", "+%sT00:00:00Z" % (self.date))]
-            self.item.add_claim("wdt:P348", self.version, qualifier=qualifier)
+            qualifier = [self.api.get_claim("wdt:P577", time="+%sT00:00:00Z" % (self.date))]
+            self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
             # Authors
             author_ID = self.preprocess_authors()
+            claims = []
             for author in author_ID:
-                self.item.add_claim("wdt:P50", author)
+                claims.append(self.api.get_claim("wdt:P50", author))
+            self.item.add_claims(claims)
 
             # Maintainer
             maintainer_ID = self.preprocess_maintainer(author_ID)
             self.item.add_claim("wdt:P126", maintainer_ID)
-
             ##########################################################
             
             # Licenses
-            #self.add_licenses(item)
+            self.add_licenses()
 
             # Dependencies
-            #self.add_dependencies(item)
+            self.add_dependencies()
 
             # Imports
-            #self.add_imports(item)
+            self.add_imports()
 
             # Related publication
-            #publication_list = self.preprocess_publications(author_ID)
-            #related_publication = WBProperty("related publication").label_exists()
-            #for publication in publication_list:
-            #    item.add_statement(related_publication,publication)
+            publication_list = self.preprocess_publications(author_ID)
+            cites_work = "wdt:P2860"
+            claims = []
+            for publication in publication_list:
+                claims.append(self.api.get_claim(cites_work, publication))
+            self.item.add_claims(claims)
 
+            #print(self.item)
             package = self.item.write()
             if package.id:
                 log.info(f"Package created with ID {package.id}.")
@@ -306,18 +304,21 @@ class RPackage:
         author_ID = []
         for author, orcid in self.author.items():
             author_qid = None
-            human = get_wbs_local_id("Q5")
-            orcid_id = get_wbs_local_id("P496")
-            if orcid: 
-                author_qid = WBItem(author).instance_property_exists(human, orcid_id, orcid)
-            if not author_qid and self.ID:
-                current_authors_id = WBItem(ID=self.ID).get_value("WD_P50")
+            human = "wd:Q5"
+            orcid_id = "wdt:P496"
+            if orcid:
+                item = self.api.item.new()
+                item.labels.set(language="en", value=author)
+                author_qid = item.is_instance_of_with_property(human, orcid_id, orcid)
+            if not author_qid and self.QID:
+                current_authors_id = self.item.get_value("wdt:P50")
                 for author_id in current_authors_id:
-                    if author == WBItem(ID=author_id).get_label_by_ID():
+                    author_label = self.api.item.get(entity_id=author_id).labels.values['en']
+                    if author == author_label:
                         author_qid = author_id
             if not author_qid:
                 if len(author) > 0:
-                    author_item = Author(author)
+                    author_item = Author(author, self.api)
                     if orcid:
                         author_item.add_orcid(orcid)
                     author_qid = author_item.create()
@@ -337,12 +338,14 @@ class RPackage:
             Item ID corresponding to the maintainer.
         """
         for author in author_ID:
-            package_author = WBItem(ID=author)
-            package_author_name = package_author.get_label_by_ID()
-            if Author(package_author_name).compare_names(self.maintainer):
+            package_author_name = str(self.api.item.get(entity_id=author).labels.values['en'])
+            if Author(package_author_name, self.api).compare_names(self.maintainer):
                 return author
         # Create item for the maintainer, if it does not exist already
-        return WBItem(self.maintainer).add_statement("WD_P31", "WD_Q5").create()
+        maintainer = self.api.item.new()
+        maintainer.labels.set(language="en", value=self.maintainer)
+        maintainer.add_claim("wdt:P31", "wd:Q5")
+        return maintainer.write().id
 
     def preprocess_software(self, packages):
         """Processes the dependency and import information of each R package. This includes:
@@ -365,20 +368,26 @@ class RPackage:
         software = {}
         if type(process_list) is list:
             for software_string in process_list:
-                software_version = re.findall("\(.*?\)", software_string)
+                software_version = re.search("\((.*?)\)", software_string)               
                 software_name = re.sub("\(.*?\)", "", software_string).strip()
-                item = WBItem(software_name)
-                software_id = item.instance_exists("WD_Q73539779") # Instance of R package
+                item = self.api.item.new()
+                item.labels.set(language="en", value=software_name)
+                software_id = item.is_instance_of("wd:Q73539779") # Instance of R package
                 if software_name == "R":
-                    software_ID = get_wbs_local_id("Q206904") # R language
+                    # Software = R
+                    software_ID = self.api.query("local_id", "Q206904")
                 elif software_id: 
-                    software_ID = software_id
+                    # Software = R package
+                    software_ID = software_id 
                 else:
-                    software_ID = item.add_statement("WD_P31", "WD_Q73539779").create()
+                    # Software = New instance of R package
+                    item.add_claim("wdt:P31", "wd:Q73539779") 
+                    software_ID = item.write().id
+
+                software[software_ID] = ""
                 if software_version:
-                    software[software_ID] = re.sub("\)", "", re.sub("\(", "", software_version[0]))
-                else:
-                    software[software_ID] = ""
+                    software[software_ID] = software_version.group(1)
+                    
         return software
 
     def preprocess_publications(self, author_ID):
@@ -402,12 +411,17 @@ class RPackage:
 
         publication_id_array = []
         for doi in doi_list:
-            scientific_publication = get_wbs_local_id("Q591041")
-            doi_id = get_wbs_local_id("P356")
-            publication = Publication(doi)
+            #scientific_publication = get_wbs_local_id("Q591041")
+            #doi_id = get_wbs_local_id("P356")
+
+            publication = Publication(doi, self.api)
             publication.add_related_authors(author_ID)
             publication.pull()
-            publication_id = WBItem(publication.title).instance_property_exists(scientific_publication, doi_id, doi)
+
+            publication_item = self.api.item.new()
+            publication_item.labels.set(language="en", value=publication.title)
+            publication_id = publication_item.is_instance_of_with_property("wd:Q591041", "wdt:P356", doi)
+            #publication_id = WBItem(publication.title).instance_property_exists(scientific_publication, doi_id, doi)
 
             if not publication_id:
                 publication_id = publication.create()
@@ -419,7 +433,7 @@ class RPackage:
 
         return publication_id_array
 
-    def add_dependencies(self, item):
+    def add_dependencies(self):
         """Adds the statements corresponding to the package dependencies.
         
         Insert the wikibase statements corresponding the required R package for
@@ -432,10 +446,15 @@ class RPackage:
             Item representing the R package to which the statement must be added.
         """
         preprocessed_dependencies = self.preprocess_software("dependencies")
+        claims = []
         for software, version in preprocessed_dependencies.items():
-            item.add_statement("WD_P1547", software, WD_P348=version) if len(version) > 0 else item.add_statement("WD_P1547", software)
+            qualifier = []
+            if version:
+                qualifier = [self.api.get_claim("wdt:P348", version)]
+            claims.append(self.api.get_claim("wdt:P1547", software, qualifiers=qualifier))
+        self.item.add_claims(claims)
 
-    def add_imports(self, item):
+    def add_imports(self):
         """Adds the statements corresponding to the package imports.
         
         Insert the wikibase statements corresponding the imported R packages for
@@ -449,12 +468,19 @@ class RPackage:
             statements must be added.
         """
         preprocessed_imports = self.preprocess_software("imports")
-        software_property = WBItem("Property for items about software").label_exists()
-        import_property = WBProperty("imports").instance_exists(software_property)
+        prop_nr = self.api.get_local_id_by_label("imports", "property")
+        claims = []
         for software, version in preprocessed_imports.items():
-            item.add_statement(import_property, software, WD_P348=version) if len(version) > 0 else item.add_statement(import_property, software)
+            qualifier = []
+            if version:
+                qualifier = [self.api.get_claim("wdt:P348", version)]
+            claims.append(self.api.get_claim(prop_nr, software, qualifiers=qualifier))
+        self.item.add_claims(claims)
+            
+        #for software, version in preprocessed_imports.items():
+        #    item.add_statement(import_property, software, WD_P348=version) if len(version) > 0 else item.add_statement(import_property, software)
 
-    def add_licenses(self, item):
+    def add_licenses(self):
         """Processes the license string and adds the corresponding statements.
 
         The concrete License is identified and linked to the corresponding
@@ -469,30 +495,36 @@ class RPackage:
           item (WBItem):
             Item representing the R package to which the statement must be added.
         """
-        for license in self.license:
+        claims = []
+        for license_str in self.license:
             license_qualifier = ""
-            if re.findall("\(.*?\)", license):
-                license_qualifier = re.findall("\(.*?\)", license)[0]
-                license_aux = re.sub("\(.*?\)", "", license)
+            if re.findall("\(.*?\)", license_str):
+                qualifier_groups = re.search("\((.*?)\)", license_str)
+                license_qualifier = qualifier_groups.group(1)
+                license_aux = re.sub("\(.*?\)", "", license_str)
                 if re.findall("\[.*?\]", license_aux):
-                    license_qualifier = re.findall("\[.*?\]", license)[0]
-                    license = re.sub("\[.*?\]", "", license_aux)
+                    qualifier_groups = re.search("\[(.*?)\]", license_str)
+                    license_qualifier = qualifier_groups.group(1)
+                    license_str = re.sub("\[.*?\]", "", license_aux)
                 else:
-                    license = license_aux
-            elif re.findall("\[.*?\]", license):
-                license_qualifier = re.findall("\[.*?\]", license)[0]
-                license = re.sub("\[.*?\]", "", license)
-            license = license.strip()
-            license_ID = self.get_license_ID(license)
-            license_property = WBProperty("License version").label_exists()
-            if license == "file LICENSE" or license == "file LICENCE":
-                item.add_statement(
-                    "WD_P275", license_ID, **{"WD_P2699": f"https://cran.r-project.org/web/packages/{self.label}/LICENSE"}
-                )
-            elif license_ID:
-                item.add_statement(
-                    "WD_P275", license_ID, **{license_property: license_qualifier}
-                ) if license_qualifier else item.add_statement("WD_P275", license_ID)
+                    license_str = license_aux
+            elif re.findall("\[.*?\]", license_str):
+                qualifier_groups = re.search("\[(.*?)\]", license_str)
+                license_qualifier = qualifier_groups.group(1)
+                license_str = re.sub("\[.*?\]", "", license_str)
+            license_str = license_str.strip()
+            license_QID = self.get_license_QID(license_str)
+            #license_property = WBProperty("License version").label_exists()
+            if license_str == "file LICENSE" or license_str == "file LICENCE":
+                qualifier = [self.api.get_claim("wdt:P2699", f"https://cran.r-project.org/web/packages/{self.label}/LICENSE")]
+                claims.append(self.api.get_claim("wdt:P275", license_QID, qualifiers=qualifier))
+            elif license_QID:
+                if license_qualifier:
+                    qualifier = [self.api.get_claim("wdt:P9767", text=license_qualifier)]
+                    claims.append(self.api.get_claim("wdt:P275", license_QID, qualifiers=qualifier))
+                else:
+                    claims.append(self.api.get_claim("wdt:P275", license_QID))
+        self.item.add_claims(claims)
 
     def get_WB_package_date(self):
         """Reads the package publication date saved in the local Wikibase instance.
@@ -506,7 +538,7 @@ class RPackage:
         try:
             values = self.item.get_value("wdt:P5017")
             if len(values) > 0:
-                return values[0]
+                return values[0][1:11]
             return None
         except:
             return None
@@ -716,8 +748,7 @@ class RPackage:
             return x.strip()
         return x
 
-    @staticmethod
-    def get_license_ID(license):
+    def get_license_QID(self, license_str):
         """Returns the Wikidata item ID corresponding to a software license.
 
         The same license is often denominated in CRAN using differents names.
@@ -732,113 +763,117 @@ class RPackage:
         Returns:
             (String): Wikidata item ID.
         """
-        if license == "ACM":
-            return WBItem("ACM Software License Agreement").instance_exists("WD_Q207621")
-        elif license == "AGPL":
-            return "WD_Q28130012"
-        elif license == "AGPL-3":
-            return "WD_Q27017232"
-        elif license == "Apache License":
-            return "WD_Q616526"
-        elif license == "Apache License 2.0":
-            return "WD_Q13785927"
-        elif license == "Apache License version 1.1":
-            return "WD_Q17817999"
-        elif license == "Apache License version 2.0":
-            return "WD_Q13785927"
-        elif license == "Artistic-2.0":
-            return "WD_Q14624826"
-        elif license == "Artistic License 2.0":
-            return "WD_Q14624826"
-        elif license == "BSD 2-clause License":
-            return "WD_Q18517294"
-        elif license == "BSD 3-clause License":
-            return "WD_Q18491847"
-        elif license == "BSD_2_clause":
-            return "WD_Q18517294"
-        elif license == "BSD_3_clause":
-            return "WD_Q18491847"
-        elif license == "BSL":
-            return "WD_Q2353141"
-        elif license == "BSL-1.0":
-            return "WD_Q2353141"
-        elif license == "CC0":
-            return "WD_Q6938433"
-        elif license == "CC BY 4.0":
-            return "WD_Q20007257"
-        elif license == "CC BY-SA 4.0":
-            return "WD_Q18199165"
-        elif license == "CC BY-NC 4.0":
-            return "WD_Q34179348"
-        elif license == "CC BY-NC-SA 4.0":
-            return "WD_Q42553662"
-        elif license == "CeCILL":
-            return "WD_Q1052189"
-        elif license == "CeCILL-2":
-            return "WD_Q19216649"
-        elif license == "Common Public License Version 1.0":
-            return "WD_Q2477807"
-        elif license == "CPL-1.0":
-            return "WD_Q2477807"
-        elif license == "Creative Commons Attribution 4.0 International License":
-            return "WD_Q20007257"
-        elif license == "EPL":
-            return "WD_Q1281977"
-        elif license == "EUPL":
-            return "WD_Q1376919"
-        elif license == "EUPL-1.1":
-            return "WD_Q1376919"
-        elif license == "file LICENCE":
-            return WBItem("file LICENSE").instance_exists("WD_Q207621")
-        elif license == "file LICENSE":
-            return WBItem("file LICENSE").instance_exists("WD_Q207621")
-        elif license == "FreeBSD":
-            return "WD_Q34236"
-        elif license == "GNU Affero General Public License":
-            return "WD_Q1131681"
-        elif license == "GNU General Public License":
-            return "WD_Q7603"
-        elif license == "GNU General Public License version 2":
-            return "WD_Q10513450"
-        elif license == "GNU General Public License version 3":
-            return "WD_Q10513445"
-        elif license == "GPL":
-            return "WD_Q7603"
-        elif license == "GPL-2":
-            return "WD_Q10513450"
-        elif license == "GPL-3":
-            return "WD_Q10513445"
-        elif license == "LGPL":
-            return "WD_Q192897"
-        elif license == "LGPL-2":
-            return "WD_Q23035974"
-        elif license == "LGPL-2.1":
-            return "WD_Q18534390"
-        elif license == "LGPL-3":
-            return "WD_Q18534393"
-        elif license == "Lucent Public License":
-            return "WD_Q6696468"
-        elif license == "MIT":
-            return "WD_Q334661"
-        elif license == "MIT License":
-            return "WD_Q334661"
-        elif license == "Mozilla Public License 1.1":
-            return "WD_Q26737735"
-        elif license == "Mozilla Public License 2.0":
-            return "WD_Q25428413"
-        elif license == "Mozilla Public License Version 2.0":
-            return "WD_Q25428413"
-        elif license == "MPL":
-            return "WD_Q308915"
-        elif license == "MPL version 1.0":
-            return "WD_Q26737738"
-        elif license == "MPL version 1.1":
-            return "WD_Q26737735"
-        elif license == "MPL version 2.0":
-            return "WD_Q25428413"
-        elif license == "MPL-1.1":
-            return "WD_Q26737735"
-        elif license == "MPL-2.0":
-            return "WD_Q25428413"
-        elif license == "Unlimited":
-            return WBItem("Unlimited License").instance_exists("WD_Q207621")
+        if license_str == "ACM":
+            license_item = self.api.item.new()
+            license_item.labels.set(language="en", value="ACM Software License Agreement")
+            return license_item.is_instance_of("wd:Q207621")
+        elif license_str == "AGPL":
+            return "wd:Q28130012"
+        elif license_str == "AGPL-3":
+            return "wd:Q27017232"
+        elif license_str == "Apache License":
+            return "wd:Q616526"
+        elif license_str == "Apache License 2.0":
+            return "wd:Q13785927"
+        elif license_str == "Apache License version 1.1":
+            return "wd:Q17817999"
+        elif license_str == "Apache License version 2.0":
+            return "wd:Q13785927"
+        elif license_str == "Artistic-2.0":
+            return "wd:Q14624826"
+        elif license_str == "Artistic License 2.0":
+            return "wd:Q14624826"
+        elif license_str == "BSD 2-clause License":
+            return "wd:Q18517294"
+        elif license_str == "BSD 3-clause License":
+            return "wd:Q18491847"
+        elif license_str == "BSD_2_clause":
+            return "wd:Q18517294"
+        elif license_str == "BSD_3_clause":
+            return "wd:Q18491847"
+        elif license_str == "BSL":
+            return "wd:Q2353141"
+        elif license_str == "BSL-1.0":
+            return "wd:Q2353141"
+        elif license_str == "CC0":
+            return "wd:Q6938433"
+        elif license_str == "CC BY 4.0":
+            return "wd:Q20007257"
+        elif license_str == "CC BY-SA 4.0":
+            return "wd:Q18199165"
+        elif license_str == "CC BY-NC 4.0":
+            return "wd:Q34179348"
+        elif license_str == "CC BY-NC-SA 4.0":
+            return "wd:Q42553662"
+        elif license_str == "CeCILL":
+            return "wd:Q1052189"
+        elif license_str == "CeCILL-2":
+            return "wd:Q19216649"
+        elif license_str == "Common Public License Version 1.0":
+            return "wd:Q2477807"
+        elif license_str == "CPL-1.0":
+            return "wd:Q2477807"
+        elif license_str == "Creative Commons Attribution 4.0 International License":
+            return "wd:Q20007257"
+        elif license_str == "EPL":
+            return "wd:Q1281977"
+        elif license_str == "EUPL":
+            return "wd:Q1376919"
+        elif license_str == "EUPL-1.1":
+            return "wd:Q1376919"
+        elif license_str == "file LICENCE" or license_str == "file LICENSE":
+            license_item = self.api.item.new()
+            license_item.labels.set(language="en", value="File License")
+            return license_item.is_instance_of("wd:Q207621")
+        elif license_str == "FreeBSD":
+            return "wd:Q34236"
+        elif license_str == "GNU Affero General Public License":
+            return "wd:Q1131681"
+        elif license_str == "GNU General Public License":
+            return "wd:Q7603"
+        elif license_str == "GNU General Public License version 2":
+            return "wd:Q10513450"
+        elif license_str == "GNU General Public License version 3":
+            return "wd:Q10513445"
+        elif license_str == "GPL":
+            return "wd:Q7603"
+        elif license_str == "GPL-2":
+            return "wd:Q10513450"
+        elif license_str == "GPL-3":
+            return "wd:Q10513445"
+        elif license_str == "LGPL":
+            return "wd:Q192897"
+        elif license_str == "LGPL-2":
+            return "wd:Q23035974"
+        elif license_str == "LGPL-2.1":
+            return "wd:Q18534390"
+        elif license_str == "LGPL-3":
+            return "wd:Q18534393"
+        elif license_str == "Lucent Public License":
+            return "wd:Q6696468"
+        elif license_str == "MIT":
+            return "wd:Q334661"
+        elif license_str == "MIT License":
+            return "wd:Q334661"
+        elif license_str == "Mozilla Public License 1.1":
+            return "wd:Q26737735"
+        elif license_str == "Mozilla Public License 2.0":
+            return "wd:Q25428413"
+        elif license_str == "Mozilla Public License Version 2.0":
+            return "wd:Q25428413"
+        elif license_str == "MPL":
+            return "wd:Q308915"
+        elif license_str == "MPL version 1.0":
+            return "wd:Q26737738"
+        elif license_str == "MPL version 1.1":
+            return "wd:Q26737735"
+        elif license_str == "MPL version 2.0":
+            return "wd:Q25428413"
+        elif license_str == "MPL-1.1":
+            return "wd:Q26737735"
+        elif license_str == "MPL-2.0":
+            return "wd:Q25428413"
+        elif license_str == "Unlimited":
+            license_item = self.api.item.new()
+            license_item.labels.set(language="en", value="Unlimited License")
+            return license_item.is_instance_of("wd:Q207621")

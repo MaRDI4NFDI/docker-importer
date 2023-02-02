@@ -1,29 +1,23 @@
 
-from mardi_importer.wikibase.WBItem import WBItem
-from mardi_importer.wikibase.SPARQLUtils import SPARQL_exists
-from mardi_importer.wikibase.WBMapping import get_wbs_local_id
-import pandas as pd
-import re
-
 class Author:
-    def __init__(self, name):
+    def __init__(self, name, integrator):
         self.name = name
         self.orcid = ""
-    
-    def add_orcid(self,orcid):
-        self.orcid = orcid
+        self.api = integrator
+        self.item = self.init_item()
+        
+    def init_item(self):
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.name)
+        item.add_claim("wdt:P31", "wd:Q5")
+        return item 
 
-    def sparql_exists(self):
-        human = get_wbs_local_id("Q5")
-        orcid_id_property = get_wbs_local_id("P496")
-        return SPARQL_exists(human,orcid_id_property,self.orcid)
+    def add_orcid(self,orcid):
+        self.item.add_claim('wdt:P496', orcid)
 
     def create(self):
-        item = WBItem(self.name)
-        item.add_statement("WD_P31", "WD_Q5")
-        if len(self.orcid) > 0:
-            item.add_statement("WD_P496", self.orcid)
-        return item.create()
+        self.item.write()
+        return self.item.id
 
     def compare_names(self, author):
         if self.name == author:

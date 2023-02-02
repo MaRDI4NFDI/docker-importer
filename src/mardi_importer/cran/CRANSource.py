@@ -57,10 +57,7 @@ class CRANSource(ADataSource):
             item.descriptions.set(language='en', value=item_element['description'])
             for key, value in item_element['claims'].items():
                 item.add_claim(key,value=value)
-            if not item.exists(): 
-                item.write()
-            else:
-                print(item.exists())
+            if not item.exists(): item.write()
 
 
 
@@ -118,6 +115,7 @@ class CRANSource(ADataSource):
             else:
                 print('Package not found')
                 #log.info(f"Package {package_label} not found: Attempting item creation...")
-                package.create()
+                test = package.create()
+                print(test)
 
             time.sleep(2)

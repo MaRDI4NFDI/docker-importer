@@ -6,6 +6,7 @@ chardet
 colorama
 configparser
 coverage
+feedparser
 green
 idna
 importlib-metadata

@@ -16,9 +16,7 @@ def handleModificationFailed(e):
         for parameter in message['parameters']:
             result = re.search(r"\[\[\w*:(\w\d+)\|\w\d+\]\]", parameter)
             if result:
-                # Modify this to return an entity
                 return result.group(1)
-
 
 class MardiItemEntity(ItemEntity):
 
@@ -32,15 +30,20 @@ class MardiItemEntity(ItemEntity):
         except ModificationFailed as e:
             return handleModificationFailed(e)
 
-    def get(self, **kwargs):
-        entity = super().get(**kwargs)
-        kwargs['entity_id'] = entity.id
-        json_data = super(ItemEntity, self)._get(**kwargs)
-        return MardiItemEntity(api=self.api).from_json(json_data=json_data['entities'][entity.id])
+    def get(self, entity_id, **kwargs):
+        #entity = super().get(**kwargs)
+        #kwargs['entity_id'] = entity.id
+        json_data = super(ItemEntity, self)._get(entity_id=entity_id, **kwargs)
+        #return MardiItemEntity(api=self.api).from_json(json_data=json_data['entities'][entity.id])
+        #entity_id = kwargs['entity_id']
+        return MardiItemEntity(api=self.api).from_json(json_data=json_data['entities'][entity_id])
 
     def exists(self): 
         """Checks through the Wikibase DB if an item with same label
         and description already exists
+
+        Returns:
+            id (str): ID of the item if found, otherwise None.
         """
 
         description = ""
@@ -58,11 +61,35 @@ class MardiItemEntity(ItemEntity):
                 return QID
 
     def add_claim(self, prop_nr, value=None, **kwargs):
+        """
+        Add a single claim to the item, given the property and
+        it value. Qualifiers and references can also be passed.
+
+        Args:
+            prop_nr (str): Property correspoding to the claim. It
+                can be a wikidata ID with the prefix 'wdt:', a
+                mardi ID, or directly the property label.
+            value (str): Value corresponding to the claim. In case
+                of an item, the wikidata ID can be used with the
+                prefix 'wd:'.
+
+        Returns:
+            Claim: Claim corresponding to the given datatype
+        """
         claim = self.api.get_claim(prop_nr, value, **kwargs)
         self.claims.add(claim)
 
     def is_instance_of(self, instance):
-        """Checks if a given entity is an instance of 'instance' item 
+        """Checks if a given entity is an instance of 'instance' item
+
+        (e.g. Check if an item is an instance of 'scholary article')
+
+        Args:
+            instance (str): Identifier for instance. The prefix "wd:" 
+                can be used for items for wikidata.
+
+        Returns:
+            id (str): ID of the item if found, otherwise None.
         """
         label = ""
         if 'en' in self.labels.values:
@@ -84,6 +111,25 @@ class MardiItemEntity(ItemEntity):
         return False
 
     def is_instance_of_with_property(self, instance, prop_str, value):
+        """Checks if a given entity is an instance of 'instance' item 
+        an has a property equal to the given value.
+
+        (e.g. Check if an item is an instance of 'scholary article' and
+        has a DOI equal to 'value')
+
+        Args:
+            instance (str): Identifier for instance. The prefix "wd:" 
+                can be used for items for wikidata.
+            prop_nr (str): Property to be checked. It can be a 
+                wikidata ID with the prefix 'wdt:', a mardi ID, or 
+                directly the property label.
+            value (str): Value corresponding to the property. In case
+                of an item, the wikidata ID can be used with the
+                prefix 'wd:'.
+
+        Returns:
+            id (str): ID of the item if found, otherwise None.
+        """
         item_QID = self.is_instance_of(instance)
         prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
         if item_QID:
@@ -93,7 +139,21 @@ class MardiItemEntity(ItemEntity):
             if value in values: return item_QID
 
     def get_value(self, prop_str):
-        QID = self.exists()
+        """
+        Returns all values of an item in the statement for a given
+        property
+
+        Args:
+            prop_nr (str): Property to be checked. It can be a 
+                wikidata ID with the prefix 'wdt:', a mardi ID, or 
+                directly the property label.
+
+        Returns:
+            values (list): List of all values appearing in the 
+                statement corresponding to the property.
+
+        """
+        QID = self.id if self.id else self.exists()
         if QID:
             item = ItemEntity(api=self.api).new()
             item = item.get(QID)
@@ -102,10 +162,22 @@ class MardiItemEntity(ItemEntity):
             return self.__return_values(prop_nr, item_claims)
     
     def __return_values(self, prop_nr, claims):
+        """
+        Internal method to process a set of claims and return the 
+        values corresponding to prop_nr
+
+        Args:
+            prop_nr: ID corresponding to the property
+            claims: Claims to be processed corresponding to an item.
+
+        Returns:
+            values (list): List of all values appearing in the 
+                given claims corresponding to prop_nr.
+        """
         values = []
         if prop_nr in claims:
             for mainsnak in claims[prop_nr]:
-                if mainsnak['mainsnak']['datatype'] == 'string':
+                if mainsnak['mainsnak']['datatype'] in ['string', 'external-id']:
                     values.append(mainsnak['mainsnak']['datavalue']['value'])
                 elif mainsnak['mainsnak']['datatype'] == 'wikibase-item':
                     values.append(mainsnak['mainsnak']['datavalue']['value']['id'])
@@ -116,6 +188,9 @@ class MardiItemEntity(ItemEntity):
     def get_QID(self):
         """Creates a list of QID of all items in the local wikibase with the
         same label
+
+        Returns:
+            QIDs (list): List of QID
         """
 
         label = ""
@@ -126,18 +201,18 @@ class MardiItemEntity(ItemEntity):
             metadata = db.MetaData()
             try:
                 wbt_item_terms = db.Table(
-                    "wbt_item_terms", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_item_terms", metadata, autoload_with=connection
                 )
                 wbt_term_in_lang = db.Table(
-                    "wbt_term_in_lang", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_term_in_lang", metadata, autoload_with=connection
                 )
                 wbt_text_in_lang = db.Table(
-                    "wbt_text_in_lang", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_text_in_lang", metadata, autoload_with=connection
                 )
                 wbt_text = db.Table(
-                    "wbt_text", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_text", metadata, autoload_with=connection
                 )
-                query = (db.select([wbt_item_terms.columns.wbit_item_id])
+                query = (db.select(wbt_item_terms.columns.wbit_item_id)
                         .join(wbt_term_in_lang, wbt_item_terms.columns.wbit_term_in_lang_id == wbt_term_in_lang.columns.wbtl_id)
                         .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                         .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
@@ -183,11 +258,11 @@ class MardiPropertyEntity(PropertyEntity):
         except ModificationFailed as e:
             return handleModificationFailed(e)
 
-    def get(self, **kwargs):
-        entity = super().get(**kwargs)
-        kwargs['entity_id'] = entity.id
-        json_data = super(PropertyEntity, self)._get(**kwargs)
-        return MardiPropertyEntity(api=self.api).from_json(json_data=json_data['entities'][entity.id])
+    def get(self, entity_id, **kwargs):
+        #entity = super().get(**kwargs)
+        #kwargs['entity_id'] = entity.id
+        json_data = super(PropertyEntity, self)._get(entity_id=entity_id, **kwargs)
+        return MardiPropertyEntity(api=self.api).from_json(json_data=json_data['entities'][entity_id])
 
     def exists(self): 
         """Checks through the Wikibase DB if a property with the 
@@ -207,18 +282,18 @@ class MardiPropertyEntity(PropertyEntity):
             metadata = db.MetaData()
             try:
                 wbt_property_terms = db.Table(
-                    "wbt_property_terms", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_property_terms", metadata, autoload_with=connection
                 )
                 wbt_term_in_lang = db.Table(
-                    "wbt_term_in_lang", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_term_in_lang", metadata, autoload_with=connection
                 )
                 wbt_text_in_lang = db.Table(
-                    "wbt_text_in_lang", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_text_in_lang", metadata, autoload_with=connection
                 )
                 wbt_text = db.Table(
-                    "wbt_text", metadata, autoload=True, autoload_with=self.api.engine
+                    "wbt_text", metadata, autoload_with=connection
                 )
-                query = (db.select([wbt_property_terms.columns.wbpt_property_id])
+                query = (db.select(wbt_property_terms.columns.wbpt_property_id)
                         .join(wbt_term_in_lang, wbt_term_in_lang.columns.wbtl_id == wbt_property_terms.columns.wbpt_term_in_lang_id)
                         .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                         .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)

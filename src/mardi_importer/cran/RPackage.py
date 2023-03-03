@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from mardi_importer.wikibase.WBMapping import get_wbs_local_id
-from mardi_importer.wikibase.SPARQLUtils import SPARQL_exists
-from mardi_importer.crossref.Publication import Publication
-from mardi_importer.crossref.Author import Author
+from mardi_importer.publications.ArxivPublication import ArxivPublication
+from mardi_importer.publications.CrossrefPublication import CrossrefPublication
+from mardi_importer.publications.ZenodoResource import ZenodoResource
+from mardi_importer.publications.Author import Author
+from wikibaseintegrator.wbi_enums import ActionIfExists
+from wikibaseintegrator.wbi_helpers import search_entities
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
@@ -50,6 +52,7 @@ class RPackage:
         self.dependency = ""
         self.imports = ""
         self.maintainer = ""
+        self.author_ID = []
         self.QID = None
         self.api = integrator
         self.item = self.init_item()
@@ -115,6 +118,7 @@ class RPackage:
         """
         if self.QID: return self.QID
         self.QID = self.item.is_instance_of('wd:Q73539779')
+        self.item.id = self.QID
         return self.QID
 
     def is_updated(self):
@@ -126,7 +130,7 @@ class RPackage:
         Returns: 
           Boolean: **True** if both dates coincide, **False** otherwise.
         """
-        return self.date == self.get_WB_package_date()
+        return self.date in self.get_WB_package_date()
 
     def create(self):
         """Creates a WB item with the imported metadata from CRAN.
@@ -144,58 +148,13 @@ class RPackage:
           String: ID of the created R package.
         """
         if self.pull():
-
-            # Instance of: R package
-            self.item.add_claim("wdt:P31", "wd:Q73539779")
-
-            # R package CRAN URL
-            self.item.add_claim("wdt:P2699", self.url)
-
-            # Publication date
-            self.item.add_claim("wdt:P5017", time="+%sT00:00:00Z" % (self.date))
-
-            # Software version identifier
-            qualifier = [self.api.get_claim("wdt:P577", time="+%sT00:00:00Z" % (self.date))]
-            self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
-
-            # Authors
-            author_ID = self.preprocess_authors()
-            claims = []
-            for author in author_ID:
-                claims.append(self.api.get_claim("wdt:P50", author))
-            self.item.add_claims(claims)
-
-            # Maintainer
-            maintainer_ID = self.preprocess_maintainer(author_ID)
-            self.item.add_claim("wdt:P126", maintainer_ID)
-            ##########################################################
-            
-            # Licenses
-            self.add_licenses()
-
-            # Dependencies
-            self.add_dependencies()
-
-            # Imports
-            self.add_imports()
-
-            # Related publication
-            publication_list = self.preprocess_publications(author_ID)
-            cites_work = "wdt:P2860"
-            claims = []
-            for publication in publication_list:
-                claims.append(self.api.get_claim(cites_work, publication))
-            self.item.add_claims(claims)
-
-            #print(self.item)
+            self.insert_claims(self.item)
             package = self.item.write()
             if package.id:
                 log.info(f"Package created with ID {package.id}.")
                 return package.id
             else:
                 log.info(f"Package could not be created.")
-                return None
-        return None
 
     def update(self):
         """Updates existing WB item with the imported metadata from CRAN.
@@ -212,84 +171,87 @@ class RPackage:
           String: ID of the updated R package.
         """
         if self.pull():
-            item = WBItem(ID=self.ID)
+            self.item = self.api.item.get(entity_id=self.QID)
 
-            if self.description != item.get_description():
-                item.add_description(self.description)
+            if self.item.descriptions.values.get('en') != self.description:
+                self.item.descriptions.set(
+                    language="en", 
+                    value=self.description
+                )
 
-            # Update URL
-            wb_url = item.get_value("WD_P2699")
-            if not len(wb_url) > 0:
-                item.add_statement("WD_P2699", self.url)
+            new_item = self.api.item.new()
 
-            # Update Publication Date
-            wb_date = item.get_value("WD_P5017")
-            if len(wb_date) > 0:
-                if self.date != wb_date[0]:
-                    claim_guid = item.get_claim_guid("WD_P5017")[0]
-                    statement = item.return_statement("WD_P5017", "+%sT00:00:00Z" % (self.date))
-                    item.update_claim(claim_guid, statement)
-            else:
-                item.add_statement("WD_P5017", "+%sT00:00:00Z" % (self.date))
+            self.author_ID = self.item.get_value('wdt:P50')
+            self.insert_claims(new_item)
 
-            # Update version
-            wb_version = item.get_value("WD_P348")
-            if len(wb_version) > 0:
-                if self.version not in wb_version[0]:
-                    item.add_statement("WD_P348", self.version, WD_P577="+%sT00:00:00Z" % (self.date))
+            self.item.claims.add(
+                new_item.claims,
+                ActionIfExists.APPEND_OR_REPLACE,
+            )
+            self.item.write()
 
-            # Update authors
-            author_ID = self.preprocess_authors()
-            if author_ID != item.get_value("WD_P50"):
-                claim_guid = item.get_claim_guid("WD_P50")
-                item.remove_claim(claim_guid)
-                for author in author_ID:
-                    item.add_statement("WD_P50", author)
-
-            # Update maintainer
-            wb_maintainer = item.get_value("WD_P126")
-            maintainer_ID = self.preprocess_maintainer(author_ID)
-            if len(wb_maintainer) > 0:
-                if maintainer_ID != wb_maintainer[0]:
-                    claim_guid = item.get_claim_guid("WD_P126")[0]                    
-                    statement = item.return_statement("WD_P126", maintainer_ID)
-                    item.update_claim(claim_guid, statement)
-            else:
-                item.add_statement("WD_P126", maintainer_ID)
-
-            # Substitute License information
-            claim_guid = item.get_claim_guid("WD_P275")
-            item.remove_claim(claim_guid)
-            self.add_licenses(item)
-
-            # Substitute Dependency information
-            claim_guid = item.get_claim_guid("WD_P1547")
-            item.remove_claim(claim_guid)
-            self.add_dependencies(item)
-
-            # Substitute Imports information
-            software_property = WBItem("Property for items about software").label_exists()
-            import_property = WBProperty("imports").instance_exists(software_property)
-            claim_guid = item.get_claim_guid(import_property)
-            item.remove_claim(claim_guid)
-            self.add_imports(item)
-
-            # Add Publicationspublication_list = self.preprocess_publications(author_ID)
-            publication_list = self.preprocess_publications(author_ID)
-            related_publication = WBProperty("related publication").label_exists()
-            claim_guid = item.get_claim_guid(related_publication)
-            item.remove_claim(claim_guid)
-            for publication in publication_list:
-                item.add_statement(related_publication,publication)
-
-            package_ID = item.update()
-            if package_ID:
-                log.info(f"Package with ID {package_ID} has been updated.")
-                return package_ID
+            if self.item.id:
+                log.info(f"Package with ID {self.item.id} has been updated.")
+                return self.item.id
             else:
                 log.info(f"Package could not be updated.")
                 return None
         return None
+
+    def insert_claims(self, item):
+        # Instance of: R package
+        item.add_claim("wdt:P31", "wd:Q73539779")
+
+        # Programmed in: R
+        item.add_claim("wdt:P277", "wd:Q206904")
+
+        # R package CRAN URL
+        item.add_claim("wdt:P2699", self.url)
+
+        # Publication date
+        item.add_claim("wdt:P5017", time="+%sT00:00:00Z" % (self.date))
+
+        # Software version identifier
+        qualifier = [self.api.get_claim("wdt:P577", time="+%sT00:00:00Z" % (self.date))]
+        item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
+
+        # Authors
+        self.author_ID = self.preprocess_authors()
+        claims = []
+        for author in self.author_ID:
+            claims.append(self.api.get_claim("wdt:P50", author))
+        item.add_claims(claims)
+
+        # Maintainer
+        maintainer_ID = self.preprocess_maintainer()
+        item.add_claim("wdt:P126", maintainer_ID)
+        
+        # Licenses
+        licenses = self.process_licenses()
+        item.add_claims(licenses)
+
+        # Dependencies
+        dependencies = self.process_dependencies()
+        item.add_claims(dependencies)
+
+        # Imports
+        imports = self.process_imports()
+        item.add_claims(imports)
+
+        # Related publication
+        publication_list = self.preprocess_publications()
+        cites_work = "wdt:P2860"
+        claims = []
+        for publication in publication_list:
+            claims.append(self.api.get_claim(cites_work, publication))
+        item.add_claims(claims)
+
+        # CRAN Project
+        item.add_claim("wdt:P5565", self.label)
+
+        # Wikidata QID
+        wikidata_QID = self.get_wikidata_QID()
+        if wikidata_QID: item.add_claim("Wikidata QID", wikidata_QID)
 
     def preprocess_authors(self):
         """Processes the author information of each R package. This includes:
@@ -301,32 +263,37 @@ class RPackage:
           List: 
             Item IDs corresponding to each author.
         """
+
         author_ID = []
-        for author, orcid in self.author.items():
-            author_qid = None
-            human = "wd:Q5"
-            orcid_id = "wdt:P496"
-            if orcid:
-                item = self.api.item.new()
-                item.labels.set(language="en", value=author)
-                author_qid = item.is_instance_of_with_property(human, orcid_id, orcid)
-            if not author_qid and self.QID:
-                current_authors_id = self.item.get_value("wdt:P50")
-                for author_id in current_authors_id:
-                    author_label = self.api.item.get(entity_id=author_id).labels.values['en']
-                    if author == author_label:
-                        author_qid = author_id
-            if not author_qid:
-                if len(author) > 0:
-                    author_item = Author(author, self.api)
-                    if orcid:
-                        author_item.add_orcid(orcid)
-                    author_qid = author_item.create()
-            if author_qid:
-                author_ID.append(author_qid)
+        for name, orcid in self.author.items():
+            new_author = ""
+            if name.lower() in ["r foundation", "the r foundation"]:
+                author = self.api.query('local_id', 'Q111430684')
+                author_ID.append(author)
+            elif name == "R Core Team":
+                author = self.api.query('local_id', 'Q116739338')
+                author_ID.append(author)
+            elif name == "CRAN Team":
+                author = self.api.query('local_id', 'Q116739332')
+                author_ID.append(author)
+            else:
+                author = Author(self.api, name, orcid, self.author_ID)
+                if author.QID:
+                    new_author = author.QID
+                elif self.QID:
+                    current_authors = self.item.get_value("wdt:P50")
+                    for author_id in current_authors:
+                        author_label = self.api.item.get(entity_id=author_id).labels.values['en']
+                        if name == author_label:
+                            new_author = author_id
+                    if not new_author:
+                        new_author = author.create()
+                else:
+                    new_author = author.create()
+                author_ID.append(new_author)
         return author_ID
 
-    def preprocess_maintainer(self, author_ID):
+    def preprocess_maintainer(self):
         """Processes the maintainer information of each R package. This includes:
 
         - Providing the Item ID given the maintainer name.
@@ -337,9 +304,9 @@ class RPackage:
           String: 
             Item ID corresponding to the maintainer.
         """
-        for author in author_ID:
+        for author in self.author_ID:
             package_author_name = str(self.api.item.get(entity_id=author).labels.values['en'])
-            if Author(package_author_name, self.api).compare_names(self.maintainer):
+            if Author(self.api, package_author_name).compare_names(self.maintainer):
                 return author
         # Create item for the maintainer, if it does not exist already
         maintainer = self.api.item.new()
@@ -381,7 +348,8 @@ class RPackage:
                     software_ID = software_id 
                 else:
                     # Software = New instance of R package
-                    item.add_claim("wdt:P31", "wd:Q73539779") 
+                    item.add_claim("wdt:P31", "wd:Q73539779")
+                    item.add_claim("wdt:P277", "wd:Q206904")
                     software_ID = item.write().id
 
                 software[software_ID] = ""
@@ -390,7 +358,7 @@ class RPackage:
                     
         return software
 
-    def preprocess_publications(self, author_ID):
+    def preprocess_publications(self):
         """Extracts the DOI identification of related publications.
 
         Identifies the DOI of publications that are mentioned using the 
@@ -401,39 +369,115 @@ class RPackage:
           List:
             List containing the wikibase IDs of mentioned publications.
         """
-        doi_list = []
+        publication_id_array = []
+        publication_authors = self.author_ID
+        scholarly_article = "wd:Q13442814"
+        doi_id = "wdt:P356"
+
         doi_references = re.findall('<doi:(.*?)>', self.long_description)
         arxiv_references = re.findall('<arXiv:(.*?)>', self.long_description)
-        for reference in doi_references:
-            doi_list.append(reference[:-1]) if reference[-1] == "." else doi_list.append(reference)
-        for reference in arxiv_references:
-            doi_list.append('10.48550/arXiv.' + reference[-1]) if reference[-1] == "." else doi_list.append('10.48550/arXiv.' + reference)
+        zenodo_references = re.findall('<zenodo:(.*?)>', self.long_description)
 
-        publication_id_array = []
-        for doi in doi_list:
-            #scientific_publication = get_wbs_local_id("Q591041")
-            #doi_id = get_wbs_local_id("P356")
+        doi_references = list(map(lambda x: x[:-1] if x.endswith('.') else x, doi_references))
+        arxiv_references = list(map(lambda x: x[:-1] if x.endswith('.') else x, arxiv_references))
+        zenodo_references = list(map(lambda x: x[:-1] if x.endswith('.') else x, zenodo_references))
 
-            publication = Publication(doi, self.api)
-            publication.add_related_authors(author_ID)
-            publication.pull()
+        crossref_references = []
 
+        for doi in doi_references:
+            if re.search('10.48550/', doi):
+                doi = doi.lower()
+                arxiv_id = doi.replace('10.48550/arxiv.', '')
+                arxiv_references.append(arxiv_id)
+            elif re.search('10.5281/', doi):
+                doi = doi.lower()
+                zenodo_id = doi.replace('10.5281/zenodo.', '')
+                zenodo_references.append(zenodo_id)
+            else:
+                crossref_references.append(doi)  
+
+        for doi in crossref_references:
+            publication = CrossrefPublication(self.api, doi, publication_authors)
             publication_item = self.api.item.new()
             publication_item.labels.set(language="en", value=publication.title)
-            publication_id = publication_item.is_instance_of_with_property("wd:Q591041", "wdt:P356", doi)
-            #publication_id = WBItem(publication.title).instance_property_exists(scientific_publication, doi_id, doi)
+            publication_id = publication_item.is_instance_of_with_property(scholarly_article, doi_id, doi)
 
-            if not publication_id:
+            if publication_id:
+                publication_item = self.api.item.get(entity_id=publication_id)
+                coauthors = publication_item.get_value("wdt:P50")
+                for coauthor in coauthors:
+                    if coauthor not in publication_authors:
+                        publication_authors.append(coauthor)
+                #publication_authors += coauthors
+            else:
                 publication_id = publication.create()
-                # This
-                author_ID = publication.related_authors
+                for coauthor in publication.coauthors:
+                    if coauthor not in publication_authors:
+                        publication_authors.append(coauthor)
+                #publication_authors += publication.coauthors
 
             if publication_id:
                 publication_id_array.append(publication_id)
 
+        for arxiv_id in arxiv_references:
+            if ":" in arxiv_id: arxiv_id = arxiv_id.replace(":",".")
+            publication = ArxivPublication(self.api, arxiv_id, publication_authors)
+
+            publication_item = self.api.item.new()
+            publication_item.labels.set(language="en", value=publication.title)
+            arxiv_id_prop_nr = "wdt:P818"
+            publication_id = publication_item.is_instance_of_with_property(scholarly_article, arxiv_id_prop_nr, arxiv_id)
+
+            if publication_id:
+                publication_item = self.api.item.get(entity_id=publication_id)
+                coauthors = publication_item.get_value("wdt:P50")
+                for coauthor in coauthors:
+                    if coauthor not in publication_authors:
+                        publication_authors.append(coauthor)
+                #publication_authors += coauthors
+            else:
+                publication_id = publication.create()
+                for coauthor in publication.coauthors:
+                    if coauthor not in publication_authors:
+                        publication_authors.append(coauthor)
+                #publication_authors += publication.coauthors
+
+            if publication_id:
+                publication_id_array.append(publication_id)
+
+        for zenodo_id in zenodo_references:
+
+            resource_id = None
+            resource = ZenodoResource(self.api, zenodo_id, publication_authors)
+            
+            resource_item = self.api.item.new()
+            resource_item.labels.set(language="en", value=resource.title)
+            zenodo_prop_nr = "wdt:4901"
+
+            for resource_item.resource_type in ["wd:Q1172284", 
+                                                "wd:Q7397", 
+                                                "wd:Q604733", 
+                                                "wd:Q10870555", 
+                                                "wd:Q429785", 
+                                                "wd:Q478798", 
+                                                "wd:Q2431196", 
+                                                "wd:Q379833"]:
+                found = resource_item.is_instance_of_with_property(
+                                resource_item.resource_type,
+                                zenodo_prop_nr,
+                                zenodo_id
+                            )
+                if found: resource_id = found
+
+            if not resource_id:
+                resource_id = resource.create()
+
+            if resource_id:
+                publication_id_array.append(resource_id)
+
         return publication_id_array
 
-    def add_dependencies(self):
+    def process_dependencies(self):
         """Adds the statements corresponding to the package dependencies.
         
         Insert the wikibase statements corresponding the required R package for
@@ -452,9 +496,9 @@ class RPackage:
             if version:
                 qualifier = [self.api.get_claim("wdt:P348", version)]
             claims.append(self.api.get_claim("wdt:P1547", software, qualifiers=qualifier))
-        self.item.add_claims(claims)
+        return claims
 
-    def add_imports(self):
+    def process_imports(self):
         """Adds the statements corresponding to the package imports.
         
         Insert the wikibase statements corresponding the imported R packages for
@@ -475,12 +519,12 @@ class RPackage:
             if version:
                 qualifier = [self.api.get_claim("wdt:P348", version)]
             claims.append(self.api.get_claim(prop_nr, software, qualifiers=qualifier))
-        self.item.add_claims(claims)
+        return claims
             
         #for software, version in preprocessed_imports.items():
         #    item.add_statement(import_property, software, WD_P348=version) if len(version) > 0 else item.add_statement(import_property, software)
 
-    def add_licenses(self):
+    def process_licenses(self):
         """Processes the license string and adds the corresponding statements.
 
         The concrete License is identified and linked to the corresponding
@@ -524,7 +568,7 @@ class RPackage:
                     claims.append(self.api.get_claim("wdt:P275", license_QID, qualifiers=qualifier))
                 else:
                     claims.append(self.api.get_claim("wdt:P275", license_QID))
-        self.item.add_claims(claims)
+        return claims
 
     def get_WB_package_date(self):
         """Reads the package publication date saved in the local Wikibase instance.
@@ -535,13 +579,8 @@ class RPackage:
         Returns:
             String: Package publication date in format DD-MM-YYYY.
         """
-        try:
-            values = self.item.get_value("wdt:P5017")
-            if len(values) > 0:
-                return values[0][1:11]
-            return None
-        except:
-            return None
+        package_dates = self.item.get_value("wdt:P5017") or []
+        return list(map(lambda x: x[1:11], package_dates))
 
     def clean_package_list(self, table_html):
         """Processes raw imported data from CRAN to enable the creation of items.
@@ -702,7 +741,8 @@ class RPackage:
                         multiple_words = author.split(" ")
                         if len(multiple_words) > 1:
                             author = self.capitalize_author(author)
-                            author_dict[author] = orcid
+                            if author:
+                                author_dict[author] = orcid
         else:
             authors_comma = x.split(", ")
             authors_and = x.split(" and ")
@@ -719,11 +759,11 @@ class RPackage:
             if len(author.split(" ")) > 5 or re.findall("[@\(\)\[\]&]", author):
                 author = ""
             author = self.capitalize_author(author)
-            author_dict[author] = None
+            if author:
+                author_dict[author] = None
         return author_dict
 
-    @staticmethod
-    def capitalize_author(author):
+    def capitalize_author(self, author):
         if author != "":
             author_terms = author.split()
             author = author_terms[0].capitalize()
@@ -731,7 +771,7 @@ class RPackage:
                 author = author + " " + author_terms[index].capitalize()
         return author
 
-    def clean_maintainer(self,x):
+    def clean_maintainer(self, x):
         """Remove unnecessary information from maintainer string.
 
         Args:
@@ -877,3 +917,25 @@ class RPackage:
             license_item = self.api.item.new()
             license_item.labels.set(language="en", value="Unlimited License")
             return license_item.is_instance_of("wd:Q207621")
+
+    def get_wikidata_QID(self):
+        results = search_entities(
+            search_string=self.label,
+            mediawiki_api_url='https://www.wikidata.org/w/api.php'
+            )   
+
+        for result in results:
+            item = self.api.item.get(
+                entity_id=result,
+                mediawiki_api_url='https://www.wikidata.org/w/api.php'
+                )
+            if 'P31' in item.claims.get_json().keys():
+                instance_claims = item.claims.get('P31')
+                if instance_claims:
+                    for claim in instance_claims:
+                        claim = claim.get_json()
+                        if claim['mainsnak']['datatype'] == "wikibase-item":
+                            # If instance of R package
+                            if 'datavalue' in claim['mainsnak'].keys():
+                                if claim['mainsnak']['datavalue']['value']['id'] == "Q73539779":
+                                    return result

@@ -99,23 +99,26 @@ class CRANSource(ADataSource):
         # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
         #self.packages = self.packages.loc[1:30, :]
 
+        flag = False
+        
         for i, row in self.packages.iterrows():
             package_date = self.packages.loc[i, "Date"]
             package_label = self.packages.loc[i, "Package"]
             package_title = self.packages.loc[i, "Title"]
+
+            if flag == False and package_label != "SIBER":
+                continue
+            flag = True
+
             package = RPackage(package_date, package_label, package_title, self.integrator)
             if package.exists():
                 if not package.is_updated():
-                    print('Package found. Not up to date')
-                    #log.info(f"Package {package_label} found: Not up to date. Attempting update...")
-                    #package.update()
+                    log.info(f"Package {package_label} found: Not up to date. Attempting update...")
+                    package.update()
                 else:
-                    print('Package found and up to date')
-                    #log.info(f"Package {package_label} found: Already up to date.")
+                    log.info(f"Package {package_label} found: Already up to date.")
             else:
-                print('Package not found')
-                #log.info(f"Package {package_label} not found: Attempting item creation...")
-                test = package.create()
-                print(test)
+                log.info(f"Package {package_label} not found: Attempting item creation...")
+                package.create()
 
             time.sleep(2)

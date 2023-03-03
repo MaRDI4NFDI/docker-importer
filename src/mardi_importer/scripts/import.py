@@ -8,7 +8,7 @@ import sys
 import logging
 import logging.config
 from argparse import ArgumentParser
-from mardi_importer.importer.Importer import Importer, ImporterException
+from mardi_importer.importer.Importer import Importer
 from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
@@ -24,16 +24,15 @@ def get_parser():
     return parser
 
 
-def main():
+def main(**args):
     logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
-    args = get_parser().parse_args()
 
-    if args.mode == "ZBMath":
+    if args['mode'] == "ZBMath":
 
-        if args.conf_path is None:
+        if args['conf_path'] is None:
             sys.exit("--conf_path is required for --mode ZBMath")
-        conf_parser = ZBMathConfigParser(args.conf_path)
+        conf_parser = ZBMathConfigParser(args['conf_path'])
         conf = conf_parser.parse_config()
 
         data_source = ZBMathSource(
@@ -55,18 +54,10 @@ def main():
         # id_list = ["Q177", "Q192783"]
         # id_list = ["P2927"]
         # id_list = ["Q511761"]
-        i.import_entities(filename=args.wikidata_id_file_path)
+        i.import_entities(filename=args['wikidata_id_file_path'])
         #i.engine.dispose()
 
-    elif args.mode == "CRAN":
-
-        #integrator = MardiIntegrator()
-        #entity_id = "P31"
-        #integrator.import_entities(entity_id)
-
-        # an object to create entities copied from Wikidata
-        #entity_list = "/config/Properties_to_import_from_WD.txt"
-        #entityCreator = CRANEntityCreator(entity_list)
+    elif args['mode'] == "CRAN":
 
         # an object to import metadata related to R packages from CRAN
         data_source = CRANSource()
@@ -77,4 +68,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = get_parser().parse_args()
+    main(**vars(args))

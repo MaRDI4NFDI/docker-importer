@@ -49,13 +49,15 @@ def main(**args):
         # data_source.process_data()
         # data_source.write_error_ids()
 
-        i = MardiIntegrator()
+        #data_source = ZBMathSource()
+        importer = Importer(data_source)
+        importer.import_all()
         # i.check_or_create_db_table()
         # id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
         # id_list = ["Q177", "Q192783"]
         # id_list = ["P2927"]
         # id_list = ["Q511761"]
-        i.import_entities(filename=args['wikidata_id_file_path'])
+        #i.import_entities(filename=args['wikidata_id_file_path'])
         #i.engine.dispose()
 
     elif args['mode'] == "CRAN":

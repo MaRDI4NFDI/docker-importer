@@ -15,6 +15,7 @@ x-common-variables: &wikibase_variables
   MW_ELASTIC_PORT: 9200
   BOTUSER_NAME: botuser_name
   BOTUSER_PW: botuser_pw
+  TLD: de
 
 services:
   importer:
@@ -31,11 +32,14 @@ services:
       - wikibase
     environment:
       <<: *wikibase_variables
-      DB_HOST: mardi-mysql
-      IMPORTER_CRON_ENABLE: ${IMPORTER_CRON_ENABLE:-false}
-      MEDIAWIKI_API_URL: "http://mardi-wikibase/w/api.php"
-      SPARQL_ENDPOINT_URL: "http://query.portal.mardi4nfdi.de/proxy/wdqs/bigdata/namespace/wdq/sparql"
-      WIKIBASE_URL: "http://mardi-wikibase"
+      - DB_HOST=mardi-mysql
+      - IMPORTER_CRON_ENABLE=${IMPORTER_CRON_ENABLE:-false}
+      - IMPORTER_AGENT="MaRDI importer"
+      - MEDIAWIKI_API_URL="http://mardi-wikibase/w/api.php"
+      - SPARQL_ENDPOINT_URL="http://query.portal.mardi4nfdi.${TLD}/proxy/wdqs/bigdata/namespace/wdq/sparql"
+      - WIKIBASE_URL="http://mardi-wikibase"
+      - IMPORTER_USER=${BOTUSER_NAME}
+      - IMPORTER_PASS=${BOTUSER_PW}
 
   wikibase:
     image: "ghcr.io/mardi4nfdi/docker-wikibase:main"

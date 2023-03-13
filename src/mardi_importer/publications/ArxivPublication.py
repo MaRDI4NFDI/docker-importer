@@ -167,80 +167,85 @@ class ArxivPublication():
         return self._title
     
     def create(self):
+        publication_ID = None
         item = self.api.item.new()
-        item.labels.set(language="en", value=self.metadata.title)
-        if self.metadata.title:
-            item.descriptions.set(
-                language="en", 
-                value="scientific article from arXiv"
-            )
-
-        # Instance of: scholary article
-        item.add_claim('wdt:P31','wd:Q13442814')
-
-        # Publication date
-        item.add_claim('wdt:P577', time=self.metadata.publication_date)
-        #item.add_claim('wdt:P577', self.metadata.publication_date)
-
-        # Arxiv ID
-        item.add_claim('wdt:P818', self.arxiv_id)
-
-        # Arxiv classification
-        category_claims = []
-        pattern_msc = re.compile(r'\d')
-        pattern_acm = re.compile(r'^[ABCDEFGHIJK]\.[0-9m](\.[0-9m])?$')
-
-        for category in self.metadata.arxiv_classification:
-            if pattern_msc.match(category):
-                # MSC ID
-                claim = self.api.get_claim('wdt:P3285', category)
-            elif pattern_acm.match(category) or ";" in category:
-                # ACM Computing Classification System (1998)
-                # Not existing in wikidata
-                # https://cran.r-project.org/web/classifications/ACM.html
-                continue
-            elif category in taxonomy:
-                # arXiv classification
-                claim = self.api.get_claim('wdt:P820', category)
-                
-            category_claims.append(claim)
-        if category_claims:
-            item.add_claims(category_claims)
-
-        # Authors
-        author_claims = []
-        author_list = []
-        for author in self.metadata.authors:
-            author_item = Author(self.api, 
-                                 author.name, 
-                                 author.orcid, 
-                                 self.coauthors)
-            author_id = author_item.create()
-            author_list.append(author_id)
-
-            if author.arxiv_author_id:
-                update_item = self.api.item.get(entity_id=author_id)
-                claim = self.api.get_claim('wdt:P818', author.arxiv_author_id)
-                update_item.claims.add(
-                    claim,
-                    ActionIfExists.APPEND_OR_REPLACE,
+        if self.metadata.title != "Error":
+            item.labels.set(language="en", value=self.metadata.title)
+            if self.metadata.title:
+                item.descriptions.set(
+                    language="en", 
+                    value="scientific article from arXiv"
                 )
-                update_item.write()
-            
-            claim = self.api.get_claim('wdt:P50', author_id)
-            author_claims.append(claim)
-        item.add_claims(author_claims)
 
-        coauthors_ini = self.coauthors
-        for author_qid in author_list:
-            if author_qid not in coauthors_ini:
-                self.coauthors.append(author_qid)
+            # Instance of: scholary article
+            item.add_claim('wdt:P31','wd:Q13442814')
 
-        # DOI
-        doi = '10.48550/arXiv.' + self.arxiv_id
-        item.add_claim('wdt:P356', doi)
-                    
-        publication_ID = item.write().id
+            # Publication date
+            item.add_claim('wdt:P577', time=self.metadata.publication_date)
+            #item.add_claim('wdt:P577', self.metadata.publication_date)
+
+            # Arxiv ID
+            item.add_claim('wdt:P818', self.arxiv_id)
+
+            # Arxiv classification
+            category_claims = []
+            pattern_msc = re.compile(r'\d\d(?:-(?:XX|\d\d)|[A-Z](?:xx|\d\d))')
+            pattern_acm = re.compile(r'^[ABCDEFGHIJK]\.[0-9m](\.[0-9m])?$')
+
+            for category in self.metadata.arxiv_classification:
+                if pattern_msc.match(category):
+                    # MSC ID
+                    msc_categories = re.findall(pattern_msc, category)
+                    for msc_cat in msc_categories:
+                        claim = self.api.get_claim('wdt:P3285', msc_cat)
+                        category_claims.append(claim)
+                elif pattern_acm.match(category) or ";" in category:
+                    # ACM Computing Classification System (1998)
+                    # Not existing in wikidata
+                    # https://cran.r-project.org/web/classifications/ACM.html
+                    continue
+                elif category in taxonomy:
+                    # arXiv classification
+                    claim = self.api.get_claim('wdt:P820', category)
+                    category_claims.append(claim)
+                
+            if category_claims:
+                item.add_claims(category_claims)
+
+            # Authors
+            author_claims = []
+            author_list = []
+            for author in self.metadata.authors:
+                author_item = Author(self.api, 
+                                    author.name, 
+                                    author.orcid, 
+                                    self.coauthors)
+                author_id = author_item.create()
+                author_list.append(author_id)
+
+                if author.arxiv_author_id:
+                    update_item = self.api.item.get(entity_id=author_id)
+                    claim = self.api.get_claim('wdt:P818', author.arxiv_author_id)
+                    update_item.claims.add(
+                        claim,
+                        ActionIfExists.APPEND_OR_REPLACE,
+                    )
+                    update_item.write()
+                
+                claim = self.api.get_claim('wdt:P50', author_id)
+                author_claims.append(claim)
+            item.add_claims(author_claims)
+
+            coauthors_ini = self.coauthors
+            for author_qid in author_list:
+                if author_qid not in coauthors_ini:
+                    self.coauthors.append(author_qid)
+
+            # DOI
+            doi = '10.48550/arXiv.' + self.arxiv_id
+            item.add_claim('wdt:P356', doi)
+                        
+            publication_ID = item.write().id
 
         if publication_ID:
             log.info(f"arXiv preprint with arXiv id: {self.arxiv_id} created with ID {publication_ID}.")

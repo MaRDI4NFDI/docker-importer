@@ -1,5 +1,5 @@
 from wikibaseintegrator.wbi_enums import ActionIfExists
-from wikibaseintegrator.wbi_helpers import search_entities
+from wikibaseintegrator.wbi_helpers import search_entities, merge_items
 
 class Author:
     def __init__(self, integrator, name, orcid=None, coauthors=None):
@@ -115,6 +115,9 @@ class Author:
                         if claim['mainsnak']['datatype'] == "external-id":
                             if claim['mainsnak']['datavalue']['value'] == self.orcid:
                                 if self.QID:
+                                    imported_id = self.api.query('local_id', item.id)
+                                    if imported_id and imported_id != self.QID:
+                                        merge_items(self.QID, imported_id, login=self.api.login)
                                     return self.api.overwrite_entity(result, self.QID)
                                 else:
                                     return self.api.import_entities(result)

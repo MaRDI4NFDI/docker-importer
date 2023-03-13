@@ -15,7 +15,7 @@ from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, G
 
 class MardiIntegrator(WikibaseIntegrator):
     def __init__(self, languages=["en", "de"]) -> None:
-        super().__init__()
+        super().__init__(is_bot=True)
         self.languages = languages
 
         self.login = self.setup()
@@ -37,13 +37,13 @@ class MardiIntegrator(WikibaseIntegrator):
         Returns:
             Clientlogin object
         """
-        wbi_config["USER_AGENT"] = "MaRDI_importer"
+        wbi_config["USER_AGENT"] = os.environ.get("IMPORTER_AGENT")
         wbi_config["MEDIAWIKI_API_URL"] = os.environ.get("MEDIAWIKI_API_URL")
         wbi_config["SPARQL_ENDPOINT_URL"] = os.environ.get("SPARQL_ENDPOINT_URL")
         wbi_config["WIKIBASE_URL"] = os.environ.get("WIKIBASE_URL")
         return wbi_login.Clientlogin(
-            user=os.environ.get("BOTUSER_NAME"),
-            password=os.environ.get("BOTUSER_PW"),
+            user=os.environ.get("IMPORTER_USER"),
+            password=os.environ.get("IMPORTER_PASS"),
         )
 
     @staticmethod
@@ -358,6 +358,8 @@ class MardiIntegrator(WikibaseIntegrator):
                 local_entity.write(login=self.login)
                 if self.query('local_id', wikidata_id):
                     self.update_has_all_claims(wikidata_id)
+                else:
+                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=True)  
             
             return local_id
 

@@ -385,12 +385,11 @@ class RPackage:
         crossref_references = []
 
         for doi in doi_references:
+            doi = doi.strip().lower()
             if re.search('10.48550/', doi):
-                doi = doi.lower()
                 arxiv_id = doi.replace('10.48550/arxiv.', '')
                 arxiv_references.append(arxiv_id)
             elif re.search('10.5281/', doi):
-                doi = doi.lower()
                 zenodo_id = doi.replace('10.5281/zenodo.', '')
                 zenodo_references.append(zenodo_id)
             else:
@@ -420,7 +419,9 @@ class RPackage:
                 publication_id_array.append(publication_id)
 
         for arxiv_id in arxiv_references:
+            arxiv_id = arxiv_id.strip()
             if ":" in arxiv_id: arxiv_id = arxiv_id.replace(":",".")
+            if "10.48550/" in arxiv_id: arxiv_id = arxiv_id.lower().replace('10.48550/arxiv.', '')
             publication = ArxivPublication(self.api, arxiv_id, publication_authors)
 
             publication_item = self.api.item.new()
@@ -446,6 +447,9 @@ class RPackage:
                 publication_id_array.append(publication_id)
 
         for zenodo_id in zenodo_references:
+            zenodo_id = zenodo_id.strip()
+            if ":" in zenodo_id: zenodo_id = zenodo_id.replace(":",".")
+            if "10.5281/" in zenodo_id: zenodo_id = zenodo_id.lower().replace('10.5281/zenodo.', '')
 
             resource_id = None
             resource = ZenodoResource(self.api, zenodo_id, publication_authors)
@@ -558,7 +562,6 @@ class RPackage:
                 license_str = re.sub("\[.*?\]", "", license_str)
             license_str = license_str.strip()
             license_QID = self.get_license_QID(license_str)
-            #license_property = WBProperty("License version").label_exists()
             if license_str == "file LICENSE" or license_str == "file LICENCE":
                 qualifier = [self.api.get_claim("wdt:P2699", f"https://cran.r-project.org/web/packages/{self.label}/LICENSE")]
                 claims.append(self.api.get_claim("wdt:P275", license_QID, qualifiers=qualifier))

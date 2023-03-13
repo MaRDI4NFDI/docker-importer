@@ -99,16 +99,16 @@ class CRANSource(ADataSource):
         # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
         #self.packages = self.packages.loc[1:30, :]
 
-        flag = False
+        #flag = False
         
         for i, row in self.packages.iterrows():
             package_date = self.packages.loc[i, "Date"]
             package_label = self.packages.loc[i, "Package"]
             package_title = self.packages.loc[i, "Title"]
 
-            if flag == False and package_label != "SIBER":
-                continue
-            flag = True
+            #if not flag and package_label != "UpSetVP":
+            #    continue
+            #flag = True
 
             package = RPackage(package_date, package_label, package_title, self.integrator)
             if package.exists():

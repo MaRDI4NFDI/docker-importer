@@ -32,14 +32,14 @@ services:
       - wikibase
     environment:
       <<: *wikibase_variables
-      - DB_HOST=mardi-mysql
-      - IMPORTER_CRON_ENABLE=${IMPORTER_CRON_ENABLE:-false}
-      - IMPORTER_AGENT="MaRDI importer"
-      - MEDIAWIKI_API_URL="http://mardi-wikibase/w/api.php"
-      - SPARQL_ENDPOINT_URL="http://query.portal.mardi4nfdi.${TLD}/proxy/wdqs/bigdata/namespace/wdq/sparql"
-      - WIKIBASE_URL="http://mardi-wikibase"
-      - IMPORTER_USER=${BOTUSER_NAME}
-      - IMPORTER_PASS=${BOTUSER_PW}
+      DB_HOST: mardi-mysql
+      IMPORTER_CRON_ENABLE: ${IMPORTER_CRON_ENABLE:-false}
+      IMPORTER_AGENT: ${IMPORTER_AGENT:-mardi-importer}
+      MEDIAWIKI_API_URL: "http://mardi-wikibase/w/api.php"
+      SPARQL_ENDPOINT_URL: "http://query.portal.mardi4nfdi.${TLD}/proxy/wdqs/bigdata/namespace/wdq/sparql"
+      WIKIBASE_URL: "http://mardi-wikibase"
+      IMPORTER_USER: botuser_name
+      IMPORTER_PASS: botuser_pass
 
   wikibase:
     image: "ghcr.io/mardi4nfdi/docker-wikibase:main"

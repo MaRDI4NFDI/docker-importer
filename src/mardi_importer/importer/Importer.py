@@ -10,44 +10,22 @@ Created on Thu Feb 17 18:53:53 2022
 class Importer:
     """Controller class for importing data from an external source to the local Wikibase."""
 
-    def __init__(self, entityCreator, dataSource):
+    def __init__(self, dataSource):
         """
         Construct.
         Args:
             entityCreator: object implementing AEntityCreator
             dataSource: object implementig ADataSource
         """
-        self.entityCreator = entityCreator
         self.dataSource = dataSource
 
     def import_all(self):
         """
         Manages the import process.
         """
-        self.entityCreator.import_entities()
-        self.entityCreator.create_entities()
-
-        self.dataSource.pull()
-        self.dataSource.push()
-
-
-class AEntityCreator:
-    """Abstract base class for creating entities in a local Wikibase."""
-
-    def import_entities(self):
-        """
-        Imports all necessary entities from Wikidata in the local Wikibase.
-
-        Returns:
-            Pandas dataframe: Mapping between local Wikibase and Wikidata.
-        """
-        raise NotImplementedError
-    
-    def create_entities(self):
-        """
-        Creates all necessary additional entities in the local Wikibase.
-        """
-        raise NotImplementedError
+        self.dataSource.setup()
+        #self.dataSource.pull()
+        #self.dataSource.push()
 
 
 class ADataSource:

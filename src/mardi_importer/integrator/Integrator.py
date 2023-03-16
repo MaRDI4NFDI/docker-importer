@@ -1,40 +1,84 @@
-from mardi_importer.integrator.IntegratorConfigParser import IntegratorConfigParser
-from wikibaseintegrator import WikibaseIntegrator
-from wikibaseintegrator.models.qualifiers import Qualifiers
+import os
+import re
+import sqlalchemy as db
+
+from mardi_importer.integrator.MardiEntities import MardiItemEntity, MardiPropertyEntity
+from wikibaseintegrator import WikibaseIntegrator, wbi_login
 from wikibaseintegrator.models.claims import Claim, Claims
+from wikibaseintegrator.models.qualifiers import Qualifiers
 from wikibaseintegrator.models.references import Reference
 from wikibaseintegrator.wbi_config import config as wbi_config
-from wikibaseintegrator import wbi_login
-from wikibaseintegrator.wbi_helpers import search_entities
 from wikibaseintegrator.wbi_enums import ActionIfExists
-import os
-import sqlalchemy as db
-from wikibaseintegrator.datatypes import String
-
-import sys
-
+from wikibaseintegrator.wbi_helpers import search_entities
+from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
+                                          Sense, String, TabularData, Time)
 
 class MardiIntegrator(WikibaseIntegrator):
-    def __init__(self, conf_path, languages) -> None:
-        super(MardiIntegrator, self).__init__()
+    def __init__(self, languages=["en", "de"]) -> None:
+        super().__init__(is_bot=True)
         self.languages = languages
-        self.imported_items = []
-        config_parser = IntegratorConfigParser(conf_path)
-        self.config_dict = config_parser.parse_config()
-        # local id of property for linking to wikidata id
-        self.linker_id = None
-        # wikidata id to imported id
-        self.id_mapping = {}
+
+        self.login = self.setup()
+        self.engine = self.create_engine()
+        self.create_db_table()
+
+        # local id of properties for linking to wikidata PID/QID
+        self.wikidata_PID = self.init_wikidata_PID()
+        self.wikidata_QID = self.init_wikidata_QID()
+
+        self.item = MardiItemEntity(api=self)
+        self.property = MardiPropertyEntity(api=self)
+
+    @staticmethod
+    def setup():
+        """
+        Sets up initial configuration for the integrator
+
+        Returns:
+            Clientlogin object
+        """
+        wbi_config["USER_AGENT"] = os.environ.get("IMPORTER_AGENT")
+        wbi_config["MEDIAWIKI_API_URL"] = os.environ.get("MEDIAWIKI_API_URL")
+        wbi_config["SPARQL_ENDPOINT_URL"] = os.environ.get("SPARQL_ENDPOINT_URL")
+        wbi_config["WIKIBASE_URL"] = os.environ.get("WIKIBASE_URL")
+        return wbi_login.Clientlogin(
+            user=os.environ.get("IMPORTER_USER"),
+            password=os.environ.get("IMPORTER_PASS"),
+        )
+
+    @staticmethod
+    def create_engine():
+        """
+        Creates SQLalchemy engine
+
+        Returns:
+            SQLalchemy engine
+        """
         db_user = os.environ["DB_USER"]
         db_pass = os.environ["DB_PASS"]
         db_name = os.environ["DB_NAME"]
         db_host = os.environ["DB_HOST"]
-        self.engine = db.create_engine(
+        return db.create_engine(
             f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
         )
-        self.check_or_create_db_table()
 
-    def check_or_create_db_table(self):
+    @staticmethod
+    def create_id_list_from_file(file):
+        """Function for creating a list of ids
+        from a while where each id is in a new line
+
+        Args:
+            file: path to file
+
+        Returns: list of ids
+        """
+        id_list = []
+        with open(file, "r") as file:
+            for line in file:
+                id_list.append(line.strip())
+        return id_list
+
+    def create_db_table(self):
         """
         Check if db table for id mapping is there; if not, create.
 
@@ -52,79 +96,258 @@ class MardiIntegrator(WikibaseIntegrator):
                     metadata,
                     db.Column("id", db.Integer, primary_key=True),
                     db.Column("wikidata_id", db.String(24), nullable=False),
-                    db.Column("internal_id", db.String(24), nullable=False),
+                    db.Column("local_id", db.String(24), nullable=False),
+                    db.Column("has_all_claims", db.Boolean(), nullable=False),  
                     db.UniqueConstraint("wikidata_id"),
-                    db.UniqueConstraint("internal_id"),
+                    db.UniqueConstraint("local_id"),
                 )
                 metadata.create_all(self.engine)
-
-    def insert_id_in_db(self, wikidata_id, internal_id):
+    
+    def insert_id_in_db(self, wikidata_id, local_id, has_all_claims):
         """
-        Insert wikidata_id and internal_id into mapping table.
+        Insert wikidata_id, local_id and has_all_claims into mapping table.
 
         Args:
             wikidata_id: Wikidata id
-            internal_id: local wiki id
+            local_id: local Wikibase id
+            has_all_claims: Boolean indicating whether the entity has been
+                imported with all claims or no claims (i.e. no recurse)
 
         Returns:
             None
         """
         metadata = db.MetaData()
         table = db.Table(
-            "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
+            "wb_id_mapping", 
+            metadata,
+            autoload_with=self.engine
         )
 
-        ins = table.insert().values(wikidata_id=wikidata_id, internal_id=internal_id)
-        with self.engine.connect() as connection:
-            result = connection.execute(ins)
+        ins = table.insert().values(
+            wikidata_id=wikidata_id,
+            local_id=local_id,
+            has_all_claims=has_all_claims
+        )
 
-    def import_entities(self, id_list, recurse):
-        """Function for importing entities from wikidata
-        into the local instance
+        with self.engine.connect() as connection:
+            connection.execute(ins)
+            connection.commit()
+
+    def update_has_all_claims(self, wikidata_id):
+        """
+        Set the has_all_claims property in the wb_id_mapping table
+        to True for the given wikidata_id.
 
         Args:
-            id_list: List of strings of wikidata entity ids (Lexemes not supported)
-            recurse: whether to import claims for the entities in id_list
+            wikidata_id: Wikidata id to be updated.
 
         Returns:
             None
         """
-        # config should be on local unless it is
-        # required to be on remote
-        self.change_config(instance="local")
-        # does not work in init, so it is here
-        self.change_login(instance="local")
-        self.set_linker_id()
+        metadata = db.MetaData()
+        table = db.Table(
+            "wb_id_mapping", 
+            metadata,
+            autoload_with=self.engine
+        )
+
+        ins = table.update().values(
+            has_all_claims=True
+        ).where(table.c.wikidata_id == wikidata_id)
+
+        with self.engine.connect() as connection:
+            connection.execute(ins)
+            connection.commit()
+
+    def init_wikidata_PID(self):
+        """
+        Searches the wikidata PID property ID to link
+        properties to its ID in wikidata. When not found,
+        it creates the property.
+
+        Returns
+            wikidata_PID (str): wikidata PID property ID
+        """
+        label = "Wikidata PID"
+        wikidata_PID = self.get_local_id_by_label(label, "property")
+        if not wikidata_PID:
+            prop = self.property.new()
+            prop.labels.set(language="en", value=label)
+            prop.descriptions.set(
+                language="en", 
+                value="Identifier in Wikidata of the corresponding properties"
+            )
+            prop.datatype = "external-id"
+            wikidata_PID = prop.write(login=self.login, as_new=True).id
+        return wikidata_PID
+
+    def init_wikidata_QID(self):
+        """
+        Searches the wikidata QID property ID to link
+        items to its ID in wikidata. When not found,
+        it creates the property.
+
+        Returns
+            wikidata_QID (str): wikidata QID property ID
+        """
+        label = "Wikidata QID"
+        wikidata_QID = self.get_local_id_by_label(label, "property")
+        if not wikidata_QID:
+            prop = self.property.new()
+            prop.labels.set(language="en", value=label)
+            prop.descriptions.set(
+                language="en", 
+                value="Corresponding QID in Wikidata"
+            )
+            prop.datatype = "external-id"
+            wikidata_QID = prop.write(login=self.login, as_new=True).id
+        return wikidata_QID
+
+    def import_entities(self, id_list=None, filename="", recurse=True):
+        """Function for importing entities from wikidata
+        into the local instance.
+
+        It can accept a single id, a list of ids or a file containing
+        a the ids to be imported.
+
+        Args:
+            id_list: Single string or list of strings of wikidata 
+                entity ids. Lexemes not supported.
+            filename: Filename containing list of entities to be 
+                imported.
+            recurse: Whether to import claims for the entities in 
+                id_list
+
+        Returns:
+            Imported entities (Dict): Dictionary containing the local ids of 
+            all the imported entities.
+        """
+        imported_entities = {}
+        if filename: id_list = self.create_id_list_from_file(filename)
+        if isinstance(id_list, str): id_list = [id_list]
+
         for wikidata_id in id_list:
-            if wikidata_id[0] == "L":
+
+            if wikidata_id.startswith("L"):
                 print(
                     f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
                 )
                 continue
-            print(f"importing entity {wikidata_id}")
-            entity = self.get_wikidata_information(
-                wikidata_id=wikidata_id, recurse=recurse
-            )
-            if not entity:
-                print(f"No labels for entity with id {wikidata_id}, skipping")
-                continue
-            if recurse == True:
-                self.convert_claim_ids(entity)
-                self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
-            # if it is not there yet
-            if not self.check_entity_exists(entity, wikidata_id):
-                new_id = entity.write(login=self.login, as_new=True).id
 
-                self.id_mapping[wikidata_id] = new_id
-                self.insert_id_in_db(wikidata_id, new_id)
-            # if it is there
-            else:
-                if wikidata_id[0] == "Q":
-                    local_entity = self.item.get(entity_id=self.id_mapping[wikidata_id])
-                elif wikidata_id[0] == "P":
-                    local_entity = self.property.get(
-                        entity_id=self.id_mapping[wikidata_id]
+            print(f"importing entity {wikidata_id}")
+
+            has_all_claims = self.query('has_all_claims', wikidata_id)
+            if not has_all_claims:
+                # API call
+                entity = self.get_wikidata_information(
+                    wikidata_id, 
+                    recurse
+                )
+
+                if not entity:
+                    print(f"No labels for entity with id {wikidata_id}, skipping")
+                    continue
+
+                if entity.type == "property" and entity.datatype.value in \
+                    ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+                    print(f"Warning: Lexemes not supported. Property skipped")
+                    continue
+
+                # Check if there is an internal ID redirection in Wikidata
+                if wikidata_id != entity.id:
+                    wikidata_id = entity.id
+                    has_all_claims = self.query('has_all_claims', wikidata_id)
+                    if has_all_claims:
+                        imported_entities[wikidata_id] = self.query('local_id', wikidata_id)
+                        continue
+
+                if recurse:
+                    self.convert_claim_ids(entity)
+
+                entity.add_linker_claim(wikidata_id)
+                
+                local_id = entity.exists()
+                if not local_id:
+                    local_id = self.query('local_id', wikidata_id)
+
+                if local_id:
+                    # Update existing entity
+                    if entity.type == "item":
+                        local_entity = self.item.get(entity_id=local_id)
+                    elif entity.type == "property":
+                        local_entity = self.property.get(entity_id=local_id)
+                    # replace descriptions
+                    local_entity.descriptions = entity.descriptions
+                    # add new claims if they are different from old claims
+                    local_entity.claims.add(
+                        entity.claims,
+                        ActionIfExists.APPEND_OR_REPLACE,
                     )
+                    local_entity.write(login=self.login)
+                    if self.query('local_id', wikidata_id) and recurse:
+                        self.update_has_all_claims(wikidata_id)
+                    else:
+                        self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
+                else:
+                    # Create entity
+                    local_id = entity.write(login=self.login, as_new=True).id
+                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)  
+
+            if has_all_claims:
+                imported_entities[wikidata_id] = self.query('local_id', wikidata_id)
+            else:
+                imported_entities[wikidata_id] = local_id
+
+        if len(imported_entities) == 1:
+            return list(imported_entities.values())[0]
+        return imported_entities
+
+    def overwrite_entity(self, wikidata_id, local_id):
+        """Function for completing an already existing local entity
+        with its statements from wikidata.
+
+        Args:
+            wikidata_id: Wikidata entity ID to be imported.
+            local_id: Local id of the existing entity that needs to
+                be completed with further statements.
+
+        Returns:
+            local_id: Local entity ID
+        """
+        if wikidata_id.startswith("L"):
+            print(
+                f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
+            )
+
+        print(f"Overwriting entity {local_id}")
+
+        has_all_claims = self.query('has_all_claims', wikidata_id)
+        if has_all_claims:
+            return self.query('local_id', wikidata_id)
+        else:
+            # API call
+            entity = self.get_wikidata_information(
+                wikidata_id, 
+                recurse=True
+            )
+
+            if entity:
+
+                # Check if there is an entity ID redirection in Wikidata
+                if wikidata_id != entity.id:
+                    wikidata_id = entity.id
+                    has_all_claims = self.query('has_all_claims', wikidata_id)
+                    if has_all_claims:
+                        return self.query('local_id', wikidata_id)
+
+                self.convert_claim_ids(entity)
+                entity.add_linker_claim(wikidata_id)
+                
+                # Retrieve existing entity
+                if entity.type == "item":
+                    local_entity = self.item.get(entity_id=local_id)
+                elif entity.type == "property":
+                    local_entity = self.property.get(entity_id=local_id)
                 # replace descriptions
                 local_entity.descriptions = entity.descriptions
                 # add new claims if they are different from old claims
@@ -132,65 +355,15 @@ class MardiIntegrator(WikibaseIntegrator):
                     entity.claims,
                     ActionIfExists.APPEND_OR_REPLACE,
                 )
-                # to also add this for older imports
-                self.add_linker_claim(entity=local_entity, wikidata_id=wikidata_id)
                 local_entity.write(login=self.login)
+                if self.query('local_id', wikidata_id):
+                    self.update_has_all_claims(wikidata_id)
+                else:
+                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=True)  
+            
+            return local_id
 
-    def add_linker_claim(self, entity, wikidata_id):
-        """Function for in-place addition of a claim with the
-        property that points to the wikidata id
-        to the local entity
-
-        Args:
-            entity: wikibaeintegrator entity whose claims
-                    this should be added to
-            wikidata_id: wikidata id of the wikidata item
-        """
-        claim = String(
-            value=wikidata_id,
-            prop_nr=self.linker_id,
-        )
-        entity.add_claims(claim)
-
-    def get_linker_id(self, label_string_en):
-        """Function for getting linker_id from the local
-        instance by using search_entities function.
-        If it does not exist yet, returns None.
-
-        Args:
-            label_string_en: string with the english label
-
-        Returns:
-            linker_id or None
-        """
-        result = search_entities(
-            search_string=label_string_en,
-            language="en",
-            search_type="property",
-            dict_result=True,
-        )
-        if not result:
-            return None
-        else:
-            return result[0]["id"]
-
-    def set_linker_id(self):
-        """Function for setting self.linker_id of the local property that links to the
-        wikidata id. Gets linker_id from local instance or creates it.
-
-        Returns: None
-        """
-        label_string_en = "has wikidata id"
-        linker_id = self.get_linker_id(label_string_en=label_string_en)
-        if not linker_id:
-            prop = self.property.new()
-            prop.labels.set(language="en", value=label_string_en)
-            prop.descriptions.set(language="en", value="has a wikidata id")
-            prop.datatype = "string"
-            linker_id = prop.write(login=self.login, as_new=True).id
-        self.linker_id = linker_id
-
-    def write_claim_entities(self, wikidata_id):
+    def import_claim_entities(self, wikidata_id):
         """Function for importing entities that are mentioned
         in claims from wikidata to the local wikibase instance
 
@@ -200,41 +373,71 @@ class MardiIntegrator(WikibaseIntegrator):
         Returns:
             local id or None, if the entity had no labels
         """
-        entity = self.get_wikidata_information(wikidata_id=wikidata_id, recurse=False)
-        # if entity had no labels
-        if not entity:
-            return None
-        if not self.check_entity_exists(entity, wikidata_id):
-            self.add_linker_claim(entity=entity, wikidata_id=wikidata_id)
-            local_id = entity.write(login=self.login, as_new=True).id
-            self.id_mapping[wikidata_id] = local_id
-            self.insert_id_in_db(wikidata_id, local_id)
-            return local_id
+        local_id = self.query('local_id', wikidata_id)
+        if local_id: return local_id
         else:
-            # if it does exist, do nothing,
-            # as it does not contain claims anyway
-            return self.id_mapping[wikidata_id]
+            entity = self.get_wikidata_information(wikidata_id)
 
-    def get_wikidata_information(self, wikidata_id, recurse):
+            if not entity:
+                return None
+
+            if entity.type == "property" and \
+                entity.datatype.value in ["wikibase-lexeme", \
+                        "wikibase-sense", "wikibase-form"]:
+                return None
+                
+            elif wikidata_id != entity.id:
+                wikidata_id = entity.id
+                local_id = self.query('local_id', wikidata_id)
+                if local_id: return local_id
+
+            # Check if the entity has been redirected by Wikidata
+            # into another entity that has already been imported
+            local_id = self.query('local_id', entity.id)
+            if local_id: return local_id
+
+            local_id = entity.exists()
+            if local_id:
+                if entity.type == "item":
+                    new_entity = self.item.get(entity_id=local_id)
+                elif entity.type == "property":
+                    new_entity = self.property.get(entity_id=local_id)
+                # replace descriptions
+                new_entity.descriptions = entity.descriptions
+                entity = new_entity
+                entity.add_linker_claim(wikidata_id)
+                local_id = entity.write(login=self.login).id
+            else:
+                entity.add_linker_claim(wikidata_id)
+                local_id = entity.write(login=self.login, as_new=True).id
+
+            self.insert_id_in_db(wikidata_id, local_id, has_all_claims=False)
+            return local_id
+
+    def get_wikidata_information(self, wikidata_id, recurse=False):
         """Function for pulling wikidata information
 
         Args:
-            wikidata_id(str): wikidata id of the desired entity
+            wikidata_id (str): wikidata id of the desired entity
             recurse (Bool): if claims should also be imported
 
         Returns: wikibase integrator entity or None, if the entity has no labels
 
         """
-        self.change_config(instance="wikidata")
-        if wikidata_id[0] == "Q":
-            entity = self.item.get(entity_id=wikidata_id)
-        elif wikidata_id[0] == "P":
-            entity = self.property.get(entity_id=wikidata_id)
+        if wikidata_id.startswith("Q"):
+            entity = self.item.get(
+                entity_id=wikidata_id, 
+                mediawiki_api_url='https://www.wikidata.org/w/api.php'
+            )
+        elif wikidata_id.startswith("P"):
+            entity = self.property.get(
+                entity_id=wikidata_id, 
+                mediawiki_api_url='https://www.wikidata.org/w/api.php'
+            )
         else:
             raise Exception(
                 f"Wrong ID format, should start with P, L or Q but ID is {wikidata_id}"
             )
-        self.change_config(instance="local")
         if not self.languages == "all":
             # set labels in desired languages
             label_dict = {
@@ -263,7 +466,7 @@ class MardiIntegrator(WikibaseIntegrator):
                 if k in entity.aliases.aliases
             }
             entity.aliases.aliases = alias_dict
-        if recurse == False:
+        if not recurse:
             entity.claims = Claims()
         return entity
 
@@ -287,7 +490,7 @@ class MardiIntegrator(WikibaseIntegrator):
         # where str is the property id
         for prop_id, claim_list in claims.items():
             local_claim_list = []
-            local_prop_id = self.write_claim_entities(wikidata_id=prop_id)
+            local_prop_id = self.import_claim_entities(wikidata_id=prop_id)
             if not local_prop_id:
                 print("Warning: local id skipped")
                 continue
@@ -295,7 +498,7 @@ class MardiIntegrator(WikibaseIntegrator):
                 c_dict = c.get_json()
                 if c_dict["mainsnak"]["datatype"] in entity_names:
                     if "datavalue" in c_dict["mainsnak"]:
-                        local_mainsnak_id = self.write_claim_entities(
+                        local_mainsnak_id = self.import_claim_entities(
                             wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
                         )
                         if not local_mainsnak_id:
@@ -314,7 +517,7 @@ class MardiIntegrator(WikibaseIntegrator):
                         new_c.id = None
                     else:
                         continue
-                elif c_dict["mainsnak"]["datatype"] == "wikibase-lexeme":
+                elif c_dict["mainsnak"]["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
                     continue
                 else:
                     self.convert_entity_links(snak=c_dict["mainsnak"])
@@ -356,7 +559,7 @@ class MardiIntegrator(WikibaseIntegrator):
             snak_dict = ref.get_json()
             for prop_id, snak_list in snak_dict["snaks"].items():
                 new_snak_list = []
-                new_prop_id = self.write_claim_entities(
+                new_prop_id = self.import_claim_entities(
                     wikidata_id=prop_id,
                 )
                 if not new_prop_id:
@@ -365,14 +568,14 @@ class MardiIntegrator(WikibaseIntegrator):
                     if snak["datatype"] in entity_names:
                         if not "datavalue" in snak:
                             continue
-                        new_snak_id = self.write_claim_entities(
+                        new_snak_id = self.import_claim_entities(
                             wikidata_id=snak["datavalue"]["value"]["id"],
                         )
                         if not new_snak_id:
                             continue
                         snak["datavalue"]["value"]["id"] = new_snak_id
                         snak["datavalue"]["value"]["numeric-id"] = int(new_snak_id[1:])
-                    elif snak["datatype"] == "wikibase-lexeme":
+                    elif snak["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
                         continue
                     else:
                         self.convert_entity_links(
@@ -406,7 +609,7 @@ class MardiIntegrator(WikibaseIntegrator):
         qual_dict = claim.qualifiers.get_json()
         new_qual_dict = {}
         for qual_id, qual_list in qual_dict.items():
-            new_qual_id = self.write_claim_entities(wikidata_id=qual_id)
+            new_qual_id = self.import_claim_entities(wikidata_id=qual_id)
             if not new_qual_id:
                 continue
             new_qual_list = []
@@ -414,7 +617,7 @@ class MardiIntegrator(WikibaseIntegrator):
                 if qual_val["datatype"] in entity_names:
                     if not "datavalue" in qual_val:
                         continue
-                    new_qual_val_id = self.write_claim_entities(
+                    new_qual_val_id = self.import_claim_entities(
                         wikidata_id=qual_val["datavalue"]["value"]["id"],
                     )
                     if not new_qual_val_id:
@@ -423,7 +626,7 @@ class MardiIntegrator(WikibaseIntegrator):
                     qual_val["datavalue"]["value"]["numeric-id"] = int(
                         new_qual_val_id[1:]
                     )
-                elif qual_val["datatype"] == "wikibase-lexeme":
+                elif qual_val["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
                     continue
                 else:
                     self.convert_entity_links(
@@ -436,95 +639,10 @@ class MardiIntegrator(WikibaseIntegrator):
         qualifiers = q.from_json(json_data=new_qual_dict)
         return qualifiers
 
-    def check_entity_exists(self, entity, wikidata_id):
-        """Check if entity exists with a lookup (in this order) in
-        self.id_mapping, db table and wiki. Add to where it is missing,
-        if it only exists in some of them.
-
-        Args:
-           unit: an IntegratorUnit
-           wikidata_id
-        Returns:
-           bool: Entity already exists or not
-        """
-        # if the id is in id mapping, the entity
-        # has been created in this run
-        if wikidata_id in self.id_mapping:
-            return True
-
-        # check if entity is in db
-        metadata = db.MetaData()
-        table = db.Table(
-            "wb_id_mapping", metadata, autoload=True, autoload_with=self.engine
-        )
-        sql = db.select([table.columns.internal_id]).where(
-            table.columns.wikidata_id == wikidata_id,
-        )
-        with self.engine.connect() as connection:
-            db_result = connection.execute(sql).fetchone()
-        # if it is in db, it already exists
-        # and should be added to the db mapping
-        # to speed up the lookup
-        if db_result:
-            self.id_mapping[wikidata_id] = db_result["internal_id"]
-            return True
-
-        # if unit is not in dict and not in db, try string search
-        # to see if it already exists in wiki
-        result = search_entities(
-            search_string=str(entity.labels.get("en")),
-            language="en",
-            search_type=entity.type,
-            dict_result=True,
-        )
-        # if is in neither of the three, it does not exist
-        if not result:
-            return False
-        else:
-            # try to find an instance where label (for properties)
-            # or label and description (for items) match the
-            # entity information
-            for subdict in result:
-                if subdict["label"] == entity.labels.get("en"):
-                    # for properties, the label is unique
-                    if wikidata_id[0] == "P":
-                        self.id_mapping[wikidata_id] = subdict["id"]
-                        self.insert_id_in_db(wikidata_id, subdict["id"])
-                        return True
-                    # an item is unique in combination (label, description)
-                    elif wikidata_id[0] == "Q":
-                        # if, additionally to label, the description also matches
-                        if subdict["description"] == entity.descriptions.get("en"):
-                            self.id_mapping[wikidata_id] = subdict["id"]
-                            self.insert_id_in_db(wikidata_id, subdict["id"])
-                            return True
-                    else:
-                        sys.exit(
-                            "Exception: wikidata id starts with letter other than Q or P"
-                        )
-            # if no entity was found where
-            # the required params match, it does
-            # not exist
-            return False
-
-    def create_id_list_from_file(self, file):
-        """Function for creating a list of ids
-        from a while where each id is in a new line
-
-        Args:
-            file: path to file
-
-        Returns: list of ids
-        """
-        id_list = []
-        with open(file, "r") as file:
-            for line in file:
-                id_list.append(line.strip())
-        return id_list
-
     def convert_entity_links(self, snak):
-        """Function for in-place conversion of unit for quantity and globe for globecoordinate
-        to a link to the local entity instead of a link to the wikidata entity.
+        """Function for in-place conversion of unit for quantity 
+        and globe for globecoordinate to a link to the local entity 
+        instead of a link to the wikidata entity.
 
         Args:
             snak: a wikibaseintegrator snak
@@ -539,62 +657,172 @@ class MardiIntegrator(WikibaseIntegrator):
             if "unit" in data:
                 link_string = data["unit"]
                 key_string = "unit"
-        elif snak["datatype"] == "globecoordinate":
-            if "globe" in data:
-                link_string = data["globe"]
-                key_string = "globe"
+        elif snak["datatype"] == "globe-coordinate":
+            #if "globe" in data:
+            #    link_string = data["globe"]
+            #    key_string = "globe"
+            if not data["precision"]:
+                data["precision"] = 1/3600
+            return
         else:
             return
         if "www.wikidata.org/" in link_string:
             uid = link_string.split("/")[-1]
-            local_id = self.write_claim_entities(
+            local_id = self.import_claim_entities(
                 wikidata_id=uid,
             )
-            data[key_string] = wbi_config["WIKIBASE_URL"] + "entity/" + local_id
+            data[key_string] = wbi_config["WIKIBASE_URL"] + "/entity/" + local_id
 
-    def change_config(self, instance):
-        """
-        Function for changing the config to allow using wikidata and local instance.
-        Also set user agent to avoid warning.
-        Setting config to local should be default, after switching to remote.
-        it should be switched back
+    def query(self, parameter, wikidata_id):
+        """Query the wb_id_mapping db table for a given parameter.
 
-        Args:
-            instance: Instance name (choice between wikidata and local)
-
-        Returns:
-            None
-        """
-        wbi_config["USER_AGENT"] = "zuse_wlocalikibase_importer"
-        if instance == "wikidata":
-            wbi_config["MEDIAWIKI_API_URL"] = "https://www.wikidata.org/w/api.php"
-            wbi_config["SPARQL_ENDPOINT_URL"] = "https://query.wikidata.org/sparql"
-            wbi_config["WIKIBASE_URL"] = "http://www.wikidata.org"
-        elif instance == "local":
-            wbi_config["MEDIAWIKI_API_URL"] = self.config_dict["mediawiki_api_url"]
-            wbi_config["SPARQL_ENDPOINT_URL"] = self.config_dict["sparql_endpoint_url"]
-            wbi_config["WIKIBASE_URL"] = self.config_dict["wikibase_url"]
-        else:
-            sys.exit("Invalid instance")
-
-    def change_login(self, instance):
-        """
-        Function for using in as a botuser; needed for editing local data.
+        The two important parameters are the local_id and whether the
+        entity has already been imported with all claims
 
         Args:
-            instance: Instance name (choice between wikidata and local; however,
-            wikidata does not do anything as a login there is not needed at the moment)
-
+            parameter (str): Either local_id or has_all_claims
+            wikidata_id (str): Wikidata ID
         Returns:
-            None
+            str or boolean: for local_id returns the local ID if it exists,
+                otherwise None. For has_all_claims, a boolean is returned.
         """
-        if instance == "wikidata":
-            pass
-        elif instance == "local":
-            login_instance = wbi_login.Clientlogin(
-                user=os.environ.get("BOTUSER_NAME"),
-                password=os.environ.get("BOTUSER_PW"),
+        metadata = db.MetaData()
+        table = db.Table(
+            "wb_id_mapping", 
+            metadata, 
+            autoload_with=self.engine
+        )
+        if parameter in ['local_id', 'has_all_claims']:
+            sql = db.select(table.columns[parameter]).where(
+                table.columns.wikidata_id == wikidata_id,
             )
-            self.login = login_instance
-        else:
-            sys.exit("Invalid instance")
+            with self.engine.connect() as connection:
+                db_result = connection.execute(sql).fetchone()
+            if db_result:
+                return db_result[0]
+
+    def get_local_id_by_label(self, entity_str, entity_type):
+        """Check if entity with a given label or wikidata PID/QID 
+        exists in the local wikibase instance. 
+
+        Args:
+            entity_str (str): It can be a string label or a wikidata ID, 
+               specified with the prefix wdt: for properties and wd:
+                for items.
+            entity_type (str): Either 'property' or 'item' to specify
+                which type of entity to look for.
+
+        Returns:
+           str: Local ID of the entity, if found.
+        """
+        if re.match("^[PQ]\d+$", entity_str):
+            return entity_str
+        elif not entity_str.startswith("wdt:") and not entity_str.startswith("wd:"):
+            if entity_type == "property":
+                new_property = MardiPropertyEntity(api=self).new()
+                new_property.labels.set(language='en', value=entity_str)
+                return new_property.get_PID()
+            elif entity_type == "item":
+                new_item = MardiItemEntity(api=self).new()
+                new_item.labels.set(language='en', value=entity_str)
+                return new_item.get_QID()
+        elif entity_str.startswith("wdt:"):
+            wikidata_id = entity_str[4:]
+        elif entity_str.startswith("wd:"):
+            wikidata_id = entity_str[3:]
+
+        with self.engine.connect() as connection:
+            metadata = db.MetaData()
+            table = db.Table(
+                "wb_id_mapping", metadata, autoload_with=connection
+            )
+            sql = db.select(table.columns.local_id).where(
+                table.columns.wikidata_id == wikidata_id,
+            )
+            db_result = connection.execute(sql).fetchone()
+            if db_result:
+                return db_result[0]
+
+    def import_from_label(self, label):
+        """
+        Imports an entity from Wikidata just from a label
+
+        Args:
+            label (str): label to be imported from wikidata
+
+        Returns:
+            local_id (str): local id for the imported entity
+        """
+        results = search_entities(label, 
+                                  dict_result=True,
+                                  mediawiki_api_url='https://www.wikidata.org/w/api.php')
+        for result in results:
+            if label == result['label']:
+                return self.import_entities(result['id'])
+            if label.lower() == result['label'].lower():
+                return self.import_entities(result['id'])
+            if result['aliases']:
+                if label.lower() == result['aliases'][0].lower():
+                    return self.import_entities(result['id'])
+
+    def get_claim(self, prop_nr, value=None, **kwargs):
+        """
+        Creates the appropriate claim to be inserted, which 
+        correponds to the given property
+
+        Args:
+            prop_nr (str): Property correspoding to the claim. It
+                can be a wikidata ID with the prefix 'wdt:', a
+                mardi ID, or directly the property label.
+            value (str): Value corresponding to the claim. In case
+                of an item, the wikidata ID can be used with the
+                prefix 'wd:'.
+
+        Returns:
+            Claim: Claim corresponding to the given datatype
+
+        """
+
+        prop_nr = self.get_local_id_by_label(prop_nr, 'property')
+        prop = self.property.get(entity_id=prop_nr)
+        datatype = prop.datatype.value
+        kwargs['prop_nr'] = prop_nr
+        kwargs['value'] = value
+        if datatype == 'wikibase-item':
+            if value.startswith("wd:"):
+                kwargs['value'] = self.get_local_id_by_label(value, 'item')
+            return Item(**kwargs)
+        elif datatype == 'commonsMedia':
+            return CommonsMedia(**kwargs)
+        elif datatype == 'external-id':
+            return ExternalID(**kwargs)
+        elif datatype == 'wikibase-form':
+            return Form(**kwargs)
+        elif datatype == 'geo-shape':
+            return GeoShape(**kwargs)
+        elif datatype == 'globe-coordinate':
+            return GlobeCoordinate(**kwargs)
+        elif datatype == 'wikibase-lexeme':
+            return Lexeme(**kwargs)
+        elif datatype == 'math':
+            return Math(**kwargs)
+        elif datatype == 'monolingualtext':
+            kwargs.pop("value")
+            return MonolingualText(**kwargs)
+        elif datatype == 'musical-notation':
+            return MusicalNotation(**kwargs)
+        elif datatype == 'wikibase-property':
+            return Property(**kwargs)
+        elif datatype == 'quantity':
+            return Quantity(**kwargs)
+        elif datatype == 'wikibase-sense':
+            return Sense(**kwargs)
+        elif datatype == 'string':
+            return String(**kwargs)
+        elif datatype == 'tabular-data':
+            return TabularData(**kwargs)
+        elif datatype == 'time':
+            kwargs.pop("value")
+            return Time(**kwargs)
+        elif datatype == 'url':
+            return URL(**kwargs)

@@ -28,6 +28,7 @@ setuptools.setup(
     install_requires=[
         "bs4",
         "configparser",
+        "feedparser",
         "habanero",
         "lxml",
         "mysql-connector-python",

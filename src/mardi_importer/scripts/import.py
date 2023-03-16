@@ -8,12 +8,11 @@ import sys
 import logging
 import logging.config
 from argparse import ArgumentParser
-from mardi_importer.importer.Importer import Importer, ImporterException
-from mardi_importer.wikidata.EntityCreator import EntityCreator
+from mardi_importer.importer.Importer import Importer
 from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
-from mardi_importer.cran.CRANEntityCreator import CRANEntityCreator
+from mardi_importer.integrator.Integrator import MardiIntegrator
 
 
 def get_parser():
@@ -25,16 +24,15 @@ def get_parser():
     return parser
 
 
-def main():
+def main(**args):
     logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
-    args = get_parser().parse_args()
 
-    if args.mode == "ZBMath":
+    if args['mode'] == "ZBMath":
 
-        if args.conf_path is None:
+        if args['conf_path'] is None:
             sys.exit("--conf_path is required for --mode ZBMath")
-        conf_parser = ZBMathConfigParser(args.conf_path)
+        conf_parser = ZBMathConfigParser(args['conf_path'])
         conf = conf_parser.parse_config()
 
         data_source = ZBMathSource(
@@ -50,29 +48,25 @@ def main():
         # data_source.process_data()
         # data_source.write_error_ids()
 
-        from mardi_importer.integrator.Integrator import MardiIntegrator
-
-        i = MardiIntegrator(conf_path=args.conf_path, languages=["en", "de"])
+        i = MardiIntegrator()
         # i.check_or_create_db_table()
-        id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
+        # id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
         # id_list = ["Q177", "Q192783"]
         # id_list = ["P2927"]
         # id_list = ["Q511761"]
-        i.import_entities(id_list=id_list, recurse=True)
-        i.engine.dispose()
+        i.import_entities(filename=args['wikidata_id_file_path'])
+        #i.engine.dispose()
 
-    elif args.mode == "CRAN":
-        # an object to create entities copied from Wikidata
-        entity_list = "/config/Properties_to_import_from_WD.txt"
-        entityCreator = CRANEntityCreator(entity_list)
+    elif args['mode'] == "CRAN":
 
         # an object to import metadata related to R packages from CRAN
         data_source = CRANSource()
 
         # A wrapper for the import process
-        importer = Importer(entityCreator, data_source)
+        importer = Importer(data_source)
         importer.import_all()
 
 
 if __name__ == "__main__":
-    main()
+    args = get_parser().parse_args()
+    main(**vars(args))

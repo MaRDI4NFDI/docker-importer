@@ -29,6 +29,10 @@ class MardiIntegrator(WikibaseIntegrator):
         self.item = MardiItemEntity(api=self)
         self.property = MardiPropertyEntity(api=self)
 
+        self.excluded_properties = ['P1151', 'P1855', 'P2302', 'P2559', \
+                                    'P2875', 'P3254', 'P3709', 'P3713', \
+                                    'P3734', 'P6104', 'P6685', 'P8979']
+
     @staticmethod
     def setup():
         """
@@ -490,49 +494,50 @@ class MardiIntegrator(WikibaseIntegrator):
         # where str is the property id
         for prop_id, claim_list in claims.items():
             local_claim_list = []
-            local_prop_id = self.import_claim_entities(wikidata_id=prop_id)
-            if not local_prop_id:
-                print("Warning: local id skipped")
-                continue
-            for c in claim_list:
-                c_dict = c.get_json()
-                if c_dict["mainsnak"]["datatype"] in entity_names:
-                    if "datavalue" in c_dict["mainsnak"]:
-                        local_mainsnak_id = self.import_claim_entities(
-                            wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
-                        )
-                        if not local_mainsnak_id:
-                            continue
-                        c_dict["mainsnak"]["datavalue"]["value"][
-                            "id"
-                        ] = local_mainsnak_id
-                        c_dict["mainsnak"]["datavalue"]["value"]["numeric-id"] = int(
-                            local_mainsnak_id[1:]
-                        )
-                        c_dict["mainsnak"]["property"] = local_prop_id
-                        # to avoid problem with missing reference hash
-                        if "references" in c_dict:
-                            c_dict.pop("references")
-                        new_c = Claim().from_json(c_dict)
-                        new_c.id = None
-                    else:
-                        continue
-                elif c_dict["mainsnak"]["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+            if prop_id not in self.excluded_properties:
+                local_prop_id = self.import_claim_entities(wikidata_id=prop_id)
+                if not local_prop_id:
+                    print("Warning: local id skipped")
                     continue
-                else:
-                    self.convert_entity_links(snak=c_dict["mainsnak"])
-                    new_c = c
-                    new_c.mainsnak.property_number = local_prop_id
-                    new_c.id = None
-                # get reference details
-                new_references = self.get_references(c)
-                if new_references:
-                    new_c.references.references = new_references
-                # get qualifier details
-                new_qualifiers = self.get_qualifiers(c)
-                new_c.qualifiers = new_qualifiers
-                local_claim_list.append(new_c)
-            new_claims[local_prop_id] = local_claim_list
+                for c in claim_list:
+                    c_dict = c.get_json()
+                    if c_dict["mainsnak"]["datatype"] in entity_names:
+                        if "datavalue" in c_dict["mainsnak"]:
+                            local_mainsnak_id = self.import_claim_entities(
+                                wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
+                            )
+                            if not local_mainsnak_id:
+                                continue
+                            c_dict["mainsnak"]["datavalue"]["value"][
+                                "id"
+                            ] = local_mainsnak_id
+                            c_dict["mainsnak"]["datavalue"]["value"]["numeric-id"] = int(
+                                local_mainsnak_id[1:]
+                            )
+                            c_dict["mainsnak"]["property"] = local_prop_id
+                            # to avoid problem with missing reference hash
+                            if "references" in c_dict:
+                                c_dict.pop("references")
+                            new_c = Claim().from_json(c_dict)
+                            new_c.id = None
+                        else:
+                            continue
+                    elif c_dict["mainsnak"]["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+                        continue
+                    else:
+                        self.convert_entity_links(snak=c_dict["mainsnak"])
+                        new_c = c
+                        new_c.mainsnak.property_number = local_prop_id
+                        new_c.id = None
+                    # get reference details
+                    new_references = self.get_references(c)
+                    if new_references:
+                        new_c.references.references = new_references
+                    # get qualifier details
+                    new_qualifiers = self.get_qualifiers(c)
+                    new_c.qualifiers = new_qualifiers
+                    local_claim_list.append(new_c)
+                new_claims[local_prop_id] = local_claim_list
         entity.claims.claims = new_claims
 
     def get_references(self, claim):

@@ -16,6 +16,8 @@ class authorZenodo():
     def __preprocess_name(self, name):
         if ',' in name:
             words = name.split(', ')
+            if len(words) < 2:
+                words = name.split(',')
             return f"{words[1]} {words[0]}"
         return name
 

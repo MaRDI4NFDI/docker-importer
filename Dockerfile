@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
 		tzdata \
 		nano \
 		libicu-dev \
+		git \
 	&& rm -rf /var/cache/apk/*
 
 # add missing php library, requires libicu-dev
@@ -56,6 +57,10 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip
 # Install Python requirements
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Install WikibaseIntegrator from repository (temporal solution until new release is published)
+RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git /WikibaseIntegrator
+RUN pip install --no-cache-dir /WikibaseIntegrator
 
 # Copy the Python source code to the image
 RUN mkdir /importer

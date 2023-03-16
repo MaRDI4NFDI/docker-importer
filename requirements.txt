@@ -31,4 +31,3 @@ sphinx
 sphinx-argparse
 sphinx-rtd-theme
 sparqlwrapper
-wikibaseintegrator==0.12.3

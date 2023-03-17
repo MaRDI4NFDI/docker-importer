@@ -39,7 +39,7 @@ services:
       SPARQL_ENDPOINT_URL: "http://query.portal.mardi4nfdi.${TLD}/proxy/wdqs/bigdata/namespace/wdq/sparql"
       WIKIBASE_URL: "http://mardi-wikibase"
       IMPORTER_USER: botuser_name
-      IMPORTER_PASS: botuser_pass
+      IMPORTER_PASS: botuser_pw
 
   wikibase:
     image: "ghcr.io/mardi4nfdi/docker-wikibase:main"

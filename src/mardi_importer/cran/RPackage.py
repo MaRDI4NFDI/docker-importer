@@ -206,7 +206,7 @@ class RPackage:
         item.add_claim("wdt:P277", "wd:Q206904")
 
         # R package CRAN URL
-        item.add_claim("wdt:P2699", self.url)
+        # item.add_claim("wdt:P2699", self.url)
 
         # Publication date
         item.add_claim("wdt:P5017", time="+%sT00:00:00Z" % (self.date))

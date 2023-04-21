@@ -8,14 +8,19 @@ class ZBMathPublication:
     title:
         Title of the paper
     """
-    def __init__(self, integrator, title, doi, authors, journal):
+    def __init__(self, integrator, title, doi, authors, journal, language, 
+                 time,
+                 links):
         self.api = integrator
         self.title = title
         self.QID = None
+        self.language =language
         self.item = self.init_item()
         self.doi = doi
         self.authors = authors
         self.journal = journal
+        self.time=time
+        self.links=links
         self.conflict_string = "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
 
     def create(self):
@@ -32,13 +37,29 @@ class ZBMathPublication:
         self.item.add_claims(author_claims)
         #published in journal
         #claim = self.api.get_claim('wdt:P1433', self.journal)
-        self.item.add_claim('wdt:P1433', self.journal)
+        if self.journal: 
+            self.item.add_claim('wdt:P1433', self.journal)
+        if self.time:
+            test_claims = []
+            claim = self.api.get_claim('wdt:P577', time=self.time)
+            self.item.add_claims([claim])
+        if self.links:
+            print(self.links)
+            link_claims = []
+            for link in self.links:
+                print(link)
+                claim = self.api.get_claim('wdt:P953', link)
+                link_claims.append(claim)
+            self.item.add_claims(link_claims)
         publication_id = self.item.write().id
         return(publication_id)
 
     def init_item(self):
         item = self.api.item.new()
-        item.labels.set(language="en", value=self.title)
+        if self.language == "German":
+            item.labels.set(language="de", value=self.title)
+        else:
+            item.labels.set(language="en", value=self.title)
         # item.descriptions.set(
         #     language="en", 
         #     value=self.description

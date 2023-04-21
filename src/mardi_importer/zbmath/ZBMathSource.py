@@ -234,10 +234,30 @@ class ZBMathSource(ADataSource):
                         journal = journal_item.create()
                 else:
                     journal = None
+                if not self.conflict_string in test_dict["language"]:
+                    language = test_dict["language"]
+                else:
+                    language=None
+                if not self.conflict_string in test_dict["publication_year"]:
+                    time_string = f"+{test_dict['publication_year']}-00-00T00:00:00Z"
+                else:
+                    time_string = None
+                if not self.conflict_string in test_dict["links"] and not "None" in test_dict["links"]:
+                    links = test_dict["links"].split(";")
+                    links = [x for x in links if x.startswith("http")]
+                else:
+                    links = []
+                if not self.conflict_string in test_dict["doi"] and not None in test_dict["doi"]:
+                    doi = test_dict["doi"]
+                else:
+                    doi = None
                 publication = ZBMathPublication(integrator = self.integrator, title=test_dict["document_title"], 
-                                                doi=test_dict["doi"], 
+                                                doi=doi, 
                                                 authors = authors,
-                                                journal=journal)
+                                                journal=journal,
+                                                language=language,
+                                                time=time_string,
+                                                links=links)
                 if publication.exists():
                     print(f"Publication {test_dict['document_title']} exists")
                     pass
@@ -248,13 +268,9 @@ class ZBMathSource(ADataSource):
         """
         things to get:
             - map author id to other stuff
-            - zbmath id (in field zbmath:doi)
-            - what is biographic reference?
+            - zbmath id (in field zbmath:doi) --> need new processing
             - document subtitle
-            - language
-            - publication_year
             - zbl_id?
-            - serial -> split by ; and take last
             - link
             - upload date or how its called
             - also update stuff if it exists

@@ -248,7 +248,7 @@ class CrossrefPublication:
                     item.add_claim('wdt:P433', self.issue)
                 if len(self.page) > 0:
                     item.add_claim('wdt:P304', self.page)
-            elif self.book or self.monograph:
+            elif (self.book or self.monograph) and self.isbn:
                 if len(self.isbn) == 13:
                     isbn_prop_nr = 'wdt:P212'
                 elif len(self.isbn) == 10:

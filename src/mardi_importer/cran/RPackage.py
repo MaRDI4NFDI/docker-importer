@@ -60,11 +60,16 @@ class RPackage:
     def init_item(self):
         item = self.api.item.new()
         item.labels.set(language="en", value=self.label)
+        description = ""
+        if self.label != self.description:
+            description = self.description
+        else:
+            description += self.description + " (R Package)"
         item.descriptions.set(
-            language="en", 
-            value=self.description
+            language="en",
+            value=description
         )
-        return item  
+        return item
 
     def pull(self):
         """Imports metadata from CRAN corresponding to the R package.
@@ -174,9 +179,14 @@ class RPackage:
             self.item = self.api.item.get(entity_id=self.QID)
 
             if self.item.descriptions.values.get('en') != self.description:
+                description = ""
+                if self.label != self.description:
+                    description = self.description
+                else:
+                    description += self.description + " (R Package)"
                 self.item.descriptions.set(
-                    language="en", 
-                    value=self.description
+                    language="en",
+                    value=description
                 )
 
             new_item = self.api.item.new()

@@ -74,9 +74,11 @@ class Author:
         author_1_vec = self.name.split()
         author_2_vec = author.split()
         if author_1_vec[0].lower() == author_2_vec[0].lower():
-            if len(author_1_vec) > 2:
+            if len(author_1_vec) > 2 and len(author_2_vec) > 1:
                 if author_1_vec[2].lower() == author_2_vec[1].lower():
                     return self.name
+            if len(author_2_vec) == 1:
+                return self.name
             if len(author_2_vec) > 2:
                 if author_1_vec[1].lower() == author_2_vec[2].lower():
                     return author

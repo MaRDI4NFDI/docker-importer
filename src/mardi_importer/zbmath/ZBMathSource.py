@@ -120,7 +120,7 @@ class ZBMathSource(ADataSource):
             with open(self.processed_dump_path, "a") as outfile:
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
-                    outfile.write("zbmath_id\t" + ("\t").join(self.tags) + "\n")
+                    outfile.write("zbmath_id\t" + "creation_date\t" + ("\t").join(self.tags) + "\n")
                 record_string = ""
                 for line in infile:
                     record_string = record_string + line
@@ -159,7 +159,9 @@ class ZBMathSource(ADataSource):
         new_entry = {}
         # zbMath identifier
         zb_id = self.get_zb_id(xml_record)
+        creation_date = self.get_creation_date(xml_record)
         new_entry["id"] = zb_id
+        new_entry["creation_date"] = creation_date
         # read tags
         zb_preview = xml_record.find(
             get_tag("metadata", namespace=self.namespace)
@@ -251,13 +253,19 @@ class ZBMathSource(ADataSource):
                     doi = test_dict["doi"]
                 else:
                     doi = None
+                if test_dict["creation_date"] != "0001-01-01T00:00:00":
+                    creation_date = test_dict["creation_date"]
+                else:
+                    creation_date = None
                 publication = ZBMathPublication(integrator = self.integrator, title=test_dict["document_title"], 
                                                 doi=doi, 
                                                 authors = authors,
                                                 journal=journal,
                                                 language=language,
                                                 time=time_string,
-                                                links=links)
+                                                links=links,
+                                                creation_date=creation_date,
+                                                zbl_id=test_dict["zbl_id"])
                 if publication.exists():
                     print(f"Publication {test_dict['document_title']} exists")
                     pass
@@ -335,6 +343,23 @@ class ZBMathSource(ADataSource):
             .text
         )
         return zb_id
+
+    def get_creation_date(self,xml_record):
+        """
+        Get creation date from xml record.
+
+        Args:
+            xml_record (xml element): record returned by zbMath API
+
+        Returns:
+            string: creation date
+        """
+        creation_date = (
+            xml_record.find(get_tag("header", self.namespace))
+            .find(get_tag("datestamp", namespace=self.namespace))
+            .text
+        )
+        return creation_date
 
     # def write_error_ids(self):
     #     """

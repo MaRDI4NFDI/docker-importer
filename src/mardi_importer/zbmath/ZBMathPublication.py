@@ -10,9 +10,10 @@ class ZBMathPublication:
     """
     def __init__(self, integrator, title, doi, authors, journal, language, 
                  time,
-                 links):
+                 links, creation_date, zbl_id):
         self.api = integrator
         self.title = title
+        self.zbl_id = zbl_id
         self.QID = None
         self.language =language
         self.item = self.init_item()
@@ -20,6 +21,7 @@ class ZBMathPublication:
         self.authors = authors
         self.journal = journal
         self.time=time
+        self.creation_date=creation_date
         self.links=links
         self.conflict_string = "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
 
@@ -28,6 +30,8 @@ class ZBMathPublication:
         self.item.add_claim('wdt:P31','wd:Q13442814')
         #title
         self.item.add_claim('wdt:P1476', text=self.title, language="en")
+        #zbmath document id
+        self.item.add_claim('wdt:P894', self.zbl_id)
         if check_attribute(self.doi, self.conflict_string):
             self.item.add_claim('wdt:P356', self.doi)
         author_claims = []
@@ -39,15 +43,16 @@ class ZBMathPublication:
         #claim = self.api.get_claim('wdt:P1433', self.journal)
         if self.journal: 
             self.item.add_claim('wdt:P1433', self.journal)
-        if self.time:
-            test_claims = []
+        if self.creation_date:
+            claim = self.api.get_claim('wdt:P577', time=self.creation_date)
+            self.item.add_claims([claim])
+        elif self.time:
             claim = self.api.get_claim('wdt:P577', time=self.time)
             self.item.add_claims([claim])
+
         if self.links:
-            print(self.links)
             link_claims = []
             for link in self.links:
-                print(link)
                 claim = self.api.get_claim('wdt:P953', link)
                 link_claims.append(claim)
             self.item.add_claims(link_claims)

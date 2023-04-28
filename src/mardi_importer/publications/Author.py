@@ -119,8 +119,13 @@ class Author:
                                 if self.QID:
                                     imported_id = self.api.query('local_id', item.id)
                                     if imported_id and imported_id != self.QID:
-                                        merge_items(self.QID, imported_id, login=self.api.login, is_bot=True)
-                                    return self.api.overwrite_entity(result, self.QID)
+                                        test_redirection = self.api.item.get(self.QID)
+                                        test_id = test_redirection.id
+                                        if test_id == self.QID:
+                                            self.api.overwrite_entity(result, imported_id)
+                                            merge_items(self.QID, imported_id, login=self.api.login, is_bot=True)
+                                    else:
+                                        return self.api.overwrite_entity(result, self.QID)
                                 else:
                                     return self.api.import_entities(result)
         if not name:

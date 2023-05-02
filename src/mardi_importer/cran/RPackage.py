@@ -123,7 +123,7 @@ class RPackage:
         """
         if self.QID: return self.QID
         self.QID = self.item.is_instance_of('wd:Q73539779')
-        self.item.id = self.QID
+        #self.item.id = self.QID
         return self.QID
 
     def is_updated(self):
@@ -200,9 +200,9 @@ class RPackage:
             )
             self.item.write()
 
-            if self.item.id:
-                log.info(f"Package with ID {self.item.id} has been updated.")
-                return self.item.id
+            if self.QID:
+                log.info(f"Package with ID {self.QID} has been updated.")
+                return self.QID
             else:
                 log.info(f"Package could not be updated.")
                 return None

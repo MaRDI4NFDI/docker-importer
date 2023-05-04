@@ -1,4 +1,7 @@
 class ZBMathJournal:
+    """ Class to manage zbMath journal items in the local Wikibase instance.
+
+    """
     def __init__(self, integrator, name):
         self.api = integrator
         self.name = name.strip()

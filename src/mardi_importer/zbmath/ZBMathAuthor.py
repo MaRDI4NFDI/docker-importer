@@ -1,4 +1,7 @@
 class ZBMathAuthor:
+    """
+    Class to merge zbMath author items in the local wikibase instance
+    """
     def __init__(self, integrator, name, zbmath_author_id):
         self.api = integrator
         self.name = name.strip()

@@ -23,5 +23,10 @@ class ZBMathAuthor:
         if self.QID: return self.QID
         self.QID = self.item.is_instance_of_with_property('wd:Q5', 'wdt:P1556', self.zbmath_author_id)
         self.item.id = self.QID
-        print("Author exists")
         return self.QID
+
+    def update(self):
+        #author does not have an update function, 
+        #because it has no attributes that could be updated
+        pass
+    

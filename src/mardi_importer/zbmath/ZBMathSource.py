@@ -222,8 +222,10 @@ class ZBMathSource(ADataSource):
                                         name = a,
                                         zbmath_author_id = a_id)
                         if author.exists():
+                            print(f"Author {a} exists!")
                             authors.append(author.QID)
                         else:
+                            print(f"Creating author {a}")
                             authors.append(author.create())
                 else:
                     authors = []
@@ -231,8 +233,10 @@ class ZBMathSource(ADataSource):
                     journal_string = test_dict["serial"].split(";")[-1]
                     journal_item = ZBMathJournal(integrator=self.integrator,name=journal_string)
                     if journal_item.exists():
+                            print(f"Journal {journal_string} exists!")
                             journal = journal_item.QID
                     else:
+                        print(f"Creating journal {journal_string}")
                         journal = journal_item.create()
                 else:
                     journal = None
@@ -244,17 +248,20 @@ class ZBMathSource(ADataSource):
                     time_string = f"+{test_dict['publication_year']}-00-00T00:00:00Z"
                 else:
                     time_string = None
-                if not self.conflict_string in test_dict["links"] and not "None" in test_dict["links"]:
+                if (not self.conflict_string in test_dict["links"] 
+                        and not "None" in test_dict["links"]
+                        and not " " in test_dict["links"]):
                     links = test_dict["links"].split(";")
                     links = [x for x in links if x.startswith("http")]
                 else:
                     links = []
-                if not self.conflict_string in test_dict["doi"] and not None in test_dict["doi"]:
+                if not self.conflict_string in test_dict["doi"] and not "None" in test_dict["doi"]:
                     doi = test_dict["doi"]
                 else:
                     doi = None
                 if test_dict["creation_date"] != "0001-01-01T00:00:00":
-                    creation_date = test_dict["creation_date"]
+                    #because there can be no hours etc
+                    creation_date = f"{test_dict['creation_date'].split('T')[0]}T00:00:00Z"
                 else:
                     creation_date = None
                 publication = ZBMathPublication(integrator = self.integrator, title=test_dict["document_title"], 
@@ -268,7 +275,7 @@ class ZBMathSource(ADataSource):
                                                 zbl_id=test_dict["zbl_id"])
                 if publication.exists():
                     print(f"Publication {test_dict['document_title']} exists")
-                    pass
+                    publication.update()
                 else:
                     print(f"Creating publication {test_dict['document_title']}")
                     publication.create()

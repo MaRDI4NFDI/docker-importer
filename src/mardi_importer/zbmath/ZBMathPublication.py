@@ -25,9 +25,28 @@ class ZBMathPublication:
         self.links=links
         self.conflict_string = "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
 
+
+    def init_item(self):
+        item = self.api.item.new()
+        if self.language == "German":
+            item.labels.set(language="de", value=self.title)
+        else:
+            item.labels.set(language="en", value=self.title)
+        # item.descriptions.set(
+        #     language="en", 
+        #     value=self.description
+        # )
+        return item
+
     def create(self):
         # Instance of: scholary article
         self.item.add_claim('wdt:P31','wd:Q13442814')
+        self.insert_claims()
+        publication_id = self.item.write().id
+        return(publication_id)
+  
+
+    def insert_claims(self):
         #title
         self.item.add_claim('wdt:P1476', text=self.title, language="en")
         #zbmath document id
@@ -56,20 +75,6 @@ class ZBMathPublication:
                 claim = self.api.get_claim('wdt:P953', link)
                 link_claims.append(claim)
             self.item.add_claims(link_claims)
-        publication_id = self.item.write().id
-        return(publication_id)
-
-    def init_item(self):
-        item = self.api.item.new()
-        if self.language == "German":
-            item.labels.set(language="de", value=self.title)
-        else:
-            item.labels.set(language="en", value=self.title)
-        # item.descriptions.set(
-        #     language="en", 
-        #     value=self.description
-        # )
-        return item  
 
     def exists(self):
         """Checks if a WB item corresponding to the publication already exists.
@@ -85,3 +90,19 @@ class ZBMathPublication:
         self.item.id = self.QID
         print("Publication exists")
         return self.QID
+
+    def update(self):
+        """
+        Check authors, journal, creation_date, time, links
+        """
+        self.item = self.api.item.get(entity_id=self.QID)
+        
+        self.insert_claims()
+        self.item.write()
+
+        if self.QID:
+            print(f"Package with ID {self.QID} has been updated.")
+            return self.QID
+        else:
+            print(f"Package could not be updated.")
+            return None

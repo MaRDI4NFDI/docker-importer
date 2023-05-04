@@ -22,3 +22,7 @@ class ZBMathJournal:
         self.QID = self.item.is_instance_of('wd:Q5633421')
         self.item.id = self.QID
         return self.QID
+
+    def update(self):
+        #doesnt have anything to update
+        pass

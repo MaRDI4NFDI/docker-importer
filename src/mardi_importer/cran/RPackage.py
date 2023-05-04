@@ -6,7 +6,7 @@ from mardi_importer.publications.CrossrefPublication import CrossrefPublication
 from mardi_importer.publications.ZenodoResource import ZenodoResource
 from mardi_importer.publications.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
-from wikibaseintegrator.wbi_helpers import search_entities
+from wikibaseintegrator.wbi_helpers import search_entities, remove_claims
 from bs4 import BeautifulSoup
 import pandas as pd
 import requests
@@ -194,11 +194,19 @@ class RPackage:
             self.author_ID = self.item.get_value('wdt:P50')
             self.insert_claims(new_item)
 
+            # Remove GUID for last update statement
+            last_update_prop_nr = self.api.get_local_id_by_label('last update', 'property')
+            claim = self.item.claims.get(last_update_prop_nr)
+            guid = claim[0].id
+
             self.item.claims.add(
                 new_item.claims,
                 ActionIfExists.APPEND_OR_REPLACE,
             )
             self.item.write()
+
+            # Remove last update statement
+            remove_claims(guid, login=self.api.login, is_bot=True)
 
             if self.QID:
                 log.info(f"Package with ID {self.QID} has been updated.")
@@ -215,14 +223,11 @@ class RPackage:
         # Programmed in: R
         item.add_claim("wdt:P277", "wd:Q206904")
 
-        # R package CRAN URL
-        # item.add_claim("wdt:P2699", self.url)
-
-        # Publication date
-        item.add_claim("wdt:P5017", time="+%sT00:00:00Z" % (self.date))
+        # Last update date
+        item.add_claim("wdt:P5017", time=f"+{self.date}T00:00:00Z")
 
         # Software version identifier
-        qualifier = [self.api.get_claim("wdt:P577", time="+%sT00:00:00Z" % (self.date))]
+        qualifier = [self.api.get_claim("wdt:P577", time=f"+{self.date}T00:00:00Z")]
         item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
         # Authors

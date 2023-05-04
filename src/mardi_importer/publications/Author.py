@@ -79,7 +79,7 @@ class Author:
                     return self.name
             if len(author_2_vec) == 1:
                 return self.name
-            if len(author_2_vec) > 2:
+            if len(author_2_vec) > 2 and len(author_1_vec) > 1:
                 if author_1_vec[1].lower() == author_2_vec[2].lower():
                     return author
             if len(author_1_vec) > 2 and len(author_2_vec) > 2:

@@ -225,7 +225,7 @@ class ArxivPublication():
 
                 if author.arxiv_author_id:
                     update_item = self.api.item.get(entity_id=author_id)
-                    claim = self.api.get_claim('wdt:P818', author.arxiv_author_id)
+                    claim = self.api.get_claim('wdt:P4594', author.arxiv_author_id)
                     update_item.claims.add(
                         claim,
                         ActionIfExists.APPEND_OR_REPLACE,

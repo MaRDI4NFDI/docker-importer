@@ -134,7 +134,8 @@ class ZenodoResource():
             elif resource_type == "Lesson":
                 self._resource_type = "wd:Q379833"
             else:
-                self._resource_type = "Other"
+                # Other -> Information resource
+                self._resource_type = "wd:Q37866906"
         return self._resource_type
 
     def create(self):
@@ -145,7 +146,7 @@ class ZenodoResource():
             item.labels.set(language="en", value=self.title)
 
         # Add description and instance information
-        if self.resource_type and self.resource_type != "Other":
+        if self.resource_type and self.resource_type != "wd:Q37866906":
             item.descriptions.set(
                 language="en", 
                 value=f"{self.metadata['resource_type']['title']} published at Zenodo repository"

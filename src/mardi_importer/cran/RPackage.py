@@ -471,7 +471,7 @@ class RPackage:
             
             resource_item = self.api.item.new()
             resource_item.labels.set(language="en", value=resource.title)
-            zenodo_prop_nr = "wdt:4901"
+            zenodo_prop_nr = "wdt:P4901"
 
             for resource_item.resource_type in ["wd:Q1172284", 
                                                 "wd:Q7397", 

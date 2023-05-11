@@ -133,6 +133,8 @@ class ZenodoResource():
                 self._resource_type = "wd:Q2431196"
             elif resource_type == "Lesson":
                 self._resource_type = "wd:Q379833"
+            elif resource_type == "Preprint":
+                self._resource_type = "wd:Q580922"
             else:
                 # Other -> Information resource
                 self._resource_type = "wd:Q37866906"

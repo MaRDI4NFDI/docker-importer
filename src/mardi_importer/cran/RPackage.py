@@ -481,6 +481,7 @@ class RPackage:
                                                 "wd:Q478798", 
                                                 "wd:Q2431196", 
                                                 "wd:Q379833",
+                                                "wd:Q580922"
                                                 "wd:Q37866906"]:
                 found = resource_item.is_instance_of_with_property(
                                 resource_item.resource_type,

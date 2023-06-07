@@ -584,7 +584,7 @@ class RPackage:
                 claims.append(self.api.get_claim("wdt:P275", license_QID, qualifiers=qualifier))
             elif license_QID:
                 if license_qualifier:
-                    qualifier = [self.api.get_claim("wdt:P9767", text=license_qualifier)]
+                    qualifier = [self.api.get_claim("wdt:P9767", license_qualifier)]
                     claims.append(self.api.get_claim("wdt:P275", license_QID, qualifiers=qualifier))
                 else:
                     claims.append(self.api.get_claim("wdt:P275", license_QID))

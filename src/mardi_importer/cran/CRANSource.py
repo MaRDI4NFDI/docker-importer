@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from mardi_importer.importer.Importer import ADataSource, ImporterException
-from mardi_importer.integrator.Integrator import MardiIntegrator
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.cran.RPackage import RPackage
 import pandas as pd
 import time

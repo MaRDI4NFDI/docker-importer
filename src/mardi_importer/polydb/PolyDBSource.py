@@ -4,6 +4,7 @@
 from mardi_importer.importer.Importer import ADataSource, ImporterException
 from mardi_importer.integrator.Integrator import MardiIntegrator
 from mardi_importer.polydb.Collection import Collection
+from mardi_importer.polydb.Author import Author
 from dataclasses import dataclass, field
 from typing import List
 import time
@@ -25,6 +26,7 @@ class PolyDBSource(ADataSource):
     update: bool = False
     integrator: MardiIntegrator = MardiIntegrator()
     collection_list: List[str] = field(default_factory=list)  
+    author_pool: List[Author] = field(default_factory=list) 
     collections: List[Collection] = field(default_factory=list)
 
     def __post_init__(self):
@@ -49,6 +51,39 @@ class PolyDBSource(ADataSource):
                                 "Tropical.QuarticCurves",
                                 "Tropical.SchlaefliFan",
                                 "Tropical.TOM"]
+        author_tuples = [('Frank Lutz', '', '', 'wdt:Q51985'),
+                         ('Constantin Fischer', '', '', 'wdt:Q51985'),
+                         ('Sachi Hashimoto', '0000-0002-8936-5545', '', 'wdt:Q1912085'),
+                         ('Bernd Sturmfels', '0000-0002-6642-1479', '', 'wdt:Q1912085'),
+                         ('Raluca Vlad', '', '', 'wdt:Q49114'),
+                         ('Yoshitake Matsumoto', '', '', 'wdt:Q7842'),
+                         ('Hiroshi Imai', '', '', 'wdt:Q7842'),
+                         ('David Bremner', '', '', 'wdt:Q1112515'),
+                         ('Oswin Aichholzer', '0000-0002-2364-0583', '', 'wdt:Q689775'),
+                         ('Hiroyuki Miyata', '', '', 'wdt:Q7842'),
+                         ('Sonoko Moriyama', '0000-0003-3358-7779', '', 'wdt:Q1062129'),
+                         ('Komei Fukuda', '', '', 'wdt:Q11942'),
+                         ('Andreas Paffenholz', '0000-0001-9718-523X', '', 'wdt:Q310695'),
+                         ('Moritz Firsching', '', '', 'wdt:Q153006'),
+                         ('Monica Blanco', '', '', 'wdt:Q766962'),
+                         ('Francisco Santos', '0000-0003-2120-9068', '', 'wdt:Q766962'),
+                         ('Ayush Kumar Tewari', '0000-0002-3494-2691', '', ''),
+                         ('Maximilian Kreuzer', '', '', ''),
+                         ('Gabriele Balletti', '0000-0002-0536-0027', '', ''),
+                         ('Andreas Kretschmer', '', '', 'wdt:Q655866'),
+                         ('Benjamin Lorenz', '', '', 'wdt:Q51985'),
+                         ('Mikkel Oebro', '', '', ''),
+                         ('Michael Joswig', '0000-0002-4974-9659', '', 'wdt:Q51985'),
+                         ('Lars Kastner', '0000-0001-9224-7761', '', 'wdt:Q51985'),
+                         ('Ngoc Tran', '', 'tran_n_3', 'wdt:Q49213'),
+                         ('Alheydis Geiger', '', '', 'wdt:Q153978'),
+                         ('Marta Panizzut', '0000-0001-8631-6329', '', 'wdt:Q51985'),
+                         ('Silke Horn', '', '', 'wdt:Q310695')]
+        self.author_pool = [Author(self.integrator, name, orcid, arxiv_id, affiliation) 
+                            for name, orcid, arxiv_id, affiliation in author_tuples]
+
+        for author in self.author_pool:
+            print(author)
 
     def setup(self):
         """Create all necessary properties for polyDB
@@ -105,4 +140,12 @@ class PolyDBSource(ADataSource):
                 collection.create()
             if self.update:
                 collection.update()
+
+            # Get all authors
+            # Get references with 'arxiv', 'doi'
+            # Get authors from references into the pool
+            # Then disambiguate them and create tuple with QIDs
+            # Create publications & new tuple with QIDs?
+
+
 

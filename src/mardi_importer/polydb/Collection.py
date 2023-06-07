@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from mardi_importer.integrator.Integrator import MardiIntegrator
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from dataclasses import dataclass, field
 from typing import List, Tuple, Union
 

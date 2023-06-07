@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from mardi_importer.importer.Importer import ADataSource, ImporterException
-from mardi_importer.integrator.Integrator import MardiIntegrator
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.polydb.Collection import Collection
 from mardi_importer.polydb.Author import Author
 from dataclasses import dataclass, field

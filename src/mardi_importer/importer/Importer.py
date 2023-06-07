@@ -23,9 +23,9 @@ class Importer:
         """
         Manages the import process.
         """
-        self.dataSource.setup()
-        #self.dataSource.pull()
-        #self.dataSource.push()
+        #self.dataSource.setup()
+        self.dataSource.pull()
+        self.dataSource.push()
 
 
 class ADataSource:

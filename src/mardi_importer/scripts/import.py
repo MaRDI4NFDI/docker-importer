@@ -12,20 +12,21 @@ from mardi_importer.importer.Importer import Importer
 from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
+from mardi_importer.polydb.PolyDBSource import PolyDBSource
 from mardi_importer.integrator.Integrator import MardiIntegrator
 
 
 def get_parser():
     """Get arguments parser"""
     parser = ArgumentParser()
-    parser.add_argument("--mode", type=str, required=True, choices=["ZBMath", "CRAN"])
+    parser.add_argument("--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb"])
     parser.add_argument("--conf_path", required=False)
     parser.add_argument("--wikidata_id_file_path", required=False)
     return parser
 
 
 def main(**args):
-    logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
+    #logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
 
     if args['mode'] == "ZBMath":
@@ -66,6 +67,10 @@ def main(**args):
         importer = Importer(data_source)
         importer.import_all()
 
+    elif args['mode'] == "polydb":
+        data_source = PolyDBSource()
+        importer = Importer(data_source)
+        importer.import_all()
 
 if __name__ == "__main__":
     args = get_parser().parse_args()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from mardi_importer.importer.Importer import ADataSource
-from mardi_importer.integrator.Integrator import MardiIntegrator
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.zbmath.ZBMathPublication import ZBMathPublication
 from mardi_importer.zbmath.ZBMathAuthor import ZBMathAuthor
 from mardi_importer.zbmath.ZBMathJournal import ZBMathJournal
@@ -46,7 +46,7 @@ class ZBMathSource(ADataSource):
         self.out_dir = out_dir
         self.split_id = split_id
         if self.split_id:
-            self.split_mode = True
+            self.split_mode = True  
         else:
             self.split_mode = False
         self.from_date = from_date
@@ -65,6 +65,9 @@ class ZBMathSource(ADataSource):
         self.unknown_doi_agency_dict = {"Crossref": [], "crossref": [], "nonsense": []}
         # tags that will not be found in doi query
         self.internal_tags = ["author_id", "source", "classifications", "links"]
+        self.existing_authors = {}
+        self.existing_journals = {}
+        self.existing_publications = []
 
     def setup(self):
         """Create all necessary properties and entities for zbMath
@@ -198,6 +201,7 @@ class ZBMathSource(ADataSource):
         It creates a :class:`mardi_importer.zbmath.ZBMathPublication` instance
         for each publication. Authors and journals are added, as well.
         """
+        found = False
         with open(self.processed_dump_path, "r") as infile:
             in_header_line = True
             for line in infile:
@@ -205,7 +209,19 @@ class ZBMathSource(ADataSource):
                     headers = line.strip().split("\t")
                     in_header_line = False
                     continue
-                info_dict = dict(zip(headers, line.strip().split("\t")))
+                split_line = line.strip().split("\t")
+                if len(split_line) != len(headers):
+                    continue
+                info_dict = dict(zip(headers, split_line))
+                # if not found:
+                #     if info_dict["document_title"] != "On Molino lifting of Riemannian vector fields":
+                #         continue
+                #     else:
+                #         found = True
+                #         continue
+                if info_dict["document_title"] in self.existing_publications:
+                    print(f"A publication with the name {info_dict['document_title']} was already created in this run.")
+                    continue
                 #if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
                     continue
@@ -215,27 +231,34 @@ class ZBMathSource(ADataSource):
                     author_ids = info_dict["author_ids"].split(";")
                     authors = []
                     for a, a_id in zip(author_strings, author_ids):
-                        author = ZBMathAuthor(integrator = self.integrator,
+                        if a != "None":
+                            if a_id in self.existing_authors:
+                                authors.append(self.existing_authors[a_id])
+                                print(f"Author with name {a} was already created this run.")
+                            else:
+                                author = ZBMathAuthor(integrator = self.integrator,
                                         name = a,
                                         zbmath_author_id = a_id)
-                        if author.exists():
-                            print(f"Author {a} exists!")
-                            authors.append(author.QID)
-                        else:
-                            print(f"Creating author {a}")
-                            authors.append(author.create())
+                                local_author_id = author.create()
+                                authors.append(local_author_id)
+                                self.existing_authors[a_id] = local_author_id
                 else:
                     authors = []
 
-                if not self.conflict_string in info_dict["serial"]:
+                if not self.conflict_string in info_dict["serial"] and info_dict["serial"] != "None":
                     journal_string = info_dict["serial"].split(";")[-1]
-                    journal_item = ZBMathJournal(integrator=self.integrator,name=journal_string)
-                    if journal_item.exists():
+                    if journal_string in self.existing_journals:
+                        journal = self.existing_journals[journal_string]
+                        print(f"Journal {journal_string} was already created in this run.")
+                    else:
+                        journal_item = ZBMathJournal(integrator=self.integrator,name=journal_string)
+                        if journal_item.exists():
                             print(f"Journal {journal_string} exists!")
                             journal = journal_item.QID
-                    else:
-                        print(f"Creating journal {journal_string}")
-                        journal = journal_item.create()
+                        else:
+                            print(f"Creating journal {journal_string}")
+                            journal = journal_item.create()
+                        self.existing_journals[journal_string] = journal
                 else:
                     journal = None
 
@@ -268,7 +291,7 @@ class ZBMathSource(ADataSource):
                 else:
                     creation_date = None
 
-                publication = ZBMathPublication(integrator = self.integrator, title=info_dict["document_title"], 
+                publication = ZBMathPublication(integrator = self.integrator, title=info_dict["document_title"].strip(), 
                                                 doi=doi, 
                                                 authors = authors,
                                                 journal=journal,
@@ -283,7 +306,9 @@ class ZBMathSource(ADataSource):
                 else:
                     print(f"Creating publication {info_dict['document_title']}")
                     publication.create()
-                time.sleep(2)     
+                self.existing_publications.append(info_dict["document_title"])
+                self.existing_publications = self.existing_publications[-100:] #no use letting this get too long
+                #print(self.existing_publications)
 
     def get_zb_id(self, xml_record):
         """

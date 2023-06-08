@@ -23,7 +23,6 @@ class ZBMathJournal:
     def exists(self):
         if self.QID: return self.QID
         self.QID = self.item.is_instance_of('wd:Q5633421')
-        self.item.id = self.QID
         return self.QID
 
     def update(self):

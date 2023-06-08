@@ -3,10 +3,6 @@ from mardi_importer.zbmath.misc import check_attribute
 class ZBMathPublication:
     """ Class to manage zbMath publication items in the local Wikibase instance.
 
-    Attributes: 
-
-    title:
-        Title of the paper
     """
     def __init__(self, integrator, title, doi, authors, journal, language, 
                  time,
@@ -16,7 +12,6 @@ class ZBMathPublication:
         self.zbl_id = zbl_id
         self.QID = None
         self.language =language
-        self.item = self.init_item()
         self.doi = doi
         self.authors = authors
         self.journal = journal
@@ -24,18 +19,16 @@ class ZBMathPublication:
         self.creation_date=creation_date
         self.links=links
         self.conflict_string = "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
-
+        self.item = self.init_item()
 
     def init_item(self):
         item = self.api.item.new()
-        if self.language == "German":
-            item.labels.set(language="de", value=self.title)
-        else:
-            item.labels.set(language="en", value=self.title)
-        # item.descriptions.set(
-        #     language="en", 
-        #     value=self.description
-        # )
+        year = self.time.split("-")[0][1:]
+        item.labels.set(language="en", value=self.title)
+        item.descriptions.set(
+                language="en", 
+                value=f"{self.title} published {year}"
+            )
         return item
 
     def create(self):
@@ -48,7 +41,7 @@ class ZBMathPublication:
 
     def insert_claims(self):
         #title
-        self.item.add_claim('wdt:P1476', text=self.title, language="en")
+        self.item.add_claim('wdt:P1476', self.title, language="en")
         #zbmath document id
         self.item.add_claim('wdt:P894', self.zbl_id)
         if check_attribute(self.doi, self.conflict_string):
@@ -87,8 +80,6 @@ class ZBMathPublication:
         """
         if self.QID: return self.QID
         self.QID = self.item.is_instance_of('wd:Q13442814')
-        self.item.id = self.QID
-        print("Publication exists")
         return self.QID
 
     def update(self):

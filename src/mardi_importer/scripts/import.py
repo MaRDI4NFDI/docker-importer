@@ -45,11 +45,11 @@ def main(**args):
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
         )
-        # data_source.write_data_dump()
-        # data_source.process_data()
+        #data_source.write_data_dump()
+        #data_source.process_data()
         # data_source.write_error_ids()
 
-        #data_source = ZBMathSource()
+
         importer = Importer(data_source)
         importer.import_all()
         # i.check_or_create_db_table()

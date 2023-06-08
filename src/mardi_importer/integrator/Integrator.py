@@ -381,7 +381,6 @@ class MardiIntegrator(WikibaseIntegrator):
         if local_id: return local_id
         else:
             entity = self.get_wikidata_information(wikidata_id)
-
             if not entity:
                 return None
 
@@ -413,7 +412,10 @@ class MardiIntegrator(WikibaseIntegrator):
                 local_id = entity.write(login=self.login).id
             else:
                 entity.add_linker_claim(wikidata_id)
-                local_id = entity.write(login=self.login, as_new=True).id
+                try:
+                    local_id = entity.write(login=self.login, as_new=True).id
+                except:
+                    return None
 
             self.insert_id_in_db(wikidata_id, local_id, has_all_claims=False)
             return local_id
@@ -703,8 +705,6 @@ class MardiIntegrator(WikibaseIntegrator):
             )
             with self.engine.connect() as connection:
                 db_result = connection.execute(sql).fetchone()
-            if db_result:
-                return db_result[0]
 
     def get_local_id_by_label(self, entity_str, entity_type):
         """Check if entity with a given label or wikidata PID/QID 

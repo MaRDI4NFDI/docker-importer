@@ -216,7 +216,9 @@ class MardiItemEntity(ItemEntity):
                         .join(wbt_term_in_lang, wbt_item_terms.columns.wbit_term_in_lang_id == wbt_term_in_lang.columns.wbtl_id)
                         .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                         .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
-                        .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), wbt_term_in_lang.columns.wbtl_type_id == 1)))
+                        .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), 
+                                    wbt_term_in_lang.columns.wbtl_type_id == 1,
+                                    wbt_text_in_lang.columns.wbxl_language == bytes("en", "utf-8"))))
                 results = connection.execute(query).fetchall()
                 entity_id = []
                 if results:
@@ -297,7 +299,9 @@ class MardiPropertyEntity(PropertyEntity):
                         .join(wbt_term_in_lang, wbt_term_in_lang.columns.wbtl_id == wbt_property_terms.columns.wbpt_term_in_lang_id)
                         .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                         .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
-                        .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), wbt_term_in_lang.columns.wbtl_type_id == 1)))
+                        .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), 
+                                    wbt_term_in_lang.columns.wbtl_type_id == 1,
+                                    wbt_text_in_lang.columns.wbxl_language == bytes("en", "utf-8"))))
                 prefix = "P"
                 results = connection.execute(query).fetchall()
                 if results:

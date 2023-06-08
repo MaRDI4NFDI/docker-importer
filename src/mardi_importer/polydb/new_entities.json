@@ -1,0 +1,19 @@
+{
+    "properties": [
+        {
+            "label": "contributed by",
+            "description": "Person or institution that submitted the resource in the original repository",
+            "datatype": "wikibase-item"
+        }
+    ],
+    "items": [
+        {
+            "label": "polyDB collection",
+            "description": "Object in discrete geometry that can be accessed from within polymake",
+            "claims": {
+                "wdt:P921": "wd:Q906377",
+                "wdt:P856": "https://polydb.org/"
+            }
+        }
+    ]
+}

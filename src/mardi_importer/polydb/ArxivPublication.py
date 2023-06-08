@@ -9,7 +9,7 @@ from feedparser.util import FeedParserDict
 from typing import List
 
 from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
-from mardi_importer.publications.Author import Author
+from mardi_importer.polydb.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
 
 log = logging.getLogger('CRANlogger')

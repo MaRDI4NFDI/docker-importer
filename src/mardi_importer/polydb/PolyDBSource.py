@@ -30,6 +30,9 @@ class PolyDBSource(ADataSource):
     collections: List[Collection] = field(default_factory=list)
 
     def __post_init__(self):
+        #self.collection_list = ["Manifolds.DIM2_3",
+        #                        "Matroids.SelfDual",
+        #                        "Matroids.Small"]
         self.collection_list = ["Manifolds.DIM2_3",
                                 "Matroids.SelfDual",
                                 "Matroids.Small",
@@ -51,45 +54,41 @@ class PolyDBSource(ADataSource):
                                 "Tropical.QuarticCurves",
                                 "Tropical.SchlaefliFan",
                                 "Tropical.TOM"]
-        author_tuples = [('Frank Lutz', '', '', 'wdt:Q51985'),
-                         ('Constantin Fischer', '', '', 'wdt:Q51985'),
-                         ('Sachi Hashimoto', '0000-0002-8936-5545', '', 'wdt:Q1912085'),
-                         ('Bernd Sturmfels', '0000-0002-6642-1479', '', 'wdt:Q1912085'),
-                         ('Raluca Vlad', '', '', 'wdt:Q49114'),
-                         ('Yoshitake Matsumoto', '', '', 'wdt:Q7842'),
-                         ('Hiroshi Imai', '', '', 'wdt:Q7842'),
-                         ('David Bremner', '', '', 'wdt:Q1112515'),
-                         ('Oswin Aichholzer', '0000-0002-2364-0583', '', 'wdt:Q689775'),
-                         ('Hiroyuki Miyata', '', '', 'wdt:Q7842'),
-                         ('Sonoko Moriyama', '0000-0003-3358-7779', '', 'wdt:Q1062129'),
-                         ('Komei Fukuda', '', '', 'wdt:Q11942'),
-                         ('Andreas Paffenholz', '0000-0001-9718-523X', '', 'wdt:Q310695'),
-                         ('Moritz Firsching', '', '', 'wdt:Q153006'),
-                         ('Monica Blanco', '', '', 'wdt:Q766962'),
-                         ('Francisco Santos', '0000-0003-2120-9068', '', 'wdt:Q766962'),
+        author_tuples = [('Frank Lutz', '', '', 'wd:Q51985'),
+                         ('Constantin Fischer', '', '', 'wd:Q51985'),
+                         ('Sachi Hashimoto', '0000-0002-8936-5545', '', 'wd:Q1912085'),
+                         ('Bernd Sturmfels', '0000-0002-6642-1479', '', 'wd:Q1912085'),
+                         ('Raluca Vlad', '', '', 'wd:Q49114'),
+                         ('Yoshitake Matsumoto', '', '', 'wd:Q7842'),
+                         ('Hiroshi Imai', '', '', 'wd:Q7842'),
+                         ('David Bremner', '', '', 'wd:Q1112515'),
+                         ('Oswin Aichholzer', '0000-0002-2364-0583', '', 'wd:Q689775'),
+                         ('Hiroyuki Miyata', '', '', 'wd:Q7842'),
+                         ('Sonoko Moriyama', '0000-0003-3358-7779', '', 'wd:Q1062129'),
+                         ('Komei Fukuda', '', '', 'wd:Q11942'),
+                         ('Andreas Paffenholz', '0000-0001-9718-523X', '', 'wd:Q310695'),
+                         ('Moritz Firsching', '', '', 'wd:Q153006'),
+                         ('Monica Blanco', '', '', 'wd:Q766962'),
+                         ('Francisco Santos', '0000-0003-2120-9068', '', 'wd:Q766962'),
                          ('Ayush Kumar Tewari', '0000-0002-3494-2691', '', ''),
                          ('Maximilian Kreuzer', '', '', ''),
                          ('Gabriele Balletti', '0000-0002-0536-0027', '', ''),
-                         ('Andreas Kretschmer', '', '', 'wdt:Q655866'),
-                         ('Benjamin Lorenz', '', '', 'wdt:Q51985'),
+                         ('Andreas Kretschmer', '', '', 'wd:Q655866'),
+                         ('Benjamin Lorenz', '', '', 'wd:Q51985'),
                          ('Mikkel Oebro', '', '', ''),
-                         ('Michael Joswig', '0000-0002-4974-9659', '', 'wdt:Q51985'),
-                         ('Lars Kastner', '0000-0001-9224-7761', '', 'wdt:Q51985'),
-                         ('Ngoc Tran', '', 'tran_n_3', 'wdt:Q49213'),
-                         ('Alheydis Geiger', '', '', 'wdt:Q153978'),
-                         ('Marta Panizzut', '0000-0001-8631-6329', '', 'wdt:Q51985'),
-                         ('Silke Horn', '', '', 'wdt:Q310695')]
+                         ('Michael Joswig', '0000-0002-4974-9659', '', 'wd:Q51985'),
+                         ('Lars Kastner', '0000-0001-9224-7761', '', 'wd:Q51985'),
+                         ('Ngoc Tran', '', 'tran_n_3', 'wd:Q49213'),
+                         ('Alheydis Geiger', '', '', 'wd:Q153978'),
+                         ('Marta Panizzut', '0000-0001-8631-6329', '', 'wd:Q51985'),
+                         ('Silke Horn', '', '', 'wd:Q310695')]
         self.author_pool = [Author(self.integrator, name, orcid, arxiv_id, affiliation) 
                             for name, orcid, arxiv_id, affiliation in author_tuples]
-
-        for author in self.author_pool:
-            print(author)
 
     def setup(self):
         """Create all necessary properties for polyDB
         """
         filepath = os.path.realpath(os.path.dirname(__file__)) 
-
 
         filename = filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
@@ -129,17 +128,29 @@ class PolyDBSource(ADataSource):
             #    print(contributor)
             #for maintainer in new_col.authors:
             #    print(maintainer)
-            for el in new_col.references:
-                print(el)
+            #for el in new_col.references:
+            #    print(el)
             time.sleep(3)
 
 
     def push(self):
+
+        #for collection in self.collections:
+        #    if not collection.exists():
+        #        collection.create()
+        #    if self.update:
+        #        collection.update()
+
         for collection in self.collections:
-            if not collection.exists():
-                collection.create()
-            if self.update:
-                collection.update()
+            for author in collection.authors:
+                self.author_pool.extend(collection.author_pool)
+
+        print(len(self.author_pool))
+        #Take into account the Wikidata QID of some authors
+        #have to be imported at post_init and assigned the QID parameter.
+        #Author.disambiguate_authors(self.author_pool)
+
+
 
             # Get all authors
             # Get references with 'arxiv', 'doi'

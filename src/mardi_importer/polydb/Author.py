@@ -74,7 +74,12 @@ class Author:
         
         orcid = self.orcid if self.orcid else other.orcid
         arxiv_id = self.arxiv_id if self.arxiv_id else other.arxiv_id
-        affiliation = self.affiliation if self.affiliation else other.affiliation
+        if self.affiliation.startswith('wd:'):
+            affiliation = self.affiliation
+        elif other.affiliation.startswith('wd:'):
+            affiliation = other.affiliation
+        else:
+            affiliation = self.affiliation if self.affiliation else other.affiliation
         QID = self.QID if self.QID else other.QID
 
         if QID:
@@ -165,16 +170,12 @@ class Author:
             self._item.add_claim("wdt:P4594", self.arxiv_id)
 
         if self.affiliation:
-            affiliation = None
-            if affiliation.startswith('wdt:'):
-                wikidata_qid = affiliation.split(":")[1]
-                affiliation = self.api.query('local_id', wikidata_qid)
-                if not affiliation:
-                    affiliation = self.api.import_entities(wikidata_qid)
+            if self.affiliation.startswith('wd:'):
+                self._item.add_claim("wdt:P108", self.affiliation)
             elif len(self.affiliation) > 8:
                 affiliation = self.api.import_from_label(self.affiliation)
-            if affiliation:
-                self._item.add_claim("wdt:P108", affiliation)
+                if affiliation:
+                    self._item.add_claim("wdt:P108", affiliation)
 
         self._QID = self._item.write().id
         return self.QID

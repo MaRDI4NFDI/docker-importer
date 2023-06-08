@@ -9,7 +9,7 @@ from habanero import Crossref
 from requests.exceptions import HTTPError
 from typing import List
 
-from mardi_importer.publications.Author import Author
+from mardi_importer.polydb.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 
@@ -222,12 +222,8 @@ class CrossrefPublication:
                             author_label = f"{author['given'].title()} {author['family'].title()}"
                             if 'ORCID' in author.keys():
                                 orcid_id = re.findall("\d{4}-\d{4}-\d{4}-.{4}", author['ORCID'])[0]
-                                print('A')
-                                print(author_label)
                                 self.authors.append(Author(self.api, name=author_label, orcid=orcid_id))
                             else:
-                                print('B')
-                                print(author_label)
                                 self.authors.append(Author(self.api, name=author_label))
 
                 if 'relation' in metadata.keys():

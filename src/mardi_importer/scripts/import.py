@@ -13,7 +13,7 @@ from mardi_importer.zbmath.ZBMathSource import ZBMathSource
 from mardi_importer.zbmath.ZBMathConfigParser import ZBMathConfigParser
 from mardi_importer.cran.CRANSource import CRANSource
 from mardi_importer.polydb.PolyDBSource import PolyDBSource
-from mardi_importer.integrator.Integrator import MardiIntegrator
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 
 
 def get_parser():

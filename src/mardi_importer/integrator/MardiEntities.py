@@ -6,6 +6,7 @@ from wikibaseintegrator.entities.item import ItemEntity
 from wikibaseintegrator.entities.property import PropertyEntity
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
 from wikibaseintegrator.datatypes import ExternalID
+from wikibaseintegrator.wbi_enums import ActionIfExists
 from mardi_importer.importer.Importer import ImporterException
 
 def handleModificationFailed(e):
@@ -77,7 +78,8 @@ class MardiItemEntity(ItemEntity):
             Claim: Claim corresponding to the given datatype
         """
         claim = self.api.get_claim(prop_nr, value, **kwargs)
-        self.claims.add(claim)
+        self.claims.add(claim, 
+                        ActionIfExists.APPEND_OR_REPLACE)
 
     def is_instance_of(self, instance):
         """Checks if a given entity is an instance of 'instance' item

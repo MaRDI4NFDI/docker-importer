@@ -10,8 +10,6 @@ from typing import List
 import time
 import json
 import os
-import logging
-#log = logging.getLogger('CRANlogger')
 
 @dataclass
 class PolyDBSource(ADataSource):
@@ -26,34 +24,58 @@ class PolyDBSource(ADataSource):
     update: bool = False
     integrator: MardiIntegrator = MardiIntegrator()
     collection_list: List[str] = field(default_factory=list)  
-    author_pool: List[Author] = field(default_factory=list) 
+    polydb_authors: List[Author] = field(default_factory=list) 
     collections: List[Collection] = field(default_factory=list)
 
     def __post_init__(self):
         self.collection_list = ["Manifolds.DIM2_3",
                                 "Matroids.SelfDual",
-                                "Matroids.Small"]
-        #self.collection_list = ["Manifolds.DIM2_3",
-        #                        "Matroids.SelfDual",
-        #                        "Matroids.Small",
-        #                        "Polytopes.Combinatorial.01Polytopes",
-        #                        "Polytopes.Combinatorial.CombinatorialTypes",
-        #                        "Polytopes.Combinatorial.FacesBirkhoffPolytope",
-        #                        "Polytopes.Combinatorial.SmallSpheresDim4",
-        #                        "Polytopes.Geometric.01Polytopes",
-        #                        "Polytopes.Lattice.01Polytopes",
-        #                        "Polytopes.Lattice.ExceptionalMaximalHollow",
-        #                        "Polytopes.Lattice.FewLatticePoints3D",
-        #                        "Polytopes.Lattice.NonSpanning3D",
-        #                        "Polytopes.Lattice.Panoptigons",
-        #                        "Polytopes.Lattice.Reflexive",
-        #                        "Polytopes.Lattice.SmallVolume",
-        #                        "Polytopes.Lattice.SmoothReflexive",
-        #                        "Tropical.Cubics",
-        #                        "Tropical.Polytropes",
-        #                        "Tropical.QuarticCurves",
-        #                        "Tropical.SchlaefliFan",
-        #                        "Tropical.TOM"]
+                                "Matroids.Small",
+                                "Polytopes.Combinatorial.01Polytopes",
+                                "Polytopes.Combinatorial.CombinatorialTypes",
+                                "Polytopes.Combinatorial.FacesBirkhoffPolytope",
+                                "Polytopes.Combinatorial.SmallSpheresDim4",
+                                "Polytopes.Geometric.01Polytopes",
+                                "Polytopes.Lattice.01Polytopes",
+                                "Polytopes.Lattice.ExceptionalMaximalHollow",
+                                "Polytopes.Lattice.FewLatticePoints3D",
+                                "Polytopes.Lattice.NonSpanning3D",
+                                "Polytopes.Lattice.Panoptigons",
+                                "Polytopes.Lattice.Reflexive",
+                                "Polytopes.Lattice.SmallVolume",
+                                "Polytopes.Lattice.SmoothReflexive",
+                                "Tropical.Cubics",
+                                "Tropical.Polytropes",
+                                "Tropical.QuarticCurves",
+                                "Tropical.SchlaefliFan",
+                                "Tropical.TOM"]
+
+    def setup(self):
+        """Create all necessary properties for polyDB
+        """
+        filepath = os.path.realpath(os.path.dirname(__file__)) 
+
+        filename = filepath + "/wikidata_entities.txt"
+        self.integrator.import_entities(filename=filename)
+        
+        filename = filepath + "/new_entities.json"
+        f = open(filename)
+        entities = json.load(f)
+
+        for prop_element in entities['properties']:
+            prop = self.integrator.property.new()
+            prop.labels.set(language='en', value=prop_element['label'])
+            prop.descriptions.set(language='en', value=prop_element['description'])
+            prop.datatype = prop_element['datatype']
+            if not prop.exists(): prop.write()
+
+        for item_element in entities['items']:
+            item = self.integrator.item.new()
+            item.labels.set(language='en', value=item_element['label'])
+            item.descriptions.set(language='en', value=item_element['description'])
+            for key, value in item_element['claims'].items():
+                item.add_claim(key,value=value)
+            if not item.exists(): item.write()
 
         # author_tuple = (name, orcid, arxiv_id, affiliation_qid, wikidata_qid)
         author_tuples = [('Frank Lutz', '', '', 'wd:Q51985', 'wd:Q102201447'),
@@ -85,45 +107,18 @@ class PolyDBSource(ADataSource):
                          ('Marta Panizzut', '0000-0001-8631-6329', '', 'wd:Q51985', 'wd:Q102782302'),
                          ('Silke Horn', '', '', 'wd:Q310695', 'wd:Q102398539')]
 
-        for name, orcid, arxiv_id, affiliation, qid in author_tuples:
+        for name, orcid, arxiv_id, affiliation, QID in author_tuples:
             author = Author(self.integrator, name, orcid, arxiv_id, affiliation)
-            if qid:
-                qid = qid.split(':')[1]
-                author.qid = self.integrator.import_entities(qid)
-            self.author_pool.append(author)
-                
-
-    def setup(self):
-        """Create all necessary properties for polyDB
-        """
-        filepath = os.path.realpath(os.path.dirname(__file__)) 
-
-        filename = filepath + "/wikidata_entities.txt"
-        self.integrator.import_entities(filename=filename)
-        
-        filename = filepath + "/new_entities.json"
-        f = open(filename)
-        entities = json.load(f)
-
-        for prop_element in entities['properties']:
-            prop = self.integrator.property.new()
-            prop.labels.set(language='en', value=prop_element['label'])
-            prop.descriptions.set(language='en', value=prop_element['description'])
-            prop.datatype = prop_element['datatype']
-            if not prop.exists(): prop.write()
-
-        for item_element in entities['items']:
-            item = self.integrator.item.new()
-            item.labels.set(language='en', value=item_element['label'])
-            item.descriptions.set(language='en', value=item_element['description'])
-            for key, value in item_element['claims'].items():
-                item.add_claim(key,value=value)
-            if not item.exists(): item.write()
+            if QID:
+                QID = QID.split(':')[1]
+                author.QID = self.integrator.import_entities(QID)
+            self.polydb_authors.append(author)
 
     def get_collection_list(self):
         pass
 
     def pull(self):
+        # Do not pull collections that already exist
         if self.update:
             self.get_collection_list()
         for name in self.collection_list:
@@ -131,20 +126,19 @@ class PolyDBSource(ADataSource):
             self.collections.append(Collection(name))
             time.sleep(3)
 
-
     def push(self):
-
-        #for collection in self.collections:
-        #    if not collection.exists():
-        #        collection.create()
-        #    if self.update:
-        #        collection.update()
-
         for collection in self.collections:
-            for author in collection.authors:
-                self.author_pool.extend(collection.author_pool)
+            self.polydb_authors += collection.author_pool
 
-        Author.disambiguate_authors(self.author_pool)
+        self.polydb_authors = Author.disambiguate_authors(self.polydb_authors)
+
+        # Ignore collections that already exists should be done in pull()
+        for collection in self.collections:
+            collection.update_authors(self.polydb_authors)
+            if not collection.exists():               
+                collection.create()
+            if self.update:
+                collection.update()
 
 
 

@@ -11,6 +11,7 @@
             "label": "polyDB collection",
             "description": "Object in discrete geometry that can be accessed from within polymake",
             "claims": {
+                "wdt:P31": "wd:Q2668072",
                 "wdt:P921": "wd:Q906377",
                 "wdt:P856": "https://polydb.org/"
             }

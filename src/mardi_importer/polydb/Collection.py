@@ -18,7 +18,63 @@ class GenericReference():
     attributes: str
 
     def create(self):
-        pass
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.title)
+        item.descriptions.set(
+                language="en",
+                value="scientific article"
+            )
+
+        exists = item.is_instance_of('wd:Q13442814')
+        if exists: return exists
+
+        # Instance of: scholarly article
+        item.add_claim('wdt:P31','wd:Q13442814')
+
+        for author in self.authors:
+            item.add_claim('wdt:P50', author.QID)
+
+        conference = None
+        if self.attributes == "KyotoCGGT2007, 2007/6/11-15":
+            conference = self.api.import_entities('Q106338712')            
+        elif self.attributes == "Kyoto RIMS Workshop on Computational Geometry and Discrete Mathematics, RIMS, Kyoto University, 2008/10/16":
+            conf_item = self.api.item.new()
+            conf_item.labels.set(language="en", value="Kyoto RIMS Workshop on Computational Geometry and Discrete Mathematics")
+            conf_item.descriptions.set(
+                language="en",
+                value="academic conference"
+            )
+            conference = conf_item.exists()
+            if not conference:
+                conf_item.add_claim('wdt:P31', 'wd:Q2020153')
+                conf_item.add_claim('wdt:P1476', 'Kyoto RIMS Workshop on Computational Geometry and Discrete Mathematics')
+                conf_item.add_claim('wdt:P17', 'wd:Q17')
+                conf_item.add_claim('wdt:P276', 'wd:Q34600')
+                location = self.api.import_entities('Q840667')
+                conf_item.add_claim('wdt:P276', location)
+                conf_item.add_claim('wdt:P921', 'wd:Q874709')
+                conf_item.add_claim('wdt:P921', 'wd:Q121416')
+                conf_item.add_claim('wdt:P580', time="+2007-10-16T00:00:00Z")
+                conf_item.add_claim('wdt:P582', time="+2007-10-18T00:00:00Z")
+                conference = conf_item.write().id
+        elif self.attributes == "PhD Thesis, Aarhus 2007":
+            item.descriptions.set(
+                language="en",
+                value="doctoral thesis"
+            )
+            item.add_claim('wdt:P31', 'wd:Q187685')
+            location = self.api.import_entities('Q924265')
+            item.add_claim('wdt:P4101', location)
+            item.add_claim('wdt:P577', time="+2007-00-00T00:00:00Z")
+        else:
+            print('Following conference or attribute cannot be parsed')
+            print(self.attributes)
+            print('----------------------------------')
+        
+        if conference:
+            item.add_claim('wdt:P5072', conference)
+
+        return item.write().id        
 
 @dataclass
 class Collection():
@@ -47,11 +103,59 @@ class Collection():
             self.parse_references(json_data)
             self.fill_author_pool()
 
+        self.item = self.api.item.new()
+        self.item.labels.set(language="en", value=self.label)
+
+        # PolyDB QID (Instance of: collection)
+        item = self.api.item.new()
+        item.labels.set(language="en", value="polyDB collection")
+        self.poly_db_qid = item.is_instance_of('wd:Q2668072')
+
+        # Contributed by
+        self.contributed_by_pid = self.api.get_local_id_by_label( 
+                                                    'contributed by', 
+                                                    'property')
+
     def exists(self):
-        pass 
+        return self.item.is_instance_of(self.poly_db_qid)
 
     def create(self):
-        pass
+        self.item.descriptions.set(
+            language="en",
+            value=self.description
+        )
+        
+        # Instance of: PolyDB Collection
+        self.item.add_claim("wdt:P31", self.poly_db_qid)
+
+        # Author
+        for author in self.authors:
+            self.item.add_claim("wdt:P50", author.QID)
+
+        # Maintainer
+        for maintainer in self.maintainer:
+            self.item.add_claim("wdt:P126", maintainer.QID)
+
+        # Contributor
+        for contributor in self.contributor:
+            self.item.add_claim(self.contributed_by_pid, contributor.QID)
+
+        # Publications
+        for publications in [self.arxiv, 
+                             self.crossref, 
+                             self.generic_references]:
+            for publication in publications:
+                pub_qid = publication.create()
+                self.item.add_claim('wdt:P2860', pub_qid)
+
+        # Data source
+        for source, url in self.data:
+            if source == "url":
+                self.item.add_claim('wdt:P1325', url)
+            elif source == "github":
+                self.item.add_claim('wdt:P1324', url)
+
+        self.item.write()
 
     def update(self):
         pass
@@ -154,6 +258,9 @@ class Collection():
             return ('reference', reference)
 
     def fill_author_pool(self):
+        self.author_pool.extend(self.authors)
+        self.author_pool.extend(self.maintainer)
+        self.author_pool.extend(self.contributor)
         for ref in self.arxiv:
             self.author_pool.extend(ref.authors)
         for ref in self.crossref:
@@ -161,5 +268,13 @@ class Collection():
         for ref in self.generic_references:
             self.author_pool.extend(ref.authors)
 
+    def update_authors(self, polydb_authors):
+        authors_list = [self.authors, self.contributor, self.maintainer]
+        for lst in authors_list:
+            for author in lst:
+                author.pull_QID(polydb_authors)
 
-
+        for publications in [self.arxiv, self.crossref, self.generic_references]:
+            for publication in publications:
+                for author in publication.authors:
+                    author.pull_QID(polydb_authors)

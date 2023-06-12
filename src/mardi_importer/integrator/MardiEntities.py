@@ -9,16 +9,6 @@ from wikibaseintegrator.datatypes import ExternalID
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from mardi_importer.importer.Importer import ImporterException
 
-def handleModificationFailed(e):
-    """Handle ModificationFailed Exception
-    """
-    messages = list(filter(lambda x: 'parameters' in x, e.messages))
-    for message in messages:
-        for parameter in message['parameters']:
-            result = re.search(r"\[\[\w*:(\w\d+)\|\w\d+\]\]", parameter)
-            if result:
-                return result.group(1)
-
 class MardiItemEntity(ItemEntity):
 
     def new(self, **kwargs):
@@ -29,14 +19,20 @@ class MardiItemEntity(ItemEntity):
             entity = super().write(**kwargs)
             return entity
         except ModificationFailed as e:
-            return handleModificationFailed(e)
+            return self.handleModificationFailed(e)
+
+    def handleModificationFailed(self, e):
+        """Handle ModificationFailed Exception
+        """
+        print('Item with given label and description already exists.')
+        match = re.search(r'Q\d+', str(e))
+        if match:
+            qid = match.group()
+            print(f'Existing item with QID: {qid} is returned')
+            return self.api.item.get(entity_id=qid)
 
     def get(self, entity_id, **kwargs):
-        #entity = super().get(**kwargs)
-        #kwargs['entity_id'] = entity.id
         json_data = super(ItemEntity, self)._get(entity_id=entity_id, **kwargs)
-        #return MardiItemEntity(api=self.api).from_json(json_data=json_data['entities'][entity.id])
-        #entity_id = kwargs['entity_id']
         return MardiItemEntity(api=self.api).from_json(json_data=json_data['entities'][entity_id])
 
     def exists(self): 
@@ -255,12 +251,12 @@ class MardiPropertyEntity(PropertyEntity):
     def new(self, **kwargs):
         return MardiPropertyEntity(api=self.api, **kwargs)
     
-    def write(self, **kwargs):
-        try:
-            entity = super().write(**kwargs)
-            return entity
-        except ModificationFailed as e:
-            return handleModificationFailed(e)
+    #def write(self, **kwargs):
+    #    try:
+    #        entity = super().write(**kwargs)
+    #        return entity
+    #    except ModificationFailed as e:
+    #        return handleModificationFailed(e)
 
     def get(self, entity_id, **kwargs):
         #entity = super().get(**kwargs)

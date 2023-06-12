@@ -32,6 +32,7 @@ setuptools.setup(
         "habanero",
         "lxml",
         "mysql-connector-python",
+        "nameparser",
         "pandas",
         "sickle",
         "sparqlwrapper",

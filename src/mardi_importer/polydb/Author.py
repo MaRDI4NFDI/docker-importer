@@ -74,9 +74,9 @@ class Author:
         
         orcid = self.orcid if self.orcid else other.orcid
         arxiv_id = self.arxiv_id if self.arxiv_id else other.arxiv_id
-        if self.affiliation.startswith('wd:'):
+        if self.affiliation and self.affiliation.startswith('wd:'):
             affiliation = self.affiliation
-        elif other.affiliation.startswith('wd:'):
+        elif other.affiliation and other.affiliation.startswith('wd:'):
             affiliation = other.affiliation
         else:
             affiliation = self.affiliation if self.affiliation else other.affiliation
@@ -127,6 +127,10 @@ class Author:
             self._QID = results[0]
             return self._QID
 
+    @QID.setter
+    def QID(self, value):
+        self._QID = value
+
     @classmethod
     def disambiguate_authors(cls, authors):
         disambiguated_authors = [authors[0]]
@@ -137,7 +141,10 @@ class Author:
                 index = disambiguated_authors.index(author)
                 disambiguated_authors[index] += author
         for author in disambiguated_authors:
-            author.create()
+            if not author.QID:
+                author.create()
+            else:
+                author.update()
         return disambiguated_authors
 
     def pull_QID(self, author_pool):
@@ -170,15 +177,34 @@ class Author:
             self._item.add_claim("wdt:P4594", self.arxiv_id)
 
         if self.affiliation:
-            if self.affiliation.startswith('wd:'):
-                self._item.add_claim("wdt:P108", self.affiliation)
-            elif len(self.affiliation) > 8:
-                affiliation = self.api.import_from_label(self.affiliation)
-                if affiliation:
-                    self._item.add_claim("wdt:P108", affiliation)
+            self.add_affiliation()
 
         self._QID = self._item.write().id
         return self.QID
+
+    def update(self):
+        if not self.QID: return None
+
+        self._item = self.api.item.get(self.QID)
+        if self.orcid:
+            self._item.add_claim('ORCID iD', self.orcid)
+        if self.arxiv_id:
+            self._item.add_claim("wdt:P4594", self.arxiv_id)
+        if self.affiliation:
+            self.add_affiliation()
+        self._item.write()
+
+    def add_affiliation(self):
+        if self.affiliation.startswith('wd:'):
+            affiliation_qid = self.affiliation.split(':')[1]
+            local_qid = self.api.query('local_id', affiliation_qid)
+            if not local_qid:
+                local_qid = self.api.import_entities(affiliation_qid)
+            self._item.add_claim("wdt:P108", local_qid)
+        elif len(self.affiliation) > 8:
+            affiliation = self.api.import_from_label(self.affiliation)
+            if affiliation:
+                self._item.add_claim("wdt:P108", affiliation)
 
     def sync_with_wikidata(self, name=None):
 

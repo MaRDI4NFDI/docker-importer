@@ -462,6 +462,15 @@ class MardiIntegrator(WikibaseIntegrator):
                 if k in entity.descriptions.values
             }
             entity.descriptions.values = description_dict
+            
+            # make sure label != description (e.g. wdt:P121)
+            for k in self.languages:
+                if (label_dict.get(k) and 
+                    label_dict.get(k) == description_dict.get(k)):
+                    entity.descriptions.set(
+                    language=k,
+                    value=None
+                )            
 
             # set aliases in desired languages
             alias_dict = {

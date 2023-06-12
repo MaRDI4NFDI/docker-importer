@@ -248,7 +248,7 @@ class ArxivPublication():
                     value="scientific article from arXiv"
                 )
 
-            # Instance of: scholary article
+            # Instance of: scholarly article
             item.add_claim('wdt:P31','wd:Q13442814')
 
             # Publication date
@@ -292,7 +292,7 @@ class ArxivPublication():
             # DOI
             doi = '10.48550/arXiv.' + self.arxiv_id
             item.add_claim('wdt:P356', doi)
-                        
+
             self.QID = item.write().id
 
         if self.QID:

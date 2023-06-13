@@ -19,21 +19,23 @@ from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 def get_parser():
     """Get arguments parser"""
     parser = ArgumentParser()
-    parser.add_argument("--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb"])
+    parser.add_argument(
+        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb"]
+    )
     parser.add_argument("--conf_path", required=False)
     parser.add_argument("--wikidata_id_file_path", required=False)
     return parser
 
 
 def main(**args):
-    #logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
+    # logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
 
-    if args['mode'] == "ZBMath":
+    if args["mode"] == "ZBMath":
 
-        if args['conf_path'] is None:
+        if args["conf_path"] is None:
             sys.exit("--conf_path is required for --mode ZBMath")
-        conf_parser = ZBMathConfigParser(args['conf_path'])
+        conf_parser = ZBMathConfigParser(args["conf_path"])
         conf = conf_parser.parse_config()
 
         data_source = ZBMathSource(
@@ -45,20 +47,10 @@ def main(**args):
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
         )
-        # data_source.write_data_dump()
-        # data_source.process_data()
-        # data_source.write_error_ids()
+        importer = Importer(data_source)
+        importer.import_all(pull=False)
 
-        i = MardiIntegrator()
-        # i.check_or_create_db_table()
-        # id_list = i.create_id_list_from_file(args.wikidata_id_file_path)
-        # id_list = ["Q177", "Q192783"]
-        # id_list = ["P2927"]
-        # id_list = ["Q511761"]
-        i.import_entities(filename=args['wikidata_id_file_path'])
-        #i.engine.dispose()
-
-    elif args['mode'] == "CRAN":
+    elif args["mode"] == "CRAN":
 
         # an object to import metadata related to R packages from CRAN
         data_source = CRANSource()
@@ -67,10 +59,11 @@ def main(**args):
         importer = Importer(data_source)
         importer.import_all()
 
-    elif args['mode'] == "polydb":
+    elif args["mode"] == "polydb":
         data_source = PolyDBSource()
         importer = Importer(data_source)
         importer.import_all()
+
 
 if __name__ == "__main__":
     args = get_parser().parse_args()

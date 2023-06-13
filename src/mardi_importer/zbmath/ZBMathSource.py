@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from mardi_importer.importer.Importer import ADataSource
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
+from mardi_importer.zbmath.ZBMathPublication import ZBMathPublication
+from mardi_importer.zbmath.ZBMathAuthor import ZBMathAuthor
+from mardi_importer.zbmath.ZBMathJournal import ZBMathJournal
 import time
 from sickle import Sickle
 import xml.etree.ElementTree as ET
 import sys
+import os
 from mardi_importer.zbmath.misc import get_tag, parse_doi_info
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
@@ -47,7 +52,12 @@ class ZBMathSource(ADataSource):
         self.from_date = from_date
         self.until_date = until_date
         self.tags = tags
+        self.integrator = MardiIntegrator()
+        self.conflict_string = (
+            "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
+        )
         self.raw_dump_path = raw_dump_path
+        self.filepath = os.path.realpath(os.path.dirname(__file__))
         self.processed_dump_path = processed_dump_path
         self.namespace = "http://www.openarchives.org/OAI/2.0/"
         self.preview_namespace = "https://zbmath.org/OAI/2.0/oai_zb_preview/"
@@ -57,6 +67,19 @@ class ZBMathSource(ADataSource):
         self.unknown_doi_agency_dict = {"Crossref": [], "crossref": [], "nonsense": []}
         # tags that will not be found in doi query
         self.internal_tags = ["author_id", "source", "classifications", "links"]
+        self.existing_authors = {}
+        self.existing_journals = {}
+        self.existing_publications = []
+
+    def setup(self):
+        """Create all necessary properties and entities for zbMath"""
+        # Import entities from Wikidata
+        filename = self.filepath + "/wikidata_entities.txt"
+        self.integrator.import_entities(filename=filename)
+
+    def pull(self):
+        self.write_data_dump()
+        self.process_data()
 
     def write_data_dump(self):
         """
@@ -105,7 +128,12 @@ class ZBMathSource(ADataSource):
             with open(self.processed_dump_path, "a") as outfile:
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
-                    outfile.write("zbmath_id" + (",").join(self.tags) + "\n")
+                    outfile.write(
+                        "zbmath_id\t"
+                        + "creation_date\t"
+                        + ("\t").join(self.tags)
+                        + "\n"
+                    )
                 record_string = ""
                 for line in infile:
                     record_string = record_string + line
@@ -126,7 +154,7 @@ class ZBMathSource(ADataSource):
                         record = self.parse_record(element)
                         if record:
                             outfile.write(
-                                ",".join(str(x) for x in record.values()) + "\n"
+                                "\t".join(str(x) for x in record.values()) + "\n"
                             )
                         record_string = ""
 
@@ -144,7 +172,9 @@ class ZBMathSource(ADataSource):
         new_entry = {}
         # zbMath identifier
         zb_id = self.get_zb_id(xml_record)
+        creation_date = self.get_creation_date(xml_record)
         new_entry["id"] = zb_id
+        new_entry["creation_date"] = creation_date
         # read tags
         zb_preview = xml_record.find(
             get_tag("metadata", namespace=self.namespace)
@@ -167,65 +197,158 @@ class ZBMathSource(ADataSource):
                         # element content is a simple text
                         text = zb_preview.find(get_tag(tag, self.tag_namespace)).text
 
-                    if text.startswith(self.conflict_text):
-                        is_conflict = True
-                        text = None
-
                     new_entry[tag] = text
                 # if tag is not found in zbMath return, we still want to get it from doi
                 else:
                     new_entry[tag] = None
-            # if there were tags without information
-            if is_conflict:
-                if "doi" in new_entry:
-                    if new_entry["doi"]:
-                        new_entry = self.get_info_from_doi(new_entry, zb_id)
             # return record, even if incomplete
             return new_entry
         else:
             sys.exit("Error: zb_preview not found")
 
-    def get_info_from_doi(self, entry_dict, zb_id):
+    def push(self):
+        """Updates the MaRDI Wikibase entities corresponding to zbMath publications.
+        It creates a :class:`mardi_importer.zbmath.ZBMathPublication` instance
+        for each publication. Authors and journals are added, as well.
         """
-        Query crossref API for DOI information, and, if the doi is not found,
-        information about the registration agency. Missing values in entry_dict
-        are filled with information from querying the doi.
+        found = False
+        with open(self.processed_dump_path, "r") as infile:
+            in_header_line = True
+            for line in infile:
+                if in_header_line:
+                    headers = line.strip().split("\t")
+                    in_header_line = False
+                    continue
+                split_line = line.strip().split("\t")
+                # formatting error: skip
+                if len(split_line) != len(headers):
+                    continue
+                info_dict = dict(zip(headers, split_line))
+                # this part is for continuing at a certain position if the import failed
+                # if not found:
+                #     if info_dict["document_title"] != "Unimodular supergravity":
+                #         continue
+                #     else:
+                #         found = True
+                #         continue
+                if info_dict["document_title"] in self.existing_publications:
+                    print(
+                        f"A publication with the name {info_dict['document_title']} was already created in this run."
+                    )
+                    continue
+                # if there is not title, don't add
+                if self.conflict_string in info_dict["document_title"]:
+                    continue
 
-        Args:
-            entry_dict (dict): dict of (tag,value) pairs
-            zb_id (str): zbMath ID
-
-        Returns:
-            dict: returns entry_dict with missing entries filled by information
-            gained from querying the doi at Crossref
-        """
-        cr = Crossref(mailto="pusch@zib.de")
-        doi = entry_dict["doi"]
-        try:
-            work_info = cr.works(ids=doi)
-        # if the doi is not found, there is a 404
-        except HTTPError:
-            try:
-                agency = cr.registration_agency(doi)[0]
-                if agency == "Crossref" or agency == "crossref":
-                    # this can happen, seems to be a crossref problem
-                    self.unknown_doi_agency_dict[agency].append(zb_id)
-                    # return entry dict unchanged
+                if not self.conflict_string in info_dict["author"]:
+                    author_strings = info_dict["author"].split(";")
+                    author_ids = info_dict["author_ids"].split(";")
+                    authors = []
+                    for a, a_id in zip(author_strings, author_ids):
+                        a = a.strip()
+                        a_id = a_id.strip()
+                        if a != "None":
+                            if a_id in self.existing_authors:
+                                authors.append(self.existing_authors[a_id])
+                                print(
+                                    f"Author with name {a} was already created this run."
+                                )
+                            else:
+                                author = ZBMathAuthor(
+                                    integrator=self.integrator,
+                                    name=a,
+                                    zbmath_author_id=a_id,
+                                )
+                                local_author_id = author.create()
+                                authors.append(local_author_id)
+                                self.existing_authors[a_id] = local_author_id
                 else:
-                    try:
-                        self.unknown_doi_agency_dict[agency].append(zb_id)
-                    except KeyError:
-                        # if the agency has not yet been included in the dict
-                        self.unknown_doi_agency_dict[agency] = [zb_id]
-                # return entry dict unchanged
-                return entry_dict
-            except HTTPError:
-                # return entry_dict unchanged
-                return entry_dict
-        for key, val in entry_dict.items():
-            if val is None and key not in self.internal_tags:
-                entry_dict[key] = parse_doi_info(key, work_info["message"])
-        return entry_dict
+                    authors = []
+
+                if (
+                    not self.conflict_string in info_dict["serial"]
+                    and info_dict["serial"].strip() != "None"
+                ):
+                    journal_string = info_dict["serial"].split(";")[-1].strip()
+                    if journal_string in self.existing_journals:
+                        journal = self.existing_journals[journal_string]
+                        print(
+                            f"Journal {journal_string} was already created in this run."
+                        )
+                    else:
+                        journal_item = ZBMathJournal(
+                            integrator=self.integrator, name=journal_string
+                        )
+                        if journal_item.exists():
+                            print(f"Journal {journal_string} exists!")
+                            journal = journal_item.QID
+                        else:
+                            print(f"Creating journal {journal_string}")
+                            journal = journal_item.create()
+                        self.existing_journals[journal_string] = journal
+                else:
+                    journal = None
+
+                if not self.conflict_string in info_dict["language"]:
+                    language = info_dict["language"].strip()
+                else:
+                    language = None
+
+                if not self.conflict_string in info_dict["publication_year"]:
+                    time_string = (
+                        f"+{info_dict['publication_year'].strip()}-00-00T00:00:00Z"
+                    )
+                else:
+                    time_string = None
+
+                if not self.conflict_string in info_dict["links"]:
+                    links = info_dict["links"].split(";")
+                    links = [
+                        x.strip()
+                        for x in links
+                        if (x.startswith("http") and " " not in x.strip())
+                    ]
+                else:
+                    links = []
+
+                if (
+                    not self.conflict_string in info_dict["doi"]
+                    and not "None" in info_dict["doi"]
+                ):
+                    doi = info_dict["doi"].strip()
+                else:
+                    doi = None
+
+                if info_dict["creation_date"] != "0001-01-01T00:00:00":
+                    # because there can be no hours etc
+                    creation_date = (
+                        f"{info_dict['creation_date'].split('T')[0]}T00:00:00Z"
+                    )
+                else:
+                    creation_date = None
+
+                publication = ZBMathPublication(
+                    integrator=self.integrator,
+                    title=info_dict["document_title"].strip(),
+                    doi=doi,
+                    authors=authors,
+                    journal=journal,
+                    language=language,
+                    time=time_string,
+                    links=links,
+                    creation_date=creation_date,
+                    zbl_id=info_dict["zbl_id"].strip(),
+                )
+                if publication.exists():
+                    print(f"Publication {info_dict['document_title']} exists")
+                    publication.update()
+                else:
+                    print(f"Creating publication {info_dict['document_title']}")
+                    publication.create()
+                # in case a publication is listed twice; this normally happens
+                # within a distance of a few lines
+                self.existing_publications.append(info_dict["document_title"])
+                self.existing_publications = self.existing_publications[-100:]
 
     def get_zb_id(self, xml_record):
         """
@@ -244,59 +367,19 @@ class ZBMathSource(ADataSource):
         )
         return zb_id
 
-    def write_error_ids(self):
+    def get_creation_date(self, xml_record):
         """
-        Function for writing DOIs for which the Crossref API returned an error to a file, together with
-        the organization they are registered with.
-        """
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        out_path = self.out_dir + "error_ids" + timestr + ".txt"
-        with open(out_path, "w") as out_file:
-            for k, val in self.unknown_doi_agency_dict.items():
-                out_file.write(k + "," + ",".join(val) + "\n")
+        Get creation date from xml record.
 
-    def get_invalid_dois(self):
+        Args:
+            xml_record (xml element): record returned by zbMath API
+
+        Returns:
+            string: creation date
         """
-        Populate unknown_doi_dict independently of processing raw data.
-        """
-        with open(self.raw_dump_path) as infile:
-            record_string = ""
-            for line in infile:
-                record_string = record_string + line
-                if line.endswith("</record>\n"):
-                    element = ET.fromstring(record_string)
-                    zb_id = self.get_zb_id(element)
-                    doi = (
-                        element.find(get_tag("metadata", namespace=self.namespace))
-                        .find(get_tag("zbmath", self.preview_namespace))
-                        .find(get_tag("doi", self.tag_namespace))
-                    )
-                    zb_preview = element.find(
-                        get_tag("metadata", namespace=self.namespace)
-                    ).find(get_tag("zbmath", self.preview_namespace))
-                    if zb_preview:
-                        doi_xml = zb_preview.find(get_tag("doi", self.tag_namespace))
-                        if doi_xml is not None:
-                            doi = doi_xml.text
-                        if doi is not None:
-                            cr = Crossref(mailto="pusch@zib.de")
-                            try:
-                                cr.works(ids=doi)
-                            # if the doi is not found, there is a 404
-                            except HTTPError:
-                                try:
-                                    agency = cr.registration_agency(doi)[0]
-                                    try:
-                                        self.unknown_doi_agency_dict[agency].append(
-                                            zb_id
-                                        )
-                                    except KeyError:
-                                        # if the agency has not yet been included in the dict
-                                        self.unknown_doi_agency_dict[agency] = [zb_id]
-                                except HTTPError:
-                                    self.unknown_doi_agency_dict["nonsense"].append(doi)
-                            except ContentDecodingError as e:
-                                print(doi)
-                                print(e)
-                                sys.exit("Content decoding error")
-                    record_string = ""
+        creation_date = (
+            xml_record.find(get_tag("header", self.namespace))
+            .find(get_tag("datestamp", namespace=self.namespace))
+            .text
+        )
+        return creation_date

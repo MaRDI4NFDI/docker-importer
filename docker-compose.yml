@@ -25,6 +25,7 @@ services:
       - shared_mardi_wikibase:/shared/:ro
       - ./src:/importer/src # for development
       - ./tests:/tests # for development
+      - ./data:/data #for development
       - ./config/:/config
     links:
       - wikibase
@@ -193,4 +194,9 @@ volumes:
   elasticsearch-data:
   query-service-data:
 
+# networks:
+#   default:
+#     driver: bridge
+#     driver_opts:
+#       com.docker.network.driver.mtu: 1450
 

@@ -714,6 +714,34 @@ class MardiIntegrator(WikibaseIntegrator):
                 db_result = connection.execute(sql).fetchone()
             if db_result:
                 return db_result[0]
+            
+    def query_with_local_id(self, parameter, local_id):
+        """Query the wb_id_mapping db table for a given parameter.
+
+        The two important parameters are the wikidata_id and whether the
+        entity has already been imported with all claims
+
+        Args:
+            parameter (str): Either wikidata_id or has_all_claims
+            local_id (str): local ID
+        Returns:
+            str or boolean: for wikidata_id returns the wikidata ID if it exists,
+                otherwise None. For has_all_claims, a boolean is returned.
+        """
+        metadata = db.MetaData()
+        table = db.Table(
+            "wb_id_mapping", 
+            metadata, 
+            autoload_with=self.engine
+        )
+        if parameter in ['wikidata_id', 'has_all_claims']:
+            sql = db.select(table.columns[parameter]).where(
+                table.columns.local_id == local_id,
+            )
+            with self.engine.connect() as connection:
+                db_result = connection.execute(sql).fetchone()
+            if db_result:
+                return db_result[0]
 
     def get_local_id_by_label(self, entity_str, entity_type):
         """Check if entity with a given label or wikidata PID/QID 

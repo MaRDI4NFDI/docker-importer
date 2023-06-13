@@ -46,14 +46,16 @@ class ZBMathSource(ADataSource):
         self.out_dir = out_dir
         self.split_id = split_id
         if self.split_id:
-            self.split_mode = True  
+            self.split_mode = True
         else:
             self.split_mode = False
         self.from_date = from_date
         self.until_date = until_date
         self.tags = tags
         self.integrator = MardiIntegrator()
-        self.conflict_string = "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
+        self.conflict_string = (
+            "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
+        )
         self.raw_dump_path = raw_dump_path
         self.filepath = os.path.realpath(os.path.dirname(__file__))
         self.processed_dump_path = processed_dump_path
@@ -70,12 +72,15 @@ class ZBMathSource(ADataSource):
         self.existing_publications = []
 
     def setup(self):
-        """Create all necessary properties and entities for zbMath
-        """
+        """Create all necessary properties and entities for zbMath"""
         # Import entities from Wikidata
         filename = self.filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
-    
+
+    def pull(self):
+        self.write_data_dump()
+        self.process_data()
+
     def write_data_dump(self):
         """
         Overrides abstract method.
@@ -123,7 +128,12 @@ class ZBMathSource(ADataSource):
             with open(self.processed_dump_path, "a") as outfile:
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
-                    outfile.write("zbmath_id\t" + "creation_date\t" + ("\t").join(self.tags) + "\n")
+                    outfile.write(
+                        "zbmath_id\t"
+                        + "creation_date\t"
+                        + ("\t").join(self.tags)
+                        + "\n"
+                    )
                 record_string = ""
                 for line in infile:
                     record_string = record_string + line
@@ -210,19 +220,23 @@ class ZBMathSource(ADataSource):
                     in_header_line = False
                     continue
                 split_line = line.strip().split("\t")
+                # formatting error: skip
                 if len(split_line) != len(headers):
                     continue
                 info_dict = dict(zip(headers, split_line))
+                # this part is for continuing at a certain position if the import failed
                 # if not found:
-                #     if info_dict["document_title"] != "On Molino lifting of Riemannian vector fields":
+                #     if info_dict["document_title"] != "Unimodular supergravity":
                 #         continue
                 #     else:
                 #         found = True
                 #         continue
                 if info_dict["document_title"] in self.existing_publications:
-                    print(f"A publication with the name {info_dict['document_title']} was already created in this run.")
+                    print(
+                        f"A publication with the name {info_dict['document_title']} was already created in this run."
+                    )
                     continue
-                #if there is not title, don't add
+                # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
                     continue
 
@@ -231,27 +245,40 @@ class ZBMathSource(ADataSource):
                     author_ids = info_dict["author_ids"].split(";")
                     authors = []
                     for a, a_id in zip(author_strings, author_ids):
+                        a = a.strip()
+                        a_id = a_id.strip()
                         if a != "None":
                             if a_id in self.existing_authors:
                                 authors.append(self.existing_authors[a_id])
-                                print(f"Author with name {a} was already created this run.")
+                                print(
+                                    f"Author with name {a} was already created this run."
+                                )
                             else:
-                                author = ZBMathAuthor(integrator = self.integrator,
-                                        name = a,
-                                        zbmath_author_id = a_id)
+                                author = ZBMathAuthor(
+                                    integrator=self.integrator,
+                                    name=a,
+                                    zbmath_author_id=a_id,
+                                )
                                 local_author_id = author.create()
                                 authors.append(local_author_id)
                                 self.existing_authors[a_id] = local_author_id
                 else:
                     authors = []
 
-                if not self.conflict_string in info_dict["serial"] and info_dict["serial"] != "None":
-                    journal_string = info_dict["serial"].split(";")[-1]
+                if (
+                    not self.conflict_string in info_dict["serial"]
+                    and info_dict["serial"].strip() != "None"
+                ):
+                    journal_string = info_dict["serial"].split(";")[-1].strip()
                     if journal_string in self.existing_journals:
                         journal = self.existing_journals[journal_string]
-                        print(f"Journal {journal_string} was already created in this run.")
+                        print(
+                            f"Journal {journal_string} was already created in this run."
+                        )
                     else:
-                        journal_item = ZBMathJournal(integrator=self.integrator,name=journal_string)
+                        journal_item = ZBMathJournal(
+                            integrator=self.integrator, name=journal_string
+                        )
                         if journal_item.exists():
                             print(f"Journal {journal_string} exists!")
                             journal = journal_item.QID
@@ -263,52 +290,65 @@ class ZBMathSource(ADataSource):
                     journal = None
 
                 if not self.conflict_string in info_dict["language"]:
-                    language = info_dict["language"]
+                    language = info_dict["language"].strip()
                 else:
-                    language=None
+                    language = None
 
                 if not self.conflict_string in info_dict["publication_year"]:
-                    time_string = f"+{info_dict['publication_year']}-00-00T00:00:00Z"
+                    time_string = (
+                        f"+{info_dict['publication_year'].strip()}-00-00T00:00:00Z"
+                    )
                 else:
                     time_string = None
 
-                if (not self.conflict_string in info_dict["links"] 
-                        and not "None" in info_dict["links"]
-                        and not " " in info_dict["links"]):
+                if not self.conflict_string in info_dict["links"]:
                     links = info_dict["links"].split(";")
-                    links = [x for x in links if x.startswith("http")]
+                    links = [
+                        x.strip()
+                        for x in links
+                        if (x.startswith("http") and " " not in x.strip())
+                    ]
                 else:
                     links = []
 
-                if not self.conflict_string in info_dict["doi"] and not "None" in info_dict["doi"]:
-                    doi = info_dict["doi"]
+                if (
+                    not self.conflict_string in info_dict["doi"]
+                    and not "None" in info_dict["doi"]
+                ):
+                    doi = info_dict["doi"].strip()
                 else:
                     doi = None
 
                 if info_dict["creation_date"] != "0001-01-01T00:00:00":
-                    #because there can be no hours etc
-                    creation_date = f"{info_dict['creation_date'].split('T')[0]}T00:00:00Z"
+                    # because there can be no hours etc
+                    creation_date = (
+                        f"{info_dict['creation_date'].split('T')[0]}T00:00:00Z"
+                    )
                 else:
                     creation_date = None
 
-                publication = ZBMathPublication(integrator = self.integrator, title=info_dict["document_title"].strip(), 
-                                                doi=doi, 
-                                                authors = authors,
-                                                journal=journal,
-                                                language=language,
-                                                time=time_string,
-                                                links=links,
-                                                creation_date=creation_date,
-                                                zbl_id=info_dict["zbl_id"])
+                publication = ZBMathPublication(
+                    integrator=self.integrator,
+                    title=info_dict["document_title"].strip(),
+                    doi=doi,
+                    authors=authors,
+                    journal=journal,
+                    language=language,
+                    time=time_string,
+                    links=links,
+                    creation_date=creation_date,
+                    zbl_id=info_dict["zbl_id"].strip(),
+                )
                 if publication.exists():
                     print(f"Publication {info_dict['document_title']} exists")
                     publication.update()
                 else:
                     print(f"Creating publication {info_dict['document_title']}")
                     publication.create()
+                # in case a publication is listed twice; this normally happens
+                # within a distance of a few lines
                 self.existing_publications.append(info_dict["document_title"])
-                self.existing_publications = self.existing_publications[-100:] #no use letting this get too long
-                #print(self.existing_publications)
+                self.existing_publications = self.existing_publications[-100:]
 
     def get_zb_id(self, xml_record):
         """
@@ -327,7 +367,7 @@ class ZBMathSource(ADataSource):
         )
         return zb_id
 
-    def get_creation_date(self,xml_record):
+    def get_creation_date(self, xml_record):
         """
         Get creation date from xml record.
 
@@ -343,5 +383,3 @@ class ZBMathSource(ADataSource):
             .text
         )
         return creation_date
-
-    

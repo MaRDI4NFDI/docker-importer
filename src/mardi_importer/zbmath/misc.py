@@ -9,14 +9,6 @@ def get_tag(tag_name, namespace):
     return "{{{}}}{}".format(namespace, tag_name)
 
 
-def check_attribute(attribute, conflict_string):
-    if not attribute:
-        return False
-    elif conflict_string in attribute:
-        return False
-    else:
-        return True
-
 def parse_doi_info(val, work_info):
     """
     Function to extract information returned by a doi query for a specific tag.

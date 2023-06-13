@@ -19,13 +19,15 @@ class Importer:
         """
         self.dataSource = dataSource
 
-    def import_all(self):
+    def import_all(self, pull=True, push=True):
         """
         Manages the import process.
         """
         self.dataSource.setup()
-        #self.dataSource.pull()
-        self.dataSource.push()
+        if pull:
+            self.dataSource.pull()
+        if push:
+            self.dataSource.push()
 
 
 class ADataSource:
@@ -55,8 +57,9 @@ class ADataSource:
         """
         raise NotImplementedError
 
+
 class AConfigParser:
-    """ Abstract base class for parsing config files """
+    """Abstract base class for parsing config files"""
 
     def parse_config(self):
         """

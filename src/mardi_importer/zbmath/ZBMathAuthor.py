@@ -17,7 +17,7 @@ class ZBMathAuthor:
     def __init__(self, integrator, name, zbmath_author_id):
         self.api = integrator
         name_parts = name.strip().split(",")
-        self.name = (" ").join(name_parts[1:]) + " " + name_parts[0]
+        self.name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
         self.QID = None
         self.zbmath_author_id = zbmath_author_id.strip()
         self.item = self.init_item()

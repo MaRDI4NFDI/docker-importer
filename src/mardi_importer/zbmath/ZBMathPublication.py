@@ -51,9 +51,8 @@ class ZBMathPublication:
 
     def init_item(self):
         item = self.api.item.new()
-        year = self.time.split("-")[0][1:]
         item.labels.set(language="en", value=self.title)
-        item.descriptions.set(language="en", value=f"{self.title} published {year}")
+        item.descriptions.set(language="en", value="scientific article")
         return item
 
     def create(self):

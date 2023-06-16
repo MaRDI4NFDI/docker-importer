@@ -18,6 +18,7 @@ class ZBMathJournal:
     def init_item(self):
         item = self.api.item.new()
         item.labels.set(language="en", value=self.name)
+        item.descriptions.set(language="en", value="scientific journal")
         return item
 
     def create(self):

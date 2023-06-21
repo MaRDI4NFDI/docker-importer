@@ -78,7 +78,7 @@ class ZBMathSource(ADataSource):
         self.integrator.import_entities(filename=filename)
 
     def pull(self):
-        self.write_data_dump()
+        # self.write_data_dump()
         self.process_data()
 
     def write_data_dump(self):
@@ -129,7 +129,7 @@ class ZBMathSource(ADataSource):
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
                     outfile.write(
-                        "zbmath_id\t"
+                        "de_number\t"
                         + "creation_date\t"
                         + ("\t").join(self.tags)
                         + "\n"
@@ -140,9 +140,9 @@ class ZBMathSource(ADataSource):
                     if line.endswith("</record>\n"):
                         element = ET.fromstring(record_string)
                         if self.split_mode:
-                            zb_id = self.get_zb_id(element)
+                            de_number = self.get_de_number(element)
                             # if the last processed id is found
-                            if zb_id == self.split_id:
+                            if de_number == self.split_id:
                                 # next iteration, continue with writing
                                 self.split_mode = False
                                 record_string = ""
@@ -171,9 +171,9 @@ class ZBMathSource(ADataSource):
         is_conflict = False
         new_entry = {}
         # zbMath identifier
-        zb_id = self.get_zb_id(xml_record)
+        de_number = self.get_de_number(xml_record)
         creation_date = self.get_creation_date(xml_record)
-        new_entry["id"] = zb_id
+        new_entry["de_number"] = de_number
         new_entry["creation_date"] = creation_date
         # read tags
         zb_preview = xml_record.find(
@@ -350,7 +350,7 @@ class ZBMathSource(ADataSource):
                 self.existing_publications.append(info_dict["document_title"])
                 self.existing_publications = self.existing_publications[-100:]
 
-    def get_zb_id(self, xml_record):
+    def get_de_number(self, xml_record):
         """
         Get zbMath id from xml record.
 
@@ -360,12 +360,13 @@ class ZBMathSource(ADataSource):
         Returns:
             string: zbMath ID
         """
-        zb_id = (
+        de_number = (
             xml_record.find(get_tag("header", self.namespace))
             .find(get_tag("identifier", namespace=self.namespace))
             .text
         )
-        return zb_id
+        de_number = de_number.split(":")[-1]
+        return de_number
 
     def get_creation_date(self, xml_record):
         """

@@ -1,0 +1,20 @@
+{
+    "properties": [
+        {
+            "label": "review text",
+            "description": "Review text of a scientific article",
+            "datatype": "monolingualtext"
+        },
+        {
+            "label": "zbMATH DE Number",
+            "description": "zbMATH DE number",
+            "datatype": "monolingualtext"
+        },
+        {
+            "label": "zbMATH keyword string",
+            "description": "keyword string from zbMATH",
+            "datatype": "monolingualtext"
+        }
+    ],
+    "items": []
+}

@@ -3,17 +3,17 @@
         {
             "label": "review text",
             "description": "Review text of a scientific article",
-            "datatype": "monolingualtext"
+            "datatype": "string"
         },
         {
             "label": "zbMATH DE Number",
             "description": "zbMATH DE number",
-            "datatype": "monolingualtext"
+            "datatype": "external-id"
         },
         {
             "label": "zbMATH keyword string",
             "description": "keyword string from zbMATH",
-            "datatype": "monolingualtext"
+            "datatype": "string"
         }
     ],
     "items": []

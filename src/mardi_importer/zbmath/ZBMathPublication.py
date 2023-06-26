@@ -31,6 +31,10 @@ class ZBMathPublication:
             zbmath de number
         keywords:
             zbmath topic keywords
+        de_number_prop:
+            local property ID of zbmath de number
+        keyword_prop:
+            local property ID of keyword property number
     """
 
     def __init__(
@@ -49,7 +53,9 @@ class ZBMathPublication:
         reviewer,
         classifications,
         de_number,
-        keywords
+        keywords,
+        de_number_prop,
+        keyword_prop
     ):
         self.api = integrator
         self.title = title
@@ -67,6 +73,8 @@ class ZBMathPublication:
         self.classifications=classifications
         self.de_number=de_number
         self.keywords=keywords
+        self.de_number_prop=de_number_prop
+        self.keyword_prop=keyword_prop
         self.item = self.init_item()
 
     def init_item(self):
@@ -121,13 +129,11 @@ class ZBMathPublication:
                 classification_claims.append(claim)
             self.item.add_claims(classification_claims)
         if self.de_number:
-            prop_nr = self.api.get_local_id_by_label("zbMATH DE Number", "property")
-            self.item.add_claim(prop_nr, self.de_number)
+            self.item.add_claim(self.de_number_prop, self.de_number)
         if self.keywords:
-            prop_nr = self.api.get_local_id_by_label("zbMATH keyword string", "property")
             kw_claims = []
             for k in self.keywords:
-                claim = self.api.get_claim(prop_nr, k)
+                claim = self.api.get_claim(self.keyword_prop, k)
                 kw_claims.append(claim)
             self.item.add_claims(kw_claims)
         

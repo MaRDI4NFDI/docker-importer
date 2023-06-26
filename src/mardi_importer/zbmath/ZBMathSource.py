@@ -429,7 +429,9 @@ class ZBMathSource(ADataSource):
                     reviewer=reviewer, 
                     classifications = classifications,
                     de_number=de_number,
-                    keywords=keywords
+                    keywords=keywords,
+                    de_number_prop=self.integrator.get_local_id_by_label("zbMATH DE Number", "property"),
+                    keyword_prop=self.integrator.get_local_id_by_label("zbMATH keyword string", "property")
                 )
                 if publication.exists():
                     print(f"Publication {info_dict['document_title']} exists")

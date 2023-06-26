@@ -48,7 +48,7 @@ def main(**args):
             processed_dump_path=conf["processed_dump_path"],
         )
         importer = Importer(data_source)
-        importer.import_all(pull=False)
+        importer.import_all(pull=False, push=True)
 
     elif args["mode"] == "CRAN":
 

@@ -10,6 +10,7 @@ from sickle import Sickle
 import xml.etree.ElementTree as ET
 import sys
 import os
+import json
 from mardi_importer.zbmath.misc import get_tag, parse_doi_info
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
@@ -76,9 +77,30 @@ class ZBMathSource(ADataSource):
         # Import entities from Wikidata
         filename = self.filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
+        self.create_local_entities()
+
+    def create_local_entities(self):
+        filename = self.filepath + "/new_entities.json"
+        f = open(filename)
+        entities = json.load(f)
+
+        for prop_element in entities['properties']:
+            prop = self.integrator.property.new()
+            prop.labels.set(language='en', value=prop_element['label'])
+            prop.descriptions.set(language='en', value=prop_element['description'])
+            prop.datatype = prop_element['datatype']
+            if not prop.exists(): prop.write()
+
+        for item_element in entities['items']:
+            item = self.integrator.item.new()
+            item.labels.set(language='en', value=item_element['label'])
+            item.descriptions.set(language='en', value=item_element['description'])
+            for key, value in item_element['claims'].items():
+                item.add_claim(key,value=value)
+            if not item.exists(): item.write()
 
     def pull(self):
-        self.write_data_dump()
+        # self.write_data_dump()
         self.process_data()
 
     def write_data_dump(self):
@@ -129,10 +151,10 @@ class ZBMathSource(ADataSource):
                 # if we are not continuing with a pre-filled file
                 if not self.split_mode:
                     outfile.write(
-                        "zbmath_id\t"
+                        "de_number\t"
                         + "creation_date\t"
                         + ("\t").join(self.tags)
-                        + "\n"
+                        + "_text\treview_sign\treviewer_id\n"
                     )
                 record_string = ""
                 for line in infile:
@@ -140,9 +162,9 @@ class ZBMathSource(ADataSource):
                     if line.endswith("</record>\n"):
                         element = ET.fromstring(record_string)
                         if self.split_mode:
-                            zb_id = self.get_zb_id(element)
+                            de_number = self.get_de_number(element)
                             # if the last processed id is found
-                            if zb_id == self.split_id:
+                            if de_number == self.split_id:
                                 # next iteration, continue with writing
                                 self.split_mode = False
                                 record_string = ""
@@ -171,9 +193,9 @@ class ZBMathSource(ADataSource):
         is_conflict = False
         new_entry = {}
         # zbMath identifier
-        zb_id = self.get_zb_id(xml_record)
+        de_number = self.get_de_number(xml_record)
         creation_date = self.get_creation_date(xml_record)
-        new_entry["id"] = zb_id
+        new_entry["de_number"] = de_number
         new_entry["creation_date"] = creation_date
         # read tags
         zb_preview = xml_record.find(
@@ -184,6 +206,22 @@ class ZBMathSource(ADataSource):
                 value = zb_preview.find(get_tag(tag, self.tag_namespace))
                 if value is not None:
                     if len(value):
+                        if tag == "review":
+                            for subtag in ["review_text", "review_sign", "reviewer_id"]:
+                                subvalue = value.find(get_tag(subtag, self.tag_namespace))
+                                if subvalue is not None:
+                                    if len(subvalue):
+                                        sys.exit(f"tag {subtag} has children")
+                                    else:
+                                        text = subvalue.text
+                                        if subtag == "review_text":
+                                            text = text.replace('\t', ' ')
+                                            text = text.replace('\n', ' ')
+                                        new_entry[subtag] = text
+                                else:
+                                    new_entry[subtag] = None
+                            continue
+                                    
                         # element has children
                         texts = []
                         for child in value:
@@ -239,7 +277,10 @@ class ZBMathSource(ADataSource):
                 # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
                     continue
-
+                if not info_dict["zbl_id"] == "None":
+                    zbl_id = info_dict["zbl_id"]
+                else:
+                    zbl_id = None
                 if not self.conflict_string in info_dict["author"]:
                     author_strings = info_dict["author"].split(";")
                     author_ids = info_dict["author_ids"].split(";")
@@ -327,6 +368,52 @@ class ZBMathSource(ADataSource):
                 else:
                     creation_date = None
 
+                if (not self.conflict_string in info_dict["review_text"]
+                    and info_dict["review_text"].strip()!= "None"):
+                    review_text = info_dict["review_text"].strip()
+                    if (not self.conflict_string in info_dict["review_sign"]
+                        and info_dict["review_sign"].strip()!= "None"
+                        and not self.conflict_string in info_dict["reviewer_id"]
+                        and info_dict["reviewer_id"].strip()!= "None"):
+                        reviewer_id = info_dict["reviewer_id"].strip()
+                        reviewer_name = info_dict["review_sign"].strip().split("/")[0].strip().split("(")[0].strip()
+                        if reviewer_id in self.existing_authors:
+                            reviewer = self.existing_authors[reviewer_id]
+                            print(
+                                    f"Reviewer with name {a} was already created this run."
+                                )
+                        else:
+                            reviewer_object = ZBMathAuthor(
+                                    integrator=self.integrator,
+                                    name=reviewer_name,
+                                    zbmath_author_id=reviewer_id,
+                                )
+                            reviewer = reviewer_object.create()
+                            self.existing_authors[reviewer_id] = reviewer
+                    else:
+                        reviewer = None
+                else:
+                    review_text = None
+                    reviewer=None
+                
+                if (not self.conflict_string in info_dict["classifications"]
+                    and info_dict["classifications"].strip()!= "None"):
+                    classifications = info_dict["classifications"].strip().split(";")
+                else:
+                    classifications=None
+                
+                if info_dict["de_number"].strip()!= "None":
+                    de_number = info_dict["de_number"].strip()
+                else:
+                    de_number = None
+                
+                if (not self.conflict_string in info_dict["keywords"]
+                    and info_dict["keywords"].strip()!= "None"):
+                    keywords = info_dict["keywords"].strip().split(";")
+                else:
+                    keywords=None
+                
+
                 publication = ZBMathPublication(
                     integrator=self.integrator,
                     title=info_dict["document_title"].strip(),
@@ -337,7 +424,14 @@ class ZBMathSource(ADataSource):
                     time=time_string,
                     links=links,
                     creation_date=creation_date,
-                    zbl_id=info_dict["zbl_id"].strip(),
+                    zbl_id=zbl_id,
+                    review_text=review_text,
+                    reviewer=reviewer, 
+                    classifications = classifications,
+                    de_number=de_number,
+                    keywords=keywords,
+                    de_number_prop=self.integrator.get_local_id_by_label("zbMATH DE Number", "property"),
+                    keyword_prop=self.integrator.get_local_id_by_label("zbMATH keyword string", "property")
                 )
                 if publication.exists():
                     print(f"Publication {info_dict['document_title']} exists")
@@ -350,7 +444,7 @@ class ZBMathSource(ADataSource):
                 self.existing_publications.append(info_dict["document_title"])
                 self.existing_publications = self.existing_publications[-100:]
 
-    def get_zb_id(self, xml_record):
+    def get_de_number(self, xml_record):
         """
         Get zbMath id from xml record.
 
@@ -360,12 +454,13 @@ class ZBMathSource(ADataSource):
         Returns:
             string: zbMath ID
         """
-        zb_id = (
+        de_number = (
             xml_record.find(get_tag("header", self.namespace))
             .find(get_tag("identifier", namespace=self.namespace))
             .text
         )
-        return zb_id
+        de_number = de_number.split(":")[-1]
+        return de_number
 
     def get_creation_date(self, xml_record):
         """

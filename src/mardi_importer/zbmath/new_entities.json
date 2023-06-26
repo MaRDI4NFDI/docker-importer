@@ -1,0 +1,20 @@
+{
+    "properties": [
+        {
+            "label": "review text",
+            "description": "Review text of a scientific article",
+            "datatype": "string"
+        },
+        {
+            "label": "zbMATH DE Number",
+            "description": "zbMATH DE number",
+            "datatype": "external-id"
+        },
+        {
+            "label": "zbMATH keyword string",
+            "description": "keyword string from zbMATH",
+            "datatype": "string"
+        }
+    ],
+    "items": []
+}

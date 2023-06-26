@@ -21,6 +21,20 @@ class ZBMathPublication:
             creation date of entry
         zbl_id:
             zbl_id
+        review_text:
+            review text
+        reviewer:
+         zbmath author ID of reviewer
+        classifications:
+            mathematics subject classification ids
+        de_number:
+            zbmath de number
+        keywords:
+            zbmath topic keywords
+        de_number_prop:
+            local property ID of zbmath de number
+        keyword_prop:
+            local property ID of keyword property number
     """
 
     def __init__(
@@ -35,6 +49,13 @@ class ZBMathPublication:
         links,
         creation_date,
         zbl_id,
+        review_text,
+        reviewer,
+        classifications,
+        de_number,
+        keywords,
+        de_number_prop,
+        keyword_prop
     ):
         self.api = integrator
         self.title = title
@@ -47,6 +68,13 @@ class ZBMathPublication:
         self.time = time
         self.creation_date = creation_date
         self.links = links
+        self.review_text = review_text
+        self.reviewer=reviewer
+        self.classifications=classifications
+        self.de_number=de_number
+        self.keywords=keywords
+        self.de_number_prop=de_number_prop
+        self.keyword_prop=keyword_prop
         self.item = self.init_item()
 
     def init_item(self):
@@ -66,7 +94,8 @@ class ZBMathPublication:
         # title
         self.item.add_claim("wdt:P1476", self.title, language="en")
         # zbmath document id
-        self.item.add_claim("wdt:P894", self.zbl_id)
+        if self.zbl_id:
+            self.item.add_claim("wdt:P894", self.zbl_id)
         if self.doi:
             self.item.add_claim("wdt:P356", self.doi)
         author_claims = []
@@ -88,6 +117,28 @@ class ZBMathPublication:
                 claim = self.api.get_claim("wdt:P953", link)
                 link_claims.append(claim)
             self.item.add_claims(link_claims)
+        if self.review_text:
+            prop_nr = self.api.get_local_id_by_label("review text", "property")
+            self.item.add_claim(prop_nr, self.review_text)
+        if self.reviewer:
+            self.item.add_claim("wdt:P4032", self.reviewer)
+        if self.classifications:
+            classification_claims = []
+            for c in self.classifications:
+                claim = self.api.get_claim("wdt:P3285", c)
+                classification_claims.append(claim)
+            self.item.add_claims(classification_claims)
+        if self.de_number:
+            self.item.add_claim(self.de_number_prop, self.de_number)
+        if self.keywords:
+            kw_claims = []
+            for k in self.keywords:
+                claim = self.api.get_claim(self.keyword_prop, k)
+                kw_claims.append(claim)
+            self.item.add_claims(kw_claims)
+        
+
+
 
     def exists(self):
         """Checks if a WB item corresponding to the publication already exists.

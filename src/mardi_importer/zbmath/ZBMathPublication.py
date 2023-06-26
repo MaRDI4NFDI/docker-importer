@@ -55,7 +55,7 @@ class ZBMathPublication:
         de_number,
         keywords,
         de_number_prop,
-        keyword_prop
+        keyword_prop,
     ):
         self.api = integrator
         self.title = title
@@ -69,12 +69,12 @@ class ZBMathPublication:
         self.creation_date = creation_date
         self.links = links
         self.review_text = review_text
-        self.reviewer=reviewer
-        self.classifications=classifications
-        self.de_number=de_number
-        self.keywords=keywords
-        self.de_number_prop=de_number_prop
-        self.keyword_prop=keyword_prop
+        self.reviewer = reviewer
+        self.classifications = classifications
+        self.de_number = de_number
+        self.keywords = keywords
+        self.de_number_prop = de_number_prop
+        self.keyword_prop = keyword_prop
         self.item = self.init_item()
 
     def init_item(self):
@@ -136,9 +136,6 @@ class ZBMathPublication:
                 claim = self.api.get_claim(self.keyword_prop, k)
                 kw_claims.append(claim)
             self.item.add_claims(kw_claims)
-        
-
-
 
     def exists(self):
         """Checks if a WB item corresponding to the publication already exists.

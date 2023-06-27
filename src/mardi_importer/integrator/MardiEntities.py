@@ -108,6 +108,30 @@ class MardiItemEntity(ItemEntity):
                     return item.id
         return False
 
+    def get_instance_list(self, instance):
+        """Returns all items that have the same label and are an instance of
+        'instance'
+        """
+        label = ""
+        if 'en' in self.labels.values:
+            label = self.labels.values['en'].value
+
+        instance_QID = self.api.get_local_id_by_label(instance, 'item')
+        if type(instance_QID) is list: instance_QID = instance_QID[0]
+
+        instance_of_PID = self.api.get_local_id_by_label('instance of', 'property')
+
+        item_QID_list = self.get_QID()
+        items = []
+        for QID in item_QID_list:
+            item = self.api.item.get(QID)
+            item_claims = item.get_json()['claims']
+            if instance_of_PID in item_claims:
+                if (instance_QID == 
+                    item_claims[instance_of_PID][0]['mainsnak']['datavalue']['value']['id']):
+                    items.append(item.id)
+        return items
+
     def is_instance_of_with_property(self, instance, prop_str, value):
         """Checks if a given entity is an instance of 'instance' item 
         an has a property equal to the given value.
@@ -128,9 +152,9 @@ class MardiItemEntity(ItemEntity):
         Returns:
             id (str): ID of the item if found, otherwise None.
         """
-        item_QID = self.is_instance_of(instance)
+        item_QID_list = self.get_instance_list(instance)
         prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
-        if item_QID:
+        for item_QID in item_QID_list:
             item = self.api.item.get(item_QID)
             item_claims = item.get_json()['claims']
             values = self.__return_values(prop_nr, item_claims)

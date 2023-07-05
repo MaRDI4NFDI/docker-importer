@@ -435,6 +435,7 @@ class ZBMathSource(ADataSource):
                     and info_dict["keywords"].strip() != "None"
                 ):
                     keywords = info_dict["keywords"].strip().split(";")
+                    keywords = [x.strip() for x in keywords]
                 else:
                     keywords = None
 

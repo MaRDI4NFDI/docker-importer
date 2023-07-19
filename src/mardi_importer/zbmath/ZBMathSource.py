@@ -14,6 +14,7 @@ import json
 from mardi_importer.zbmath.misc import get_tag, parse_doi_info
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
+from datetime import datetime
 
 
 class ZBMathSource(ADataSource):
@@ -263,6 +264,10 @@ class ZBMathSource(ADataSource):
         with open(self.processed_dump_path, "r") as infile:
             in_header_line = True
             for line in infile:
+                d = datetime.now()
+                if d.hour == 2:
+                    print("Sleeping for one hour")
+                    time.sleep(3600)
                 if in_header_line:
                     headers = line.strip().split("\t")
                     in_header_line = False

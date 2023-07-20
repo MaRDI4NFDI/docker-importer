@@ -264,215 +264,224 @@ class ZBMathSource(ADataSource):
         with open(self.processed_dump_path, "r") as infile:
             in_header_line = True
             for line in infile:
-                d = datetime.now()
-                if d.hour == 2:
-                    print("Sleeping for one hour")
-                    time.sleep(3600)
-                if in_header_line:
-                    headers = line.strip().split("\t")
-                    in_header_line = False
-                    continue
-                split_line = line.strip().split("\t")
-                # formatting error: skip
-                if len(split_line) != len(headers):
-                    continue
-                info_dict = dict(zip(headers, split_line))
-                # this part is for continuing at a certain position if the import failed
-                # if not found:
-                #     if info_dict["document_title"] != "Unimodular supergravity":
-                #         continue
-                #     else:
-                #         found = True
-                #         continue
-                if info_dict["document_title"] in self.existing_publications:
-                    print(
-                        f"A publication with the name {info_dict['document_title']} was already created in this run."
-                    )
-                    continue
-                # if there is not title, don't add
-                if self.conflict_string in info_dict["document_title"]:
-                    continue
-                if not info_dict["zbl_id"] == "None":
-                    zbl_id = info_dict["zbl_id"]
-                else:
-                    zbl_id = None
-                if not self.conflict_string in info_dict["author"]:
-                    author_strings = info_dict["author"].split(";")
-                    author_ids = info_dict["author_ids"].split(";")
-                    authors = []
-                    for a, a_id in zip(author_strings, author_ids):
-                        a = a.strip()
-                        a_id = a_id.strip()
-                        if a != "None":
-                            if a_id in self.existing_authors:
-                                authors.append(self.existing_authors[a_id])
-                                print(
-                                    f"Author with name {a} was already created this run."
+                for attempt in range(5):
+                    try:
+                        d = datetime.now()
+                        if d.hour == 2:
+                            print("Sleeping for one hour")
+                            time.sleep(3600)
+                        if in_header_line:
+                            headers = line.strip().split("\t")
+                            in_header_line = False
+                            continue
+                        split_line = line.strip().split("\t")
+                        # formatting error: skip
+                        if len(split_line) != len(headers):
+                            continue
+                        info_dict = dict(zip(headers, split_line))
+                        # this part is for continuing at a certain position if the import failed
+                        # if not found:
+                        #     if info_dict["document_title"] != "Unimodular supergravity":
+                        #         continue
+                        #     else:
+                        #         found = True
+                        #         continue
+                        if info_dict["document_title"] in self.existing_publications:
+                            print(
+                                f"A publication with the name {info_dict['document_title']} was already created in this run."
+                            )
+                            continue
+                        # if there is not title, don't add
+                        if self.conflict_string in info_dict["document_title"]:
+                            continue
+                        if not info_dict["zbl_id"] == "None":
+                            zbl_id = info_dict["zbl_id"]
+                        else:
+                            zbl_id = None
+                        if not self.conflict_string in info_dict["author"]:
+                            author_strings = info_dict["author"].split(";")
+                            author_ids = info_dict["author_ids"].split(";")
+                            authors = []
+                            for a, a_id in zip(author_strings, author_ids):
+                                a = a.strip()
+                                a_id = a_id.strip()
+                                if a != "None":
+                                    if a_id in self.existing_authors:
+                                        authors.append(self.existing_authors[a_id])
+                                        print(
+                                           f"Author with name {a} was already created this run."
+                                        )
+                                    else:
+                                        author = ZBMathAuthor(
+                                            integrator=self.integrator,
+                                            name=a,
+                                            zbmath_author_id=a_id,
+                                        )
+                                        local_author_id = author.create()
+                                        authors.append(local_author_id)
+                                        self.existing_authors[a_id] = local_author_id
+                        else:
+                            authors = []
+
+                        if (
+                            not self.conflict_string in info_dict["serial"]
+                            and info_dict["serial"].strip() != "None"
+                        ):
+                            journal_string = info_dict["serial"].split(";")[-1].strip()
+                            if journal_string in self.existing_journals:
+                                journal = self.existing_journals[journal_string]
+                            print(
+                                    f"Journal {journal_string} was already created in this run."
                                 )
                             else:
-                                author = ZBMathAuthor(
-                                    integrator=self.integrator,
-                                    name=a,
-                                    zbmath_author_id=a_id,
+                                journal_item = ZBMathJournal(
+                                    integrator=self.integrator, name=journal_string
                                 )
-                                local_author_id = author.create()
-                                authors.append(local_author_id)
-                                self.existing_authors[a_id] = local_author_id
-                else:
-                    authors = []
-
-                if (
-                    not self.conflict_string in info_dict["serial"]
-                    and info_dict["serial"].strip() != "None"
-                ):
-                    journal_string = info_dict["serial"].split(";")[-1].strip()
-                    if journal_string in self.existing_journals:
-                        journal = self.existing_journals[journal_string]
-                        print(
-                            f"Journal {journal_string} was already created in this run."
-                        )
-                    else:
-                        journal_item = ZBMathJournal(
-                            integrator=self.integrator, name=journal_string
-                        )
-                        if journal_item.exists():
-                            print(f"Journal {journal_string} exists!")
-                            journal = journal_item.QID
+                                if journal_item.exists():
+                                    print(f"Journal {journal_string} exists!")
+                                    journal = journal_item.QID
+                                else:
+                                    print(f"Creating journal {journal_string}")
+                                    journal = journal_item.create()
+                                self.existing_journals[journal_string] = journal
                         else:
-                            print(f"Creating journal {journal_string}")
-                            journal = journal_item.create()
-                        self.existing_journals[journal_string] = journal
-                else:
-                    journal = None
+                            journal = None
 
-                if not self.conflict_string in info_dict["language"]:
-                    language = info_dict["language"].strip()
-                else:
-                    language = None
+                        if not self.conflict_string in info_dict["language"]:
+                            language = info_dict["language"].strip()
+                        else:
+                            language = None
 
-                if not self.conflict_string in info_dict["publication_year"]:
-                    time_string = (
-                        f"+{info_dict['publication_year'].strip()}-00-00T00:00:00Z"
-                    )
-                else:
-                    time_string = None
-
-                if not self.conflict_string in info_dict["links"]:
-                    links = info_dict["links"].split(";")
-                    links = [
-                        x.strip()
-                        for x in links
-                        if (x.startswith("http") and " " not in x.strip())
-                    ]
-                else:
-                    links = []
-
-                if (
-                    not self.conflict_string in info_dict["doi"]
-                    and not "None" in info_dict["doi"]
-                ):
-                    doi = info_dict["doi"].strip()
-                else:
-                    doi = None
-
-                if info_dict["creation_date"] != "0001-01-01T00:00:00":
-                    # because there can be no hours etc
-                    creation_date = (
-                        f"{info_dict['creation_date'].split('T')[0]}T00:00:00Z"
-                    )
-                else:
-                    creation_date = None
-
-                if (
-                    not self.conflict_string in info_dict["review_text"]
-                    and info_dict["review_text"].strip() != "None"
-                ):
-                    review_text = info_dict["review_text"].strip()
-                    if (
-                        not self.conflict_string in info_dict["review_sign"]
-                        and info_dict["review_sign"].strip() != "None"
-                        and not self.conflict_string in info_dict["reviewer_id"]
-                        and info_dict["reviewer_id"].strip() != "None"
-                    ):
-                        reviewer_id = info_dict["reviewer_id"].strip()
-                        reviewer_name = (
-                            info_dict["review_sign"]
-                            .strip()
-                            .split("/")[0]
-                            .strip()
-                            .split("(")[0]
-                            .strip()
-                        )
-                        if reviewer_id in self.existing_authors:
-                            reviewer = self.existing_authors[reviewer_id]
-                            print(
-                                f"Reviewer with name {a} was already created this run."
+                        if not self.conflict_string in info_dict["publication_year"]:
+                            time_string = (
+                                f"+{info_dict['publication_year'].strip()}-00-00T00:00:00Z"
                             )
                         else:
-                            reviewer_object = ZBMathAuthor(
-                                integrator=self.integrator,
-                                name=reviewer_name,
-                                zbmath_author_id=reviewer_id,
+                            time_string = None
+
+                        if not self.conflict_string in info_dict["links"]:
+                            links = info_dict["links"].split(";")
+                            links = [
+                                x.strip()
+                                for x in links
+                                if (x.startswith("http") and " " not in x.strip())
+                            ]
+                        else:
+                            links = []
+
+                        if (
+                            not self.conflict_string in info_dict["doi"]
+                            and not "None" in info_dict["doi"]
+                        ):
+                            doi = info_dict["doi"].strip()
+                        else:
+                            doi = None
+
+                        if info_dict["creation_date"] != "0001-01-01T00:00:00":
+                            # because there can be no hours etc
+                            creation_date = (
+                                f"{info_dict['creation_date'].split('T')[0]}T00:00:00Z"
                             )
-                            reviewer = reviewer_object.create()
-                            self.existing_authors[reviewer_id] = reviewer
+                        else:
+                            creation_date = None
+
+                        if (
+                            not self.conflict_string in info_dict["review_text"]
+                            and info_dict["review_text"].strip() != "None"
+                        ):
+                            review_text = info_dict["review_text"].strip()
+                            if (
+                                not self.conflict_string in info_dict["review_sign"]
+                                and info_dict["review_sign"].strip() != "None"
+                                and not self.conflict_string in info_dict["reviewer_id"]
+                                and info_dict["reviewer_id"].strip() != "None"
+                            ):
+                                reviewer_id = info_dict["reviewer_id"].strip()
+                                reviewer_name = (
+                                    info_dict["review_sign"]
+                                    .strip()
+                                    .split("/")[0]
+                                    .strip()
+                                    .split("(")[0]
+                                    .strip()
+                                )
+                                if reviewer_id in self.existing_authors:
+                                    reviewer = self.existing_authors[reviewer_id]
+                                    print(
+                                        f"Reviewer with name {a} was already created this run."
+                                    )
+                                else:
+                                    reviewer_object = ZBMathAuthor(
+                                        integrator=self.integrator,
+                                        name=reviewer_name,
+                                        zbmath_author_id=reviewer_id,
+                                    )
+                                    reviewer = reviewer_object.create()
+                                    self.existing_authors[reviewer_id] = reviewer
+                            else:
+                                reviewer = None
+                        else:
+                            review_text = None
+                            reviewer = None
+
+                        if (
+                            not self.conflict_string in info_dict["classifications"]
+                            and info_dict["classifications"].strip() != "None"
+                        ):
+                            classifications = info_dict["classifications"].strip().split(";")
+                        else:
+                            classifications = None
+
+                        if info_dict["de_number"].strip() != "None":
+                            de_number = info_dict["de_number"].strip()
+                        else:
+                            de_number = None
+
+                        if (
+                            not self.conflict_string in info_dict["keywords"]
+                            and info_dict["keywords"].strip() != "None"
+                        ):
+                            keywords = info_dict["keywords"].strip().split(";")
+                            keywords = [x.strip() for x in keywords]
+                        else:
+                            keywords = None
+
+                        publication = ZBMathPublication(
+                            integrator=self.integrator,
+                            title=info_dict["document_title"].strip(),
+                            doi=doi,
+                            authors=authors,
+                            journal=journal,
+                            language=language,
+                            time=time_string,
+                            links=links,
+                            creation_date=creation_date,
+                            zbl_id=zbl_id,
+                            review_text=review_text,
+                            reviewer=reviewer,
+                            classifications=classifications,
+                            de_number=de_number,
+                            keywords=keywords,
+                            de_number_prop=self.de_number_prop,
+                            keyword_prop=self.keyword_prop,
+                        )
+                        if publication.exists():
+                            print(f"Publication {info_dict['document_title']} exists")
+                            publication.update()
+                        else:
+                            print(f"Creating publication {info_dict['document_title']}")
+                            publication.create()
+                        # in case a publication is listed twice; this normally happens
+                        # within a distance of a few lines
+                        self.existing_publications.append(info_dict["document_title"])
+                        self.existing_publications = self.existing_publications[-100:]
+                    except Exception as e:
+                        print(f"Exception: {e}, sleeping")
+                        time.sleep(120)
                     else:
-                        reviewer = None
+                        break
                 else:
-                    review_text = None
-                    reviewer = None
-
-                if (
-                    not self.conflict_string in info_dict["classifications"]
-                    and info_dict["classifications"].strip() != "None"
-                ):
-                    classifications = info_dict["classifications"].strip().split(";")
-                else:
-                    classifications = None
-
-                if info_dict["de_number"].strip() != "None":
-                    de_number = info_dict["de_number"].strip()
-                else:
-                    de_number = None
-
-                if (
-                    not self.conflict_string in info_dict["keywords"]
-                    and info_dict["keywords"].strip() != "None"
-                ):
-                    keywords = info_dict["keywords"].strip().split(";")
-                    keywords = [x.strip() for x in keywords]
-                else:
-                    keywords = None
-
-                publication = ZBMathPublication(
-                    integrator=self.integrator,
-                    title=info_dict["document_title"].strip(),
-                    doi=doi,
-                    authors=authors,
-                    journal=journal,
-                    language=language,
-                    time=time_string,
-                    links=links,
-                    creation_date=creation_date,
-                    zbl_id=zbl_id,
-                    review_text=review_text,
-                    reviewer=reviewer,
-                    classifications=classifications,
-                    de_number=de_number,
-                    keywords=keywords,
-                    de_number_prop=self.de_number_prop,
-                    keyword_prop=self.keyword_prop,
-                )
-                if publication.exists():
-                    print(f"Publication {info_dict['document_title']} exists")
-                    publication.update()
-                else:
-                    print(f"Creating publication {info_dict['document_title']}")
-                    publication.create()
-                # in case a publication is listed twice; this normally happens
-                # within a distance of a few lines
-                self.existing_publications.append(info_dict["document_title"])
-                self.existing_publications = self.existing_publications[-100:]
+                    sys.exit("Did not work after retries!")
 
     def get_de_number(self, xml_record):
         """

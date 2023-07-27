@@ -15,7 +15,7 @@ from mardi_importer.zbmath.misc import get_tag, parse_doi_info
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from datetime import datetime
-
+import traceback
 
 class ZBMathSource(ADataSource):
     """Reads data from zb math API."""
@@ -316,6 +316,7 @@ class ZBMathSource(ADataSource):
                                         local_author_id = author.create()
                                     except Exception as e:
                                         print(f"Exception: {e}, sleeping")
+                                        print(traceback.format_exc())
                                         time.sleep(120)
                                     else:
                                         break
@@ -350,6 +351,7 @@ class ZBMathSource(ADataSource):
                                     journal = journal_item.create()
                             except Exception as e:
                                     print(f"Exception: {e}, sleeping")
+                                    print(traceback.format_exc())
                                     time.sleep(120)
                             else:
                                 break
@@ -433,6 +435,7 @@ class ZBMathSource(ADataSource):
                                     reviewer = reviewer_object.create()
                                 except Exception as e:
                                     print(f"Exception: {e}, sleeping")
+                                    print(traceback.format_exc())
                                     time.sleep(120)
                                 else:
                                     break
@@ -495,6 +498,7 @@ class ZBMathSource(ADataSource):
                             publication.create()
                     except Exception as e:
                         print(f"Exception: {e}, sleeping")
+                        print(traceback.format_exc())
                         time.sleep(120)
                     else:
                         break

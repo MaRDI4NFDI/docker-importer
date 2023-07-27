@@ -264,10 +264,6 @@ class ZBMathSource(ADataSource):
         with open(self.processed_dump_path, "r") as infile:
             in_header_line = True
             for line in infile:
-                d = datetime.now()
-                if d.hour == 2:
-                    print("Sleeping for one hour")
-                    time.sleep(3600)
                 if in_header_line:
                     headers = line.strip().split("\t")
                     in_header_line = False
@@ -310,12 +306,21 @@ class ZBMathSource(ADataSource):
                                     f"Author with name {a} was already created this run."
                                 )
                             else:
-                                author = ZBMathAuthor(
-                                    integrator=self.integrator,
-                                    name=a,
-                                    zbmath_author_id=a_id,
-                                )
-                                local_author_id = author.create()
+                                for attempt in range(5):
+                                    try:
+                                        author = ZBMathAuthor(
+                                            integrator=self.integrator,
+                                            name=a,
+                                            zbmath_author_id=a_id,
+                                        )
+                                        local_author_id = author.create()
+                                    except Exception as e:
+                                        print(f"Exception: {e}, sleeping")
+                                        time.sleep(120)
+                                    else:
+                                        break
+                                else:
+                                    sys.exit("Uploading author did not work after retries!")
                                 authors.append(local_author_id)
                                 self.existing_authors[a_id] = local_author_id
                 else:
@@ -332,15 +337,24 @@ class ZBMathSource(ADataSource):
                             f"Journal {journal_string} was already created in this run."
                         )
                     else:
-                        journal_item = ZBMathJournal(
-                            integrator=self.integrator, name=journal_string
-                        )
-                        if journal_item.exists():
-                            print(f"Journal {journal_string} exists!")
-                            journal = journal_item.QID
+                        for attempt in range(5):
+                            try:
+                                journal_item = ZBMathJournal(
+                                    integrator=self.integrator, name=journal_string
+                                )
+                                if journal_item.exists():
+                                    print(f"Journal {journal_string} exists!")
+                                    journal = journal_item.QID
+                                else:
+                                    print(f"Creating journal {journal_string}")
+                                    journal = journal_item.create()
+                            except Exception as e:
+                                    print(f"Exception: {e}, sleeping")
+                                    time.sleep(120)
+                            else:
+                                break
                         else:
-                            print(f"Creating journal {journal_string}")
-                            journal = journal_item.create()
+                            sys.exit("Uploading journal did not work after retries!")
                         self.existing_journals[journal_string] = journal
                 else:
                     journal = None
@@ -409,12 +423,21 @@ class ZBMathSource(ADataSource):
                                 f"Reviewer with name {a} was already created this run."
                             )
                         else:
-                            reviewer_object = ZBMathAuthor(
-                                integrator=self.integrator,
-                                name=reviewer_name,
-                                zbmath_author_id=reviewer_id,
-                            )
-                            reviewer = reviewer_object.create()
+                            for attempt in range(5):
+                                try:
+                                    reviewer_object = ZBMathAuthor(
+                                        integrator=self.integrator,
+                                        name=reviewer_name,
+                                        zbmath_author_id=reviewer_id,
+                                    )
+                                    reviewer = reviewer_object.create()
+                                except Exception as e:
+                                    print(f"Exception: {e}, sleeping")
+                                    time.sleep(120)
+                                else:
+                                    break
+                            else:
+                                sys.exit("Uploading reviewer did not work after retries!")
                             self.existing_authors[reviewer_id] = reviewer
                     else:
                         reviewer = None
@@ -443,32 +466,40 @@ class ZBMathSource(ADataSource):
                     keywords = [x.strip() for x in keywords]
                 else:
                     keywords = None
-
-                publication = ZBMathPublication(
-                    integrator=self.integrator,
-                    title=info_dict["document_title"].strip(),
-                    doi=doi,
-                    authors=authors,
-                    journal=journal,
-                    language=language,
-                    time=time_string,
-                    links=links,
-                    creation_date=creation_date,
-                    zbl_id=zbl_id,
-                    review_text=review_text,
-                    reviewer=reviewer,
-                    classifications=classifications,
-                    de_number=de_number,
-                    keywords=keywords,
-                    de_number_prop=self.de_number_prop,
-                    keyword_prop=self.keyword_prop,
-                )
-                if publication.exists():
-                    print(f"Publication {info_dict['document_title']} exists")
-                    publication.update()
+                for attempt in range(5):
+                    try:
+                        publication = ZBMathPublication(
+                            integrator=self.integrator,
+                            title=info_dict["document_title"].strip(),
+                            doi=doi,
+                            authors=authors,
+                            journal=journal,
+                            language=language,
+                            time=time_string,
+                            links=links,
+                            creation_date=creation_date,
+                            zbl_id=zbl_id,
+                            review_text=review_text,
+                            reviewer=reviewer,
+                            classifications=classifications,
+                            de_number=de_number,
+                            keywords=keywords,
+                            de_number_prop=self.de_number_prop,
+                            keyword_prop=self.keyword_prop,
+                            )
+                        if publication.exists():
+                            print(f"Publication {info_dict['document_title']} exists")
+                            publication.update()
+                        else:
+                            print(f"Creating publication {info_dict['document_title']}")
+                            publication.create()
+                    except Exception as e:
+                        print(f"Exception: {e}, sleeping")
+                        time.sleep(120)
+                    else:
+                        break
                 else:
-                    print(f"Creating publication {info_dict['document_title']}")
-                    publication.create()
+                    sys.exit("Uploading publication did not work after retries!")
                 # in case a publication is listed twice; this normally happens
                 # within a distance of a few lines
                 self.existing_publications.append(info_dict["document_title"])

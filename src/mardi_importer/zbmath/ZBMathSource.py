@@ -296,11 +296,12 @@ class ZBMathSource(ADataSource):
                             doi=info_dict["doi"].strip(), key="document_title"
                         )
                         if not document_title:
-                            print("No title from doi, skipping")
-                            continue
+                            print("No title from doi, uploading empty")
+                            # continue !!!!!!!!!!!!!!!!!!!!
                     else:
                         print("No doi for paper, skipping")
-                        continue
+                        document_title = None  # !!!!!!!!!!!!!!!!
+                        # continue
                     # query crossref with doi
                     # what if in doi there are 2?
                     # get title from crossref

@@ -92,7 +92,8 @@ class ZBMathPublication:
 
     def insert_claims(self):
         # title
-        self.item.add_claim("wdt:P1476", self.title, language="en")
+        if self.title:
+            self.item.add_claim("wdt:P1476", self.title, language="en")
         # zbmath document id
         if self.zbl_id:
             self.item.add_claim("wdt:P894", self.zbl_id)

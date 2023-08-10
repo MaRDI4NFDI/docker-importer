@@ -11,11 +11,12 @@ import xml.etree.ElementTree as ET
 import sys
 import os
 import json
-from mardi_importer.zbmath.misc import get_tag, parse_doi_info
+from mardi_importer.zbmath.misc import get_tag, get_info_from_doi
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from datetime import datetime
 import traceback
+
 
 class ZBMathSource(ADataSource):
     """Reads data from zb math API."""
@@ -287,7 +288,28 @@ class ZBMathSource(ADataSource):
                     continue
                 # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
+                    if (
+                        self.conflict_string not in info_dict["doi"]
+                        and info_dict["doi"] != "None"
+                    ):
+                        document_title = get_info_from_doi(
+                            doi=info_dict["doi"].strip(), key="document_title"
+                        )
+                        if not document_title:
+                            print("No title from doi, skipping")
+                            continue
+                    else:
+                        print("No doi for paper, skipping")
+                        continue
+                    # query crossref with doi
+                    # what if in doi there are 2?
+                    # get title from crossref
+                    # what if that´s duplicated then?
+                # only upload those where there was a conflict before
+                else:
+                    print(f"Skipping non-conflict paper {info_dict['document_title']}")
                     continue
+                    document_title = info_dict["document_title"].strip()
                 if not info_dict["zbl_id"] == "None":
                     zbl_id = info_dict["zbl_id"]
                 else:
@@ -321,7 +343,9 @@ class ZBMathSource(ADataSource):
                                     else:
                                         break
                                 else:
-                                    sys.exit("Uploading author did not work after retries!")
+                                    sys.exit(
+                                        "Uploading author did not work after retries!"
+                                    )
                                 authors.append(local_author_id)
                                 self.existing_authors[a_id] = local_author_id
                 else:
@@ -350,9 +374,9 @@ class ZBMathSource(ADataSource):
                                     print(f"Creating journal {journal_string}")
                                     journal = journal_item.create()
                             except Exception as e:
-                                    print(f"Exception: {e}, sleeping")
-                                    print(traceback.format_exc())
-                                    time.sleep(120)
+                                print(f"Exception: {e}, sleeping")
+                                print(traceback.format_exc())
+                                time.sleep(120)
                             else:
                                 break
                         else:
@@ -440,7 +464,9 @@ class ZBMathSource(ADataSource):
                                 else:
                                     break
                             else:
-                                sys.exit("Uploading reviewer did not work after retries!")
+                                sys.exit(
+                                    "Uploading reviewer did not work after retries!"
+                                )
                             self.existing_authors[reviewer_id] = reviewer
                     else:
                         reviewer = None
@@ -473,7 +499,7 @@ class ZBMathSource(ADataSource):
                     try:
                         publication = ZBMathPublication(
                             integrator=self.integrator,
-                            title=info_dict["document_title"].strip(),
+                            title=document_title,
                             doi=doi,
                             authors=authors,
                             journal=journal,
@@ -489,12 +515,12 @@ class ZBMathSource(ADataSource):
                             keywords=keywords,
                             de_number_prop=self.de_number_prop,
                             keyword_prop=self.keyword_prop,
-                            )
+                        )
                         if publication.exists():
-                            print(f"Publication {info_dict['document_title']} exists")
+                            print(f"Publication {document_title} exists")
                             publication.update()
                         else:
-                            print(f"Creating publication {info_dict['document_title']}")
+                            print(f"Creating publication {document_title}")
                             publication.create()
                     except Exception as e:
                         print(f"Exception: {e}, sleeping")
@@ -506,7 +532,7 @@ class ZBMathSource(ADataSource):
                     sys.exit("Uploading publication did not work after retries!")
                 # in case a publication is listed twice; this normally happens
                 # within a distance of a few lines
-                self.existing_publications.append(info_dict["document_title"])
+                self.existing_publications.append(document_title)
                 self.existing_publications = self.existing_publications[-100:]
 
     def get_de_number(self, xml_record):

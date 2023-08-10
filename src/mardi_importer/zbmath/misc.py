@@ -121,7 +121,12 @@ def get_info_from_doi(doi, key):
                     return ";".join(title_list)
                 else:
                     continue
-        # if the doi is not found, there is a 404
+            elif key == "journal":
+                if "container-title" not in work_info["message"]:
+                    return None
+                journal = work_info["message"]["container-title"][0]
+                return journal
+                # if the doi is not found, there is a 404
         except HTTPError:
             print("HTTP Error!")
             continue

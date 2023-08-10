@@ -297,6 +297,8 @@ class ZBMathSource(ADataSource):
                         )
                         if not document_title:
                             print("No title from doi, uploading empty")
+                        else:
+                            print(f"Found document title {document_title} from doi")
                     else:
                         print("No doi for paper, skipping")
                         document_title = None
@@ -347,10 +349,21 @@ class ZBMathSource(ADataSource):
                     authors = []
 
                 if (
-                    not self.conflict_string in info_dict["serial"]
-                    and info_dict["serial"].strip() != "None"
+                    self.conflict_string in info_dict["serial"]
+                    or info_dict["serial"].strip() == "None"
                 ):
+                    if (
+                        self.conflict_string not in info_dict["doi"]
+                        and info_dict["doi"] != "None"
+                    ):
+                        journal_string = get_info_from_doi(
+                            doi=info_dict["doi"].strip(), key="journal"
+                        )
+                    else:
+                        journal_string = None
+                else:
                     journal_string = info_dict["serial"].split(";")[-1].strip()
+                if journal_string:
                     if journal_string in self.existing_journals:
                         journal = self.existing_journals[journal_string]
                         print(

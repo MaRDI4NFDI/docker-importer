@@ -297,15 +297,9 @@ class ZBMathSource(ADataSource):
                         )
                         if not document_title:
                             print("No title from doi, uploading empty")
-                            # continue !!!!!!!!!!!!!!!!!!!!
                     else:
                         print("No doi for paper, skipping")
-                        document_title = None  # !!!!!!!!!!!!!!!!
-                        # continue
-                    # query crossref with doi
-                    # what if in doi there are 2?
-                    # get title from crossref
-                    # what if that´s duplicated then?
+                        document_title = None
                 # only upload those where there was a conflict before
                 else:
                     print(f"Skipping non-conflict paper {info_dict['document_title']}")

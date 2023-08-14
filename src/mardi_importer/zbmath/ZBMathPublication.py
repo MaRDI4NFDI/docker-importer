@@ -150,7 +150,17 @@ class ZBMathPublication:
         if self.QID:
             return self.QID
         # instance of scholarly article
-        self.QID = self.item.is_instance_of("wd:Q13442814")
+        if self.title:
+            self.QID = self.item.is_instance_of("wd:Q13442814")
+        else:
+            QID_list = self.api.search_entity_by_value(
+                self.de_number_prop, self.de_number
+            )
+            if not QID_list:
+                self.QID = None
+            else:
+                # should not be more than one
+                self.QID = QID_list[0]
         return self.QID
 
     def update(self):

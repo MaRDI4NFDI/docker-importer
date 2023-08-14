@@ -16,8 +16,11 @@ class ZBMathAuthor:
 
     def __init__(self, integrator, name, zbmath_author_id):
         self.api = integrator
-        name_parts = name.strip().split(",")
-        self.name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
+        if name:
+            name_parts = name.strip().split(",")
+            self.name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
+        else:
+            self.name = None
         self.QID = None
         self.zbmath_author_id = zbmath_author_id.strip()
         self.item = self.init_item()
@@ -28,10 +31,21 @@ class ZBMathAuthor:
         # instance of: human
         item.add_claim("wdt:P31", "wd:Q5")
         if self.zbmath_author_id:
-            # is there a human with zbmath author ID = zbmath_author_id
-            self.QID = item.is_instance_of_with_property(
-                "wd:Q5", "wdt:P1556", self.zbmath_author_id
-            )
+            if self.name:
+                # is there a human with zbmath author ID = zbmath_author_id
+                self.QID = item.is_instance_of_with_property(
+                    "wd:Q5", "wdt:P1556", self.zbmath_author_id
+                )
+            else:
+                QID_list = self.api.search_entity_by_value(
+                    "wdt:P1556", self.zbmath_author_id
+                )
+                if not QID_list:
+                    self.QID = None
+                else:
+                    # should not be more than one
+                    self.QID = QID_list[0]
+                    print(f"Id for empty author found, QID {self.QID}")
             if self.QID:
                 return item
             else:

@@ -11,11 +11,12 @@ import xml.etree.ElementTree as ET
 import sys
 import os
 import json
-from mardi_importer.zbmath.misc import get_tag, parse_doi_info
+from mardi_importer.zbmath.misc import get_tag, get_info_from_doi
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from datetime import datetime
 import traceback
+
 
 class ZBMathSource(ADataSource):
     """Reads data from zb math API."""
@@ -287,51 +288,85 @@ class ZBMathSource(ADataSource):
                     continue
                 # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
+                    if (
+                        self.conflict_string not in info_dict["doi"]
+                        and info_dict["doi"] != "None"
+                    ):
+                        document_title = get_info_from_doi(
+                            doi=info_dict["doi"].strip(), key="document_title"
+                        )
+                        if not document_title:
+                            print("No title from doi, uploading empty")
+                        else:
+                            print(f"Found document title {document_title} from doi")
+                    else:
+                        print("No doi found, uploading empty.")
+                        document_title = None
+                # only upload those where there was a conflict before
+                else:
+                    print(f"Skipping non-conflict paper {info_dict['document_title']}")
                     continue
+                    document_title = info_dict["document_title"].strip()
                 if not info_dict["zbl_id"] == "None":
                     zbl_id = info_dict["zbl_id"]
                 else:
                     zbl_id = None
-                if not self.conflict_string in info_dict["author"]:
-                    author_strings = info_dict["author"].split(";")
+
+                if not self.conflict_string in info_dict["author_ids"]:
                     author_ids = info_dict["author_ids"].split(";")
+                    if (
+                        self.conflict_string in info_dict["author"]
+                        or "None" in info_dict["author"]
+                    ):
+                        author_strings = [None] * len(author_ids)
+                    else:
+                        author_strings = info_dict["author"].split(";")
                     authors = []
                     for a, a_id in zip(author_strings, author_ids):
-                        a = a.strip()
+                        if a:
+                            a = a.strip()
                         a_id = a_id.strip()
-                        if a != "None":
-                            if a_id in self.existing_authors:
-                                authors.append(self.existing_authors[a_id])
-                                print(
-                                    f"Author with name {a} was already created this run."
-                                )
-                            else:
-                                for attempt in range(5):
-                                    try:
-                                        author = ZBMathAuthor(
-                                            integrator=self.integrator,
-                                            name=a,
-                                            zbmath_author_id=a_id,
-                                        )
-                                        local_author_id = author.create()
-                                    except Exception as e:
-                                        print(f"Exception: {e}, sleeping")
-                                        print(traceback.format_exc())
-                                        time.sleep(120)
-                                    else:
-                                        break
+                        if a_id in self.existing_authors:
+                            authors.append(self.existing_authors[a_id])
+                            print(f"Author with name {a} was already created this run.")
+                        else:
+                            for attempt in range(5):
+                                try:
+                                    author = ZBMathAuthor(
+                                        integrator=self.integrator,
+                                        name=a,
+                                        zbmath_author_id=a_id,
+                                    )
+                                    local_author_id = author.create()
+                                except Exception as e:
+                                    print(f"Exception: {e}, sleeping")
+                                    print(traceback.format_exc())
+                                    time.sleep(120)
                                 else:
-                                    sys.exit("Uploading author did not work after retries!")
-                                authors.append(local_author_id)
-                                self.existing_authors[a_id] = local_author_id
+                                    break
+                            else:
+                                sys.exit("Uploading author did not work after retries!")
+                            authors.append(local_author_id)
+                            self.existing_authors[a_id] = local_author_id
                 else:
                     authors = []
 
                 if (
-                    not self.conflict_string in info_dict["serial"]
-                    and info_dict["serial"].strip() != "None"
+                    self.conflict_string in info_dict["serial"]
+                    or info_dict["serial"].strip() == "None"
                 ):
+                    if (
+                        self.conflict_string not in info_dict["doi"]
+                        and info_dict["doi"] != "None"
+                    ):
+                        journal_string = get_info_from_doi(
+                            doi=info_dict["doi"].strip(), key="journal"
+                        )
+                    else:
+                        journal_string = None
+                else:
                     journal_string = info_dict["serial"].split(";")[-1].strip()
+                if journal_string:
                     if journal_string in self.existing_journals:
                         journal = self.existing_journals[journal_string]
                         print(
@@ -350,9 +385,9 @@ class ZBMathSource(ADataSource):
                                     print(f"Creating journal {journal_string}")
                                     journal = journal_item.create()
                             except Exception as e:
-                                    print(f"Exception: {e}, sleeping")
-                                    print(traceback.format_exc())
-                                    time.sleep(120)
+                                print(f"Exception: {e}, sleeping")
+                                print(traceback.format_exc())
+                                time.sleep(120)
                             else:
                                 break
                         else:
@@ -440,7 +475,9 @@ class ZBMathSource(ADataSource):
                                 else:
                                     break
                             else:
-                                sys.exit("Uploading reviewer did not work after retries!")
+                                sys.exit(
+                                    "Uploading reviewer did not work after retries!"
+                                )
                             self.existing_authors[reviewer_id] = reviewer
                     else:
                         reviewer = None
@@ -473,7 +510,7 @@ class ZBMathSource(ADataSource):
                     try:
                         publication = ZBMathPublication(
                             integrator=self.integrator,
-                            title=info_dict["document_title"].strip(),
+                            title=document_title,
                             doi=doi,
                             authors=authors,
                             journal=journal,
@@ -489,12 +526,12 @@ class ZBMathSource(ADataSource):
                             keywords=keywords,
                             de_number_prop=self.de_number_prop,
                             keyword_prop=self.keyword_prop,
-                            )
+                        )
                         if publication.exists():
-                            print(f"Publication {info_dict['document_title']} exists")
+                            print(f"Publication {document_title} exists")
                             publication.update()
                         else:
-                            print(f"Creating publication {info_dict['document_title']}")
+                            print(f"Creating publication {document_title}")
                             publication.create()
                     except Exception as e:
                         print(f"Exception: {e}, sleeping")
@@ -506,7 +543,8 @@ class ZBMathSource(ADataSource):
                     sys.exit("Uploading publication did not work after retries!")
                 # in case a publication is listed twice; this normally happens
                 # within a distance of a few lines
-                self.existing_publications.append(info_dict["document_title"])
+                if document_title:
+                    self.existing_publications.append(document_title)
                 self.existing_publications = self.existing_publications[-100:]
 
     def get_de_number(self, xml_record):

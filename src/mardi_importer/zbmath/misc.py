@@ -1,3 +1,7 @@
+from habanero import Crossref
+from requests.exceptions import HTTPError
+
+
 def get_tag(tag_name, namespace):
     """
     Returns a fully qualified tag name.
@@ -83,3 +87,47 @@ def parse_doi_info(val, work_info):
         if "subject" not in work_info:
             return None
         return ";".join(work_info["subject"])
+
+
+def get_info_from_doi(doi, key):
+    """
+    Query crossref API for DOI information.
+
+    Args:
+        doi: doi
+        key: document_title only for now
+
+    Returns:
+        title: document title
+    """
+    doi_list = doi.split(";")
+    # print("doi")
+    # print(doi)
+    # print("doi list")
+    # print(doi_list)
+    cr = Crossref(mailto="pusch@zib.de")
+    for doi in doi_list:
+        try:
+            work_info = cr.works(ids=doi)
+            # print("work info")
+            # print(work_info)
+            if key == "document_title":
+                if "title" not in work_info["message"]:
+                    continue
+                # print(work_info["message"])
+                # print(work_info["message"]["title"])
+                title_list = work_info["message"]["title"]
+                if title_list:
+                    return ";".join(title_list)
+                else:
+                    continue
+            elif key == "journal":
+                if "container-title" not in work_info["message"]:
+                    return None
+                journal = work_info["message"]["container-title"][0]
+                return journal
+                # if the doi is not found, there is a 404
+        except HTTPError:
+            print("HTTP Error!")
+            continue
+    return None

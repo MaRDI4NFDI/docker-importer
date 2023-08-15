@@ -118,7 +118,9 @@ def get_info_from_doi(doi, key):
                 # print(work_info["message"]["title"])
                 title_list = work_info["message"]["title"]
                 if title_list:
-                    return ";".join(title_list)
+                    joint_title = ";".join(title_list).strip()
+                    joint_title.replace("\n", " ")
+                    return joint_title
                 else:
                     continue
             elif key == "journal":
@@ -126,7 +128,7 @@ def get_info_from_doi(doi, key):
                     return None
                 if not isinstance(work_info["message"]["container-title"], list):
                     return None 
-                journal = work_info["message"]["container-title"][0]
+                journal = work_info["message"]["container-title"][0].strip()
                 return journal
                 # if the doi is not found, there is a 404
         except HTTPError:

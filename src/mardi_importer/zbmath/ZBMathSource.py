@@ -276,6 +276,7 @@ class ZBMathSource(ADataSource):
                 info_dict = dict(zip(headers, split_line))
                 # this part is for continuing at a certain position if the import failed
                 # if not found:
+                #     if info_dict["de_number"].strip() != " ":
                 #     if info_dict["document_title"] != "Unimodular supergravity":
                 #         continue
                 #     else:
@@ -312,7 +313,7 @@ class ZBMathSource(ADataSource):
                 else:
                     zbl_id = None
 
-                if not self.conflict_string in info_dict["author_ids"]:
+                if not self.conflict_string in info_dict["author_ids"] and "None" not in info_dict["author_ids"]:
                     author_ids = info_dict["author_ids"].split(";")
                     if (
                         self.conflict_string in info_dict["author"]

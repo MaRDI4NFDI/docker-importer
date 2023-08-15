@@ -124,6 +124,8 @@ def get_info_from_doi(doi, key):
             elif key == "journal":
                 if "container-title" not in work_info["message"]:
                     return None
+                if not isinstance(work_info["message"]["container-title"], list):
+                    return None 
                 journal = work_info["message"]["container-title"][0]
                 return journal
                 # if the doi is not found, there is a 404

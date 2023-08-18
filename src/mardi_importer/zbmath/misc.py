@@ -119,14 +119,15 @@ def get_info_from_doi(doi, key):
                 title_list = work_info["message"]["title"]
                 if title_list:
                     joint_title = ";".join(title_list).strip()
-                    joint_title.replace("\n", " ")
+                    joint_title = joint_title.replace("\n", " ").strip()
+                    joint_title = joint_title.replace("\t", " ").strip()
                     return joint_title
                 else:
                     continue
             elif key == "journal":
                 if "container-title" not in work_info["message"]:
                     return None
-                if not isinstance(work_info["message"]["container-title"], list):
+                if not work_info["message"]["container-title"]:
                     return None 
                 journal = work_info["message"]["container-title"][0].strip()
                 return journal

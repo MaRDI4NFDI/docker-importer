@@ -298,6 +298,9 @@ class ZBMathSource(ADataSource):
                         )
                         if not document_title:
                             print("No title from doi, uploading empty")
+                        elif len(document_title) > 200:
+                            document_title = document_title[:200]
+                            print("Title too long, cutting")
                         else:
                             print(f"Found document title {document_title} from doi")
                     else:
@@ -313,7 +316,10 @@ class ZBMathSource(ADataSource):
                 else:
                     zbl_id = None
 
-                if not self.conflict_string in info_dict["author_ids"] and "None" not in info_dict["author_ids"]:
+                if (
+                    not self.conflict_string in info_dict["author_ids"]
+                    and "None" not in info_dict["author_ids"]
+                ):
                     author_ids = info_dict["author_ids"].split(";")
                     if (
                         self.conflict_string in info_dict["author"]
@@ -414,7 +420,12 @@ class ZBMathSource(ADataSource):
                     links = [
                         x.strip()
                         for x in links
-                        if (x.startswith("http") and " " not in x.strip())
+                        if (
+                            x.startswith("http")
+                            and " " not in x.strip()
+                            and "[" not in x
+                            and "]" not in x
+                        )
                     ]
                 else:
                     links = []

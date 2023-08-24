@@ -313,7 +313,10 @@ class ZBMathSource(ADataSource):
                 else:
                     zbl_id = None
 
-                if not self.conflict_string in info_dict["author_ids"] and "None" not in info_dict["author_ids"]:
+                if (
+                    not self.conflict_string in info_dict["author_ids"]
+                    and "None" not in info_dict["author_ids"]
+                ):
                     author_ids = info_dict["author_ids"].split(";")
                     if (
                         self.conflict_string in info_dict["author"]
@@ -414,7 +417,12 @@ class ZBMathSource(ADataSource):
                     links = [
                         x.strip()
                         for x in links
-                        if (x.startswith("http") and " " not in x.strip())
+                        if (
+                            x.startswith("http")
+                            and " " not in x.strip()
+                            and "[" not in x
+                            and "]" not in x
+                        )
                     ]
                 else:
                     links = []

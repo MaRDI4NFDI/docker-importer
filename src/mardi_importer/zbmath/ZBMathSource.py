@@ -298,9 +298,6 @@ class ZBMathSource(ADataSource):
                         )
                         if not document_title:
                             print("No title from doi, uploading empty")
-                        elif len(document_title) > 200:
-                            document_title = document_title[:200]
-                            print("Title too long, cutting")
                         else:
                             print(f"Found document title {document_title} from doi")
                     else:

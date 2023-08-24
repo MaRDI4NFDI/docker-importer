@@ -121,6 +121,8 @@ def get_info_from_doi(doi, key):
                     joint_title = ";".join(title_list).strip()
                     joint_title = joint_title.replace("\n", " ").strip()
                     joint_title = joint_title.replace("\t", " ").strip()
+                    if len(joint_title) > 500:
+                        return None
                     return joint_title
                 else:
                     continue

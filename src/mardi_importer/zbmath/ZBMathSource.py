@@ -16,7 +16,7 @@ from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from datetime import datetime
 import traceback
-
+import re
 
 class ZBMathSource(ADataSource):
     """Reads data from zb math API."""
@@ -413,17 +413,9 @@ class ZBMathSource(ADataSource):
                     time_string = None
 
                 if not self.conflict_string in info_dict["links"]:
+                    pattern = re.compile(r'^([a-z][a-z\d+.-]*):([^][<>\"\x00-\x20\x7F])+$')
                     links = info_dict["links"].split(";")
-                    links = [
-                        x.strip()
-                        for x in links
-                        if (
-                            x.startswith("http")
-                            and " " not in x.strip()
-                            and "[" not in x
-                            and "]" not in x
-                        )
-                    ]
+                    links = [ x.strip() for x in links if pattern.match(x)]
                 else:
                     links = []
 

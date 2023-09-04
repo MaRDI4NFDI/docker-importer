@@ -415,7 +415,7 @@ class ZBMathSource(ADataSource):
                 if not self.conflict_string in info_dict["links"]:
                     pattern = re.compile(r'^([a-z][a-z\d+.-]*):([^][<>\"\x00-\x20\x7F])+$')
                     links = info_dict["links"].split(";")
-                    links = [ x.strip() for x in links if pattern.match(x)]
+                    links = [ x.strip() for x in links if (pattern.match(x) and "http" in x)]
                 else:
                     links = []
 

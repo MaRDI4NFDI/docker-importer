@@ -32,9 +32,6 @@ RUN docker-php-ext-install intl
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
 	&& adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
 
-#copy folder for extensions
-COPY --from=ghcr.io/mardi4nfdi/docker-wikibase:main /var/www/html/ /var/www/html/
-
 # Copy cron files.
 RUN mkdir /app
 COPY import.sh /app/
@@ -42,7 +39,6 @@ COPY start.sh /app/
 
 # Make sure scripts are executable
 RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
-
 
 ##############################
 # Setup import script        #
@@ -58,21 +54,17 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Install WikibaseIntegrator from repository (temporal solution until new release is published)
-RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git /WikibaseIntegrator
-RUN pip install --no-cache-dir /WikibaseIntegrator
+# Install MaRDI client
+RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git
+RUN pip install --upgrade pip setuptools
+RUN pip install ./mardiclient
 
-# Copy the Python source code to the image
-RUN mkdir /importer
-COPY src /importer/src
-COPY setup.py /importer/
-COPY pyproject.toml /importer/
-COPY README.md /importer/
-# --user works too instead of --no-build-isolation
-RUN pip install --no-cache-dir -v --no-build-isolation -e /importer
+# Install MaRDI importer
+COPY /mardi_importer /mardi_importer
+RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 
 # Copy the unit tests to the image
-COPY tests /importer/tests
+# COPY tests /tests
 
 # Copy configurations to the image
 COPY config /config

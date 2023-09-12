@@ -52,8 +52,8 @@ class GenericReference():
                 conf_item.add_claim('wdt:P276', location)
                 conf_item.add_claim('wdt:P921', 'wd:Q874709')
                 conf_item.add_claim('wdt:P921', 'wd:Q121416')
-                conf_item.add_claim('wdt:P580', time="+2007-10-16T00:00:00Z")
-                conf_item.add_claim('wdt:P582', time="+2007-10-18T00:00:00Z")
+                conf_item.add_claim('wdt:P580', "+2007-10-16T00:00:00Z")
+                conf_item.add_claim('wdt:P582', "+2007-10-18T00:00:00Z")
                 conference = conf_item.write().id
         elif self.attributes == "PhD Thesis, Aarhus 2007":
             item.descriptions.set(
@@ -63,7 +63,7 @@ class GenericReference():
             item.add_claim('wdt:P31', 'wd:Q187685')
             location = self.api.import_entities('Q924265')
             item.add_claim('wdt:P4101', location)
-            item.add_claim('wdt:P577', time="+2007-00-00T00:00:00Z")
+            item.add_claim('wdt:P577', "+2007-00-00T00:00:00Z")
         else:
             print('Following conference or attribute cannot be parsed')
             print(self.attributes)

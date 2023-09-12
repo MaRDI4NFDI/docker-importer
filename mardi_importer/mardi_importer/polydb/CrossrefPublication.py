@@ -295,11 +295,11 @@ class CrossrefPublication:
                 item.add_claim('wdt:P1433', proceedings_id)
 
             if len(self.day) > 0:
-                item.add_claim("wdt:P577", time=f"+{self.year}-{self.month}-{self.day}T00:00:00Z", precision=11)
+                item.add_claim("wdt:P577", f"+{self.year}-{self.month}-{self.day}T00:00:00Z", precision=11)
             elif len(self.month) > 0:
-                item.add_claim("wdt:P577", time=f"+{self.year}-{self.month}-00T00:00:00Z", precision=10)
+                item.add_claim("wdt:P577", f"+{self.year}-{self.month}-00T00:00:00Z", precision=10)
             elif len(self.year) > 0:
-                item.add_claim("wdt:P577", time=f"+{self.year}-00-00T00:00:00Z", precision=9)
+                item.add_claim("wdt:P577", f"+{self.year}-00-00T00:00:00Z", precision=9)
 
             author_QID = self.__preprocess_authors()
             claims = []
@@ -382,7 +382,7 @@ class CrossrefPublication:
         else:
             item.add_claim('wdt:P31', 'wd:Q1143604')
             if len(self.proceedings_month) > 0:
-                item.add_claim("wdt:P577", time=f"+{self.proceedings_year}-{self.proceedings_month}-00T00:00:00Z")
+                item.add_claim("wdt:P577", f"+{self.proceedings_year}-{self.proceedings_month}-00T00:00:00Z")
             elif len(self.proceedings_year) > 0:
-                item.add_claim("wdt:P577", time=f"+{self.proceedings_year}-00-00T00:00:00Z")
+                item.add_claim("wdt:P577", f"+{self.proceedings_year}-00-00T00:00:00Z")
             return item.write().id

@@ -107,10 +107,10 @@ class ZBMathPublication:
         if self.journal:
             self.item.add_claim("wdt:P1433", self.journal)
         if self.creation_date:
-            claim = self.api.get_claim("wdt:P577", time=self.creation_date)
+            claim = self.api.get_claim("wdt:P577", self.creation_date)
             self.item.add_claims([claim])
         elif self.time:
-            claim = self.api.get_claim("wdt:P577", time=self.time)
+            claim = self.api.get_claim("wdt:P577", self.time)
             self.item.add_claims([claim])
         if self.links:
             link_claims = []

@@ -168,7 +168,7 @@ class ZenodoResource():
 
         # Publication date
         if self.publication_date:
-            item.add_claim('wdt:P577', time=self.publication_date)
+            item.add_claim('wdt:P577', self.publication_date)
 
         # Authors
         if self.authors:

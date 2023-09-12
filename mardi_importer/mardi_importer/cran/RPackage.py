@@ -224,10 +224,10 @@ class RPackage:
         item.add_claim("wdt:P277", "wd:Q206904")
 
         # Last update date
-        item.add_claim("wdt:P5017", time=f"+{self.date}T00:00:00Z")
+        item.add_claim("wdt:P5017", f"+{self.date}T00:00:00Z")
 
         # Software version identifier
-        qualifier = [self.api.get_claim("wdt:P577", time=f"+{self.date}T00:00:00Z")]
+        qualifier = [self.api.get_claim("wdt:P577", f"+{self.date}T00:00:00Z")]
         item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
         # Authors

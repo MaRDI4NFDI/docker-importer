@@ -181,7 +181,7 @@ class ArxivPublication():
             item.add_claim('wdt:P31','wd:Q13442814')
 
             # Publication date
-            item.add_claim('wdt:P577', time=self.metadata.publication_date)
+            item.add_claim('wdt:P577', self.metadata.publication_date)
             #item.add_claim('wdt:P577', self.metadata.publication_date)
 
             # Arxiv ID

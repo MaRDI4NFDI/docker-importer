@@ -3,7 +3,8 @@ import re
 import sqlalchemy as db
 
 from .MardiEntities import MardiItemEntity, MardiPropertyEntity
-from wikibaseintegrator import WikibaseIntegrator, wbi_login
+from mardiclient import MardiClient
+from wikibaseintegrator import wbi_login
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -11,9 +12,9 @@ from wikibaseintegrator.wbi_helpers import search_entities, execute_sparql_query
 from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
                                           Sense, String, TabularData, Time)
 
-class MardiIntegrator(WikibaseIntegrator):
+class MardiIntegrator(MardiClient):
     def __init__(self, languages=["en", "de"]) -> None:
-        super().__init__(is_bot=True)
+        super().__init__()
         self.languages = languages
 
         self.login = self.setup()
@@ -783,25 +784,6 @@ class MardiIntegrator(WikibaseIntegrator):
             if db_result:
                 return db_result[0]
 
-    def search_entity_by_value(self, prop_nr, value):
-        prefix = None
-        if os.environ.get("IMPORTER_USER") != 'importer-user':
-            prefix = "PREFIX wdt: <https://portal.mardi4nfdi.de/prop/direct/>"
-
-        prop_nr = self.get_local_id_by_label(prop_nr, 'property')
-        if isinstance(value, str): 
-            value = f'"{value}"'
-
-        query = f'SELECT ?item WHERE {{?item wdt:{prop_nr} {value}}}'
-        result = execute_sparql_query(query, prefix)
-
-        QID_list = []
-        for item in result['results']['bindings']:
-            match = re.search(r'\/(Q\d+)$', item['item']['value'])
-            QID = match.group(1)
-            QID_list.append(QID)
-        return QID_list
-
     def import_from_label(self, label):
         """
         Imports an entity from Wikidata just from a label
@@ -823,66 +805,3 @@ class MardiIntegrator(WikibaseIntegrator):
             if result['aliases']:
                 if label.lower() == result['aliases'][0].lower():
                     return self.import_entities(result['id'])
-
-    def get_claim(self, prop_nr, value=None, **kwargs):
-        """
-        Creates the appropriate claim to be inserted, which 
-        correponds to the given property
-
-        Args:
-            prop_nr (str): Property correspoding to the claim. It
-                can be a wikidata ID with the prefix 'wdt:', a
-                mardi ID, or directly the property label.
-            value (str): Value corresponding to the claim. In case
-                of an item, the wikidata ID can be used with the
-                prefix 'wd:'.
-
-        Returns:
-            Claim: Claim corresponding to the given datatype
-
-        """
-
-        prop_nr = self.get_local_id_by_label(prop_nr, 'property')
-        prop = self.property.get(entity_id=prop_nr)
-        datatype = prop.datatype.value
-        kwargs['prop_nr'] = prop_nr
-        kwargs['value'] = value
-        if datatype == 'wikibase-item':
-            if value.startswith("wd:"):
-                kwargs['value'] = self.get_local_id_by_label(value, 'item')
-            return Item(**kwargs)
-        elif datatype == 'commonsMedia':
-            return CommonsMedia(**kwargs)
-        elif datatype == 'external-id':
-            return ExternalID(**kwargs)
-        elif datatype == 'wikibase-form':
-            return Form(**kwargs)
-        elif datatype == 'geo-shape':
-            return GeoShape(**kwargs)
-        elif datatype == 'globe-coordinate':
-            return GlobeCoordinate(**kwargs)
-        elif datatype == 'wikibase-lexeme':
-            return Lexeme(**kwargs)
-        elif datatype == 'math':
-            return Math(**kwargs)
-        elif datatype == 'monolingualtext':
-            kwargs['text'] = value
-            kwargs.pop("value")
-            return MonolingualText(**kwargs)
-        elif datatype == 'musical-notation':
-            return MusicalNotation(**kwargs)
-        elif datatype == 'wikibase-property':
-            return Property(**kwargs)
-        elif datatype == 'quantity':
-            return Quantity(**kwargs)
-        elif datatype == 'wikibase-sense':
-            return Sense(**kwargs)
-        elif datatype == 'string':
-            return String(**kwargs)
-        elif datatype == 'tabular-data':
-            return TabularData(**kwargs)
-        elif datatype == 'time':
-            kwargs.pop("value")
-            return Time(**kwargs)
-        elif datatype == 'url':
-            return URL(**kwargs)

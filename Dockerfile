@@ -63,6 +63,11 @@ RUN pip install ./mardiclient
 COPY /mardi_importer /mardi_importer
 RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 
+# Add contentmath datatype to WikibaseIntegrator
+COPY config/contentmath.py /usr/local/lib/python3.9/dist-packages/wikibaseintegrator/datatypes/
+RUN echo "from .contentmath import ContentMath" \
+    >> /usr/local/lib/python3.9/dist-packages/wikibaseintegrator/datatypes/__init__.py
+
 # Copy the unit tests to the image
 # COPY tests /tests
 

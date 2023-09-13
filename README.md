@@ -1,15 +1,24 @@
 # docker-importer
 Import data from external data sources into the portal.
 
-The docker-importer is a docker-container which has functionalities for data-import (e.g. from swMATH, zbMATH), 
-and can trigger the import of data in a wikibase container in the same docker-composition cyclically. 
-The import scripts in the importer are written in python and examples for these scripts can be seen as 
-Jupyter-Notebooks in the repository Portal-Examples.
+The docker-importer is a docker container which has functionalities for metadataimport.
+Currently the following sources are supported:
+* Wikidata
+* zbMATH
+* CRAN
+* arXiv
+* polyDB
+* crossref
+* Zenodo
+* ORCID
 
 ## Documentation
-UML activity (todo:class) diagrams are in the `docs` folder. 
-* .drawio files can be edited using http://draw.io
-* .svg files can be viewed using a browser
+
+The importer is configured as the python package *mardi_importer* installed in docker container that can run cronjobs to schedule the import tasks. 
+
+The documentation for the package mardi_importer is available at https://mardi4nfdi.github.io/docker-importer
+
+The importer interacts with the wikibase instance deployed at https://portal.mardi4nfdi.de using the [mardiclient](https://github.com/MaRDI4NFDI/mardiclient) package.
 
 ## Basic requirements
 * Imports should run at least once a day and import only new data
@@ -20,18 +29,23 @@ UML activity (todo:class) diagrams are in the `docs` folder.
 ## Configuring the import
 Copy config/import_config.config.template to config/import_config.config and edit.
 
-## Testing
+## Setup for local development
+Create a local image: 
 ```
-docker-compose -f docker-compose.yml up -d
+docker build -t ghcr.io/mardi4nfdi/docker-importer:main .
 ```
-Will :
-* start a minimal wikibase setup (http://localhost:8080), 
-* rebuild the importer image and start the mardi-importer container
+Update `portal-compose-dev.yml` or `portal-compose.override.yml` in the `portal-compose` folder with the appropriate volume route to link to the `mardi_importer` folder, e.g.
+```
+importer:
+    restart: ${RESTART}
+    volumes:
+    - ../docker-importer/mardi_importer:/mardi_importer:ro
+```
 
-To run the tests, do:
-```
-docker exec -ti mardi-importer /bin/bash /tests/run_tests.sh
-```
+## Sphinx documentation
+The documentation of the `mardi_importer` package is updated for every push to main running 
+`make html` in `docs/` and deploying to the `gh-pages` branch, which is then published at
+https://mardi4nfdi.github.io/docker-importer
 
 ## Local testing of python modules
 First install the requirements from `requirements.txt`,
@@ -47,7 +61,8 @@ the source files are automatically taken into account.
 
 *Note*: it is recommended (when not using docker) for local installations to use [virtual environments](https://docs.python.org/3/tutorial/venv.html).
 
-## Build sphinx documentation
-In `docs/`, run `make html` to generate the documentation for a
-local installation. The modules have to be installed and findable by `import
-module`. To view the docs, open the file `docs/_build/html/index.html`.
+
+To run the tests, do:
+```
+docker exec -ti mardi-importer /bin/bash /tests/run_tests.sh
+```

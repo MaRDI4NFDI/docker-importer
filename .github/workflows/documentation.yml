@@ -16,7 +16,8 @@ jobs:
           pip install sphinx sphinx-argparse sphinx_rtd_theme
           git clone https://github.com/MaRDI4NFDI/mardiclient.git
           pip install ./mardiclient
-          pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
+          cd mardi_importer
+          pip install --no-cache-dir -v --no-build-isolation -e .
       - name: Sphinx build
         run: |
           sphinx-build doc _build

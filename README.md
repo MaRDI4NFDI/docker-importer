@@ -1,7 +1,7 @@
 # docker-importer
 Import data from external data sources into the portal.
 
-The docker-importer is a docker container which has functionalities for metadataimport.
+The docker-importer is a docker container which has functionalities for metadata import.
 Currently the following sources are supported:
 * Wikidata
 * zbMATH
@@ -14,11 +14,13 @@ Currently the following sources are supported:
 
 ## Documentation
 
-The importer is configured as the python package *mardi_importer* installed in docker container that can run cronjobs to schedule the import tasks. 
+The importer functionality is encapsulatede within the python package *mardi_importer*.
+This package is installed in a docker environment to run cronjobs that schedule the import tasks. 
 
-The documentation for the package mardi_importer is available at https://mardi4nfdi.github.io/docker-importer
+The documentation for the package mardi_importer is available at:\
+[mardi4nfdi.github.io/docker-importer](https://mardi4nfdi.github.io/docker-importer)
 
-The importer interacts with the wikibase instance deployed at https://portal.mardi4nfdi.de using the [mardiclient](https://github.com/MaRDI4NFDI/mardiclient) package.
+The importer interacts with the wikibase instance deployed at [portal.mardi4nfdi.de](https://portal.mardi4nfdi.de) using the [mardiclient](https://github.com/MaRDI4NFDI/mardiclient) package.
 
 ## Basic requirements
 * Imports should run at least once a day and import only new data
@@ -43,9 +45,9 @@ importer:
 ```
 
 ## Sphinx documentation
-The documentation of the `mardi_importer` package is updated for every push to main running 
-`make html` in `docs/` and deploying to the `gh-pages` branch, which is then published at
-https://mardi4nfdi.github.io/docker-importer
+The documentation for the `mardi_importer` package is updated for every push to main by running 
+`make html` in `docs/` and deploying to the `gh-pages` branch. The result is directly available at
+[mardi4nfdi.github.io/docker-importer](https://mardi4nfdi.github.io/docker-importer)
 
 ## Local testing of python modules
 First install the requirements from `requirements.txt`,

@@ -14,7 +14,7 @@ Currently the following sources are supported:
 
 ## Documentation
 
-The importer functionality is encapsulatede within the python package *mardi_importer*.
+The importer functionality is encapsulated within the python package *mardi_importer*.
 This package is installed in a docker environment to run cronjobs that schedule the import tasks. 
 
 The documentation for the package mardi_importer is available at:\
@@ -46,7 +46,8 @@ importer:
 
 ## Sphinx documentation
 The documentation for the `mardi_importer` package is updated for every push to main by running 
-`make html` in `docs/` and deploying to the `gh-pages` branch. The result is directly available at
+`make html` in `docs/` and deploying to the `gh-pages` branch.\
+The result is directly available at
 [mardi4nfdi.github.io/docker-importer](https://mardi4nfdi.github.io/docker-importer)
 
 ## Local testing of python modules

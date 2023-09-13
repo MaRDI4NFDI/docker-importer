@@ -4,16 +4,14 @@ from mardi_importer.integrator import MardiIntegrator
 from .Author import Author
 from .ArxivPublication import ArxivPublication
 from .CrossrefPublication import CrossrefPublication
-from dataclasses import dataclass, field
-from typing import List, Tuple, Union
 
 
-@dataclass
 class GenericReference():
-    api: MardiIntegrator
-    title: str
-    authors: List[Author]
-    attributes: str
+    def __init__(self):
+        self.api = MardiIntegrator()
+        self.title = ""
+        self.authors = []
+        self.attributes = ""
 
     def create(self):
         item = self.api.item.new()
@@ -74,18 +72,19 @@ class GenericReference():
 
         return item.write().id        
 
-@dataclass
+
 class Collection():
-    label: str
-    api: MardiIntegrator = MardiIntegrator()
-    authors: List[Author] = field(default_factory=list)
-    author_pool: List[Author] = field(default_factory=list)
-    maintainer: List[Author] = field(default_factory=list)
-    contributor: List[Author] = field(default_factory=list)
-    arxiv: List[ArxivPublication] = field(default_factory=list)
-    crossref: List[CrossrefPublication] = field(default_factory=list)
-    generic_references: List[GenericReference] = field(default_factory=list)
-    data: List[Tuple[str, str]] = field(default_factory=list)
+    def __init__(self):
+        self.label = ""
+        self.api = MardiIntegrator()
+        self.authors = []
+        self.author_pool = []
+        self.maintainer = []
+        self.contributor = []
+        self.arxiv = []
+        self.crossref = []
+        self.generic_references = []
+        self.data = []
 
     def __post_init__(self):
         url = f"https://polydb.org/rest/current/collection/{self.label}"

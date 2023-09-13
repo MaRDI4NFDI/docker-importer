@@ -1,14 +1,11 @@
 import os, json, time
 
-from dataclasses import dataclass, field
-from typing import List
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource, ImporterException
 from .Collection import Collection
 from .Author import Author
 
 
-@dataclass
 class PolyDBSource(ADataSource):
     """Processes collection data from polyDB.org.
 
@@ -18,11 +15,12 @@ class PolyDBSource(ADataSource):
         collections (List[str]):
             List of current collections
     """
-    update: bool = False
-    integrator: MardiIntegrator = MardiIntegrator()
-    collection_list: List[str] = field(default_factory=list)  
-    polydb_authors: List[Author] = field(default_factory=list) 
-    collections: List[Collection] = field(default_factory=list)
+    def __init__(self):
+        self.update = False
+        self.integrator = MardiIntegrator()
+        self.collection_list = []
+        self.polydb_authors = []
+        self.collections = []
 
     def __post_init__(self):
         self.collection_list = ["Manifolds.DIM2_3",

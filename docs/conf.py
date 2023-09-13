@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.abspath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'MaRDI Importer'
-copyright = '2022, MaRDI'
-author = 'MaRDI'
+copyright = '2023, MaRDI'
+author = 'MaRDI TA5'
 
 
 # -- General configuration ---------------------------------------------------

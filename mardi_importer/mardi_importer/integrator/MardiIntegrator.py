@@ -17,13 +17,14 @@ class MardiIntegrator(MardiClient):
         super().__init__()
         self.languages = languages
 
-        self.login = self.setup()
+        self.setup = True
+        self.login = self.config()        
         self.engine = self.create_engine()
         self.create_db_table()
 
         # local id of properties for linking to wikidata PID/QID
-        self.wikidata_PID = self.init_wikidata_PID()
-        self.wikidata_QID = self.init_wikidata_QID()
+        self.wikidata_PID = self.init_wikidata_PID() if self.setup else None
+        self.wikidata_QID = self.init_wikidata_QID() if self.setup else None
 
         self.item = MardiItemEntity(api=self)
         self.property = MardiPropertyEntity(api=self)
@@ -32,41 +33,42 @@ class MardiIntegrator(MardiClient):
                                     'P2875', 'P3254', 'P3709', 'P3713', \
                                     'P3734', 'P6104', 'P6685', 'P8979']
 
-    @staticmethod
-    def setup():
+    def config(self):
         """
         Sets up initial configuration for the integrator
 
         Returns:
             Clientlogin object
         """
-        wbi_config["USER_AGENT"] = os.environ.get("IMPORTER_AGENT")
-        wbi_config["MEDIAWIKI_API_URL"] = os.environ.get("MEDIAWIKI_API_URL")
-        wbi_config["SPARQL_ENDPOINT_URL"] = os.environ.get("SPARQL_ENDPOINT_URL")
-        wbi_config["WIKIBASE_URL"] = os.environ.get("WIKIBASE_URL")
-        return wbi_login.Clientlogin(
-            user=os.environ.get("IMPORTER_USER"),
-            password=os.environ.get("IMPORTER_PASS"),
-        )
+        if os.environ.get("IMPORTER_USER") and os.environ.get("IMPORTER_PASS"): 
+            wbi_config["USER_AGENT"] = os.environ.get("IMPORTER_AGENT")
+            wbi_config["MEDIAWIKI_API_URL"] = os.environ.get("MEDIAWIKI_API_URL")
+            wbi_config["SPARQL_ENDPOINT_URL"] = os.environ.get("SPARQL_ENDPOINT_URL")
+            wbi_config["WIKIBASE_URL"] = os.environ.get("WIKIBASE_URL")
+            return wbi_login.Clientlogin(
+                user=os.environ.get("IMPORTER_USER"),
+                password=os.environ.get("IMPORTER_PASS"),
+            )
+        else:
+            self.setup = False
 
-    @staticmethod
-    def create_engine():
+    def create_engine(self):
         """
         Creates SQLalchemy engine
 
         Returns:
             SQLalchemy engine
         """
-        db_user = os.environ["DB_USER"]
-        db_pass = os.environ["DB_PASS"]
-        db_name = os.environ["DB_NAME"]
-        db_host = os.environ["DB_HOST"]
-        return db.create_engine(
-            f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
-        )
+        if self.setup:
+            db_user = os.environ["DB_USER"]
+            db_pass = os.environ["DB_PASS"]
+            db_name = os.environ["DB_NAME"]
+            db_host = os.environ["DB_HOST"]
+            return db.create_engine(
+                f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
+            )
 
-    @staticmethod
-    def create_id_list_from_file(file):
+    def create_id_list_from_file(self, file):
         """Function for creating a list of ids
         from a while where each id is in a new line
 
@@ -91,20 +93,21 @@ class MardiIntegrator(MardiClient):
         Returns:
             None
         """
-        with self.engine.connect() as connection:
-            metadata = db.MetaData()
-            if not db.inspect(self.engine).has_table("wb_id_mapping"):
-                mapping_table = db.Table(
-                    "wb_id_mapping",
-                    metadata,
-                    db.Column("id", db.Integer, primary_key=True),
-                    db.Column("wikidata_id", db.String(24), nullable=False),
-                    db.Column("local_id", db.String(24), nullable=False),
-                    db.Column("has_all_claims", db.Boolean(), nullable=False),  
-                    db.UniqueConstraint("wikidata_id"),
-                    db.UniqueConstraint("local_id"),
-                )
-                metadata.create_all(self.engine)
+        if self.engine:
+            with self.engine.connect() as connection:
+                metadata = db.MetaData()
+                if not db.inspect(self.engine).has_table("wb_id_mapping"):
+                    mapping_table = db.Table(
+                        "wb_id_mapping",
+                        metadata,
+                        db.Column("id", db.Integer, primary_key=True),
+                        db.Column("wikidata_id", db.String(24), nullable=False),
+                        db.Column("local_id", db.String(24), nullable=False),
+                        db.Column("has_all_claims", db.Boolean(), nullable=False),  
+                        db.UniqueConstraint("wikidata_id"),
+                        db.UniqueConstraint("local_id"),
+                    )
+                    metadata.create_all(self.engine)
     
     def insert_id_in_db(self, wikidata_id, local_id, has_all_claims):
         """
@@ -748,7 +751,7 @@ class MardiIntegrator(MardiClient):
 
         Args:
             entity_str (str): It can be a string label or a wikidata ID, 
-               specified with the prefix wdt: for properties and wd:
+                specified with the prefix wdt: for properties and wd:
                 for items.
             entity_type (str): Either 'property' or 'item' to specify
                 which type of entity to look for.

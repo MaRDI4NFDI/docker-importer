@@ -11,7 +11,7 @@ from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from sickle import Sickle
 
-from mardi_importer import MardiIntegrator
+from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource
 from .ZBMathPublication import ZBMathPublication
 from .ZBMathAuthor import ZBMathAuthor

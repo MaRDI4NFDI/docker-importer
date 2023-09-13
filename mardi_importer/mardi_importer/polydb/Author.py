@@ -1,7 +1,6 @@
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.wbi_helpers import search_entities, merge_items
-from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
-from mardi_importer.integrator.MardiEntities import MardiItemEntity
+from mardi_importer.integrator import MardiIntegrator, MardiItemEntity
 
 from dataclasses import dataclass, field
 from typing import List

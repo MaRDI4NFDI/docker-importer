@@ -26,8 +26,8 @@ Table of contents
    scripts
    cran
    importer
-   wikibase
-   wikidata
+   integrator
+   polydb
    zbmath
 
 

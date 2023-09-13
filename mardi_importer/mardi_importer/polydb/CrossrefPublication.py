@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import logging
 import pandas as pd
 import re
@@ -11,7 +9,7 @@ from typing import List
 
 from mardi_importer.polydb.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
-from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
+from mardi_importer.integrator import MardiIntegrator
 
 log = logging.getLogger('CRANlogger')
 

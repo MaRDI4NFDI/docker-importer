@@ -28,7 +28,8 @@ setuptools.setup(
         "pandas",
         "sickle",
         "sparqlwrapper",
-        "sqlalchemy"
+        "sqlalchemy",
+        "wikibaseintegrator"
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},
     # scripts=["scripts/import.py"],

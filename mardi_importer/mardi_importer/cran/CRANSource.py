@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import time
 
-from mardi_importer import MardiIntegrator
+from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource, ImporterException
 from .RPackage import RPackage
 

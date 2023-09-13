@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from feedparser.util import FeedParserDict
 from typing import List
 
-from mardi_importer import MardiIntegrator
+from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.polydb.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
 

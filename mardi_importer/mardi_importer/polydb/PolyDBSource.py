@@ -2,7 +2,7 @@ import os, json, time
 
 from dataclasses import dataclass, field
 from typing import List
-from mardi_importer import MardiIntegrator
+from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource, ImporterException
 from .Collection import Collection
 from .Author import Author

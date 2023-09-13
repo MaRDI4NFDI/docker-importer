@@ -1,6 +1,6 @@
 import urllib.request, json, re
 
-from mardi_importer import MardiIntegrator
+from mardi_importer.integrator import MardiIntegrator
 from .Author import Author
 from .ArxivPublication import ArxivPublication
 from .CrossrefPublication import CrossrefPublication

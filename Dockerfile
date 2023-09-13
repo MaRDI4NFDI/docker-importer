@@ -48,15 +48,13 @@ RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
 # Note: this might be considered un-docker-like, but what would be an alternative? Running 2 containers that communicate over http? 
 RUN apt-get update && apt-get install --yes --no-install-recommends python3 pip \
 	&& rm -rf /var/cache/apk/*
-RUN python3 -m pip install --no-cache-dir --upgrade pip
+RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
-# Install Python requirements
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Install Sphinx
+# RUN pip install --no-cache-dir sphinx sphinx-argparse sphinx-rtd-theme
 
 # Install MaRDI client
 RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git
-RUN pip install --upgrade pip setuptools
 RUN pip install ./mardiclient
 
 # Install MaRDI importer

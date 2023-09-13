@@ -10,5 +10,4 @@ _build
 _static
 _template
 config/import_config.config
-docker-compose-dev.yml
-src/mardi_importer/scripts/CRAN.log
+mardi_importer/mardi_importer/scripts/CRAN.log

@@ -1,7 +1,4 @@
-FROM php:7.4-apache
-
-# add mysql driver
-RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli
+FROM python:3.11-slim
 
 ##############################
 #    Setup import cronjob    #
@@ -21,16 +18,16 @@ RUN apt-get update && apt-get install --yes --no-install-recommends \
 		gzip \
 		tzdata \
 		nano \
-		libicu-dev \
 		git \
 	&& rm -rf /var/cache/apk/*
-
-# add missing php library, requires libicu-dev
-RUN docker-php-ext-install intl
 
 # Set up non-root user.
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
 	&& adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
+
+##############################
+# Setup import script        #
+##############################
 
 # Copy cron files.
 RUN mkdir /app
@@ -41,21 +38,14 @@ COPY start.sh /app/
 RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
 
 ##############################
-# Setup import script        #
+# Setup Python packages      #
 ##############################
 
-# add Python and upgrade Python package manager to latest version
-# Note: this might be considered un-docker-like, but what would be an alternative? Running 2 containers that communicate over http? 
-RUN apt-get update && apt-get install --yes --no-install-recommends python3 pip \
-	&& rm -rf /var/cache/apk/*
 RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
-# Install Sphinx
-# RUN pip install --no-cache-dir sphinx sphinx-argparse sphinx-rtd-theme
-
 # Install MaRDI client
-RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git
-RUN pip install ./mardiclient
+RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git \
+    && pip install ./mardiclient
 
 # Install MaRDI importer
 COPY /mardi_importer /mardi_importer

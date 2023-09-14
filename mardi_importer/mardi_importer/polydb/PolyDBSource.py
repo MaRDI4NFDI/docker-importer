@@ -21,8 +21,6 @@ class PolyDBSource(ADataSource):
         self.collection_list = []
         self.polydb_authors = []
         self.collections = []
-
-    def __post_init__(self):
         self.collection_list = ["Manifolds.DIM2_3",
                                 "Matroids.SelfDual",
                                 "Matroids.Small",

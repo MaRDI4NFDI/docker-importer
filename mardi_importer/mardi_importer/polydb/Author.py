@@ -1,22 +1,18 @@
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.wbi_helpers import search_entities, merge_items
-from mardi_importer.integrator import MardiIntegrator, MardiItemEntity
 
 from nameparser import HumanName
 
 class Author:
-    def __init__(self):
-        self.api = MardiIntegrator()
-        self.name = ""
-        self.orcid = None
-        self.arxiv_id = None
-        self.affiliation = None
-        self._aliases =[]
-        self._QID = None
+    def __init__(self, api, name="", orcid=None, arxiv_id=None, affiliation=None, aliases=[], QID=None):
+        self.api = api
+        self.name = self.parse_name(name)
+        self.orcid = orcid
+        self.arxiv_id = arxiv_id
+        self.affiliation = affiliation
+        self._aliases = aliases
+        self._QID = QID
         self._item = None
-
-    def __post_init__(self):
-        self.name = self.parse_name(self.name)
 
     @staticmethod
     def parse_name(name: str) -> str:
@@ -90,8 +86,8 @@ class Author:
                       orcid=orcid, 
                       arxiv_id=arxiv_id,
                       affiliation=affiliation,
-                      _aliases=aliases,
-                      _QID=QID)
+                      aliases=aliases,
+                      QID=QID)
 
     def __repr__(self):
         rep = f'Author: {self.name}, ORCID: {self.orcid}, arXiv: {self.arxiv_id}, QID: {self.QID}, {self.aliases}'

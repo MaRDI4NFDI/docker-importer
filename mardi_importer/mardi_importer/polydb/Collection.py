@@ -7,11 +7,11 @@ from .CrossrefPublication import CrossrefPublication
 
 
 class GenericReference():
-    def __init__(self):
+    def __init__(self, api, title="", authors=[], attributes=""):
         self.api = MardiIntegrator()
-        self.title = ""
-        self.authors = []
-        self.attributes = ""
+        self.title = title
+        self.authors = authors
+        self.attributes = attributes
 
     def create(self):
         item = self.api.item.new()
@@ -74,8 +74,8 @@ class GenericReference():
 
 
 class Collection():
-    def __init__(self):
-        self.label = ""
+    def __init__(self, label=""):
+        self.label = label
         self.api = MardiIntegrator()
         self.authors = []
         self.author_pool = []
@@ -85,8 +85,9 @@ class Collection():
         self.crossref = []
         self.generic_references = []
         self.data = []
+        self.setup()
 
-    def __post_init__(self):
+    def setup(self):
         url = f"https://polydb.org/rest/current/collection/{self.label}"
 
         with urllib.request.urlopen(url) as url:

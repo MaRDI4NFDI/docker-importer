@@ -151,7 +151,9 @@ class ZBMathPublication:
             return self.QID
         # instance of scholarly article
         if self.title:
-            self.QID = self.item.is_instance_of("wd:Q13442814")
+            self.QID = self.item.is_instance_of_with_property(
+                "wd:Q13442814", "P1451", self.de_number
+            )
         else:
             QID_list = self.api.search_entity_by_value(
                 self.de_number_prop, self.de_number

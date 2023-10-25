@@ -80,7 +80,7 @@ class ZBMathPublication:
     def init_item(self):
         item = self.api.item.new()
         item.labels.set(language="en", value=self.title)
-        item.descriptions.set(language="en", value="scientific article")
+        item.descriptions.set(language="en", value=f"scientific article; zbmath de number {self.de_number}")
         return item
 
     def create(self):

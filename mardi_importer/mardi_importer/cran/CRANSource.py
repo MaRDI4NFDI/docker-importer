@@ -1,13 +1,15 @@
-import json
-import logging
-import os
-import pandas as pd
-import time
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
+from mardi_importer.importer.Importer import ADataSource, ImporterException
 from mardi_importer.integrator import MardiIntegrator
-from mardi_importer.importer import ADataSource, ImporterException
 from .RPackage import RPackage
 
+import pandas as pd
+import time
+import json
+import os
+import logging
 log = logging.getLogger('CRANlogger')
 
 class CRANSource(ADataSource):
@@ -58,8 +60,6 @@ class CRANSource(ADataSource):
                 item.add_claim(key,value=value)
             if not item.exists(): item.write()
 
-
-
     def pull(self):
         """Reads **date**, **package name** and **title** from the CRAN Repository URL.
 
@@ -96,28 +96,28 @@ class CRANSource(ADataSource):
         for each package.
         """
         # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
-        self.packages = self.packages.loc[1:10, :]
+        #self.packages = self.packages.loc[1:20, :]
 
-        #flag = False
+        flag = False
         
-        for i, row in self.packages.iterrows():
-            package_date = self.packages.loc[i, "Date"]
-            package_label = self.packages.loc[i, "Package"]
-            package_title = self.packages.loc[i, "Title"]
+        for _, row in self.packages.iterrows():
+            package_date = row["Date"]
+            package_label = row["Package"]
+            package_title = row["Title"]
 
-            #if not flag and package_label != "UpSetVP":
-            #    continue
+            if not flag and package_label != "DataVisualizations":
+                continue
             #flag = True
 
             package = RPackage(package_date, package_label, package_title, self.integrator)
             if package.exists():
                 if not package.is_updated():
-                    log.info(f"Package {package_label} found: Not up to date. Attempting update...")
+                    print(f"Package {package_label} found: Not up to date. Attempting update...")
                     package.update()
                 else:
-                    log.info(f"Package {package_label} found: Already up to date.")
+                    print(f"Package {package_label} found: Already up to date.")
             else:
-                log.info(f"Package {package_label} not found: Attempting item creation...")
+                print(f"Package {package_label} not found: Attempting item creation...")
                 package.create()
 
             time.sleep(2)

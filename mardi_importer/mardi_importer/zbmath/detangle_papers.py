@@ -1,18 +1,24 @@
 from mardi_importer.integrator import MardiIntegrator
 
-integrator = MardiIntegrator()
+api = MardiIntegrator()
 with open(infile, 'r') as f:
-    for line in f:
-        e_id = line.split(",")[0].split('/')[0][:-1] #  <https://portal.mardi4nfdi.de/entity/Q1177759>
-        count = int(line.split(",").strip())
-        item = self.api.item.new()
-        # get item for this id!
-        # get first zbmath id 
-        # save all other zbmath  ids to structure
-        # delete all claims in item
-        # change to infos from first 
-        # log that that one is done
-        # upload the ones from the list
-        # for each, log that they are done
+    with open("small_file.txt", "a+") as outfile:
+        for line in f:
+            qid = line.split(",")[0].split('/')[0][:-1] #  <https://portal.mardi4nfdi.de/entity/Q1177759>
+            count = int(line.split(",").strip())
+            item = api.item.get(entity_id=qid)
+            zbmath_ids = item.zbmath_ids
+            for zb_id in zbmath_ids:
+                line = find_line(zbmath_file, zbmath_id)
+                outfile.write(line)
 
 
+def find_line(file, zbmath_id):
+    with open(file, 'r') as f:
+        for line in f:
+            if zbmath_id in line:
+                return(line)
+    sys.exit(f"Line not found for id {zbmath_id}!")
+
+
+#IMPORTANT: FOR THIS RUN, CLAIMS NEED TO BE REPLACED; NOT APPENDED! CHANGE BACK AFTER!

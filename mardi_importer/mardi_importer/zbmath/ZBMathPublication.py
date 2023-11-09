@@ -134,6 +134,8 @@ class ZBMathPublication:
         if self.keywords:
             kw_claims = []
             for k in self.keywords:
+                print(self.keyword_prop)
+                print(k)
                 claim = self.api.get_claim(self.keyword_prop, k)
                 kw_claims.append(claim)
             self.item.add_claims(kw_claims)

@@ -1,7 +1,18 @@
-# read file that has original ids and zbmath ids --> write query to even get that!
-# for each original id:
-    # take first zbmath id and get information for that
-    # get item and delete all claims and re-add only those that belong to the specific id; remember to write id in description
-    # write down all other zbmath ids in a file to be processed later
-# feed list of zbmath ids to be processed to normal script and rewrite that so it works? or also do this in this script, but that would be harder I think...
-# although everything I need should already be there
+from mardi_importer.integrator import MardiIntegrator
+
+integrator = MardiIntegrator()
+with open(infile, 'r') as f:
+    for line in f:
+        e_id = line.split(",")[0].split('/')[0][:-1] #  <https://portal.mardi4nfdi.de/entity/Q1177759>
+        count = int(line.split(",").strip())
+        item = self.api.item.new()
+        # get item for this id!
+        # get first zbmath id 
+        # save all other zbmath  ids to structure
+        # delete all claims in item
+        # change to infos from first 
+        # log that that one is done
+        # upload the ones from the list
+        # for each, log that they are done
+
+

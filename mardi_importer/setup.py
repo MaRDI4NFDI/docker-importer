@@ -25,6 +25,7 @@ setuptools.setup(
         "lxml",
         "mysql-connector-python",
         "nameparser",
+        "openml",
         "pandas",
         "sickle",
         "sparqlwrapper",

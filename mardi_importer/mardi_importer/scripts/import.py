@@ -4,6 +4,7 @@ import logging.config
 from argparse import ArgumentParser
 from mardi_importer.importer import Importer
 from mardi_importer.zbmath import ZBMathSource, ZBMathConfigParser
+from mardi_importer.openml import OpenMLSource
 from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
 
@@ -11,7 +12,7 @@ def get_parser():
     """Get arguments parser"""
     parser = ArgumentParser()
     parser.add_argument(
-        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb"]
+        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb", "OpenML"]
     )
     parser.add_argument("--conf_path", required=False)
     parser.add_argument("--wikidata_id_file_path", required=False)
@@ -37,6 +38,16 @@ def main(**args):
             split_id=conf["split_id"],
             processed_dump_path=conf["processed_dump_path"],
         )
+        importer = Importer(data_source)
+        importer.import_all(pull=False, push=True)
+
+    elif args["mode"] == "OpenML":
+        # if args["conf_path"] is None:
+        #     sys.exit("--conf_path is required for --mode OpenML")
+        #conf_parser = OpenMLConfigParser(args["conf_path"])
+        #conf = conf_parser.parse_config()
+
+        data_source = OpenMLSource()
         importer = Importer(data_source)
         importer.import_all(pull=False, push=True)
 

@@ -31,21 +31,21 @@ class ZBMathAuthor:
         # instance of: human
         item.add_claim("wdt:P31", "wd:Q5")
         if self.zbmath_author_id:
-            if self.name:
-                # is there a human with zbmath author ID = zbmath_author_id
-                self.QID = item.is_instance_of_with_property(
-                    "wd:Q5", "wdt:P1556", self.zbmath_author_id
-                )
+            # if self.name:
+            #     # is there a human with zbmath author ID = zbmath_author_id
+            #     self.QID = item.is_instance_of_with_property(
+            #         "wd:Q5", "wdt:P1556", self.zbmath_author_id
+            #     )
+            # else:
+            QID_list = self.api.search_entity_by_value(
+                "wdt:P1556", self.zbmath_author_id
+            )
+            if not QID_list:
+                self.QID = None
             else:
-                QID_list = self.api.search_entity_by_value(
-                    "wdt:P1556", self.zbmath_author_id
-                )
-                if not QID_list:
-                    self.QID = None
-                else:
-                    # should not be more than one
-                    self.QID = QID_list[0]
-                    print(f"Id for empty author found, QID {self.QID}")
+                # should not be more than one
+                self.QID = QID_list[0]
+                print(f"Id for empty author found, QID {self.QID}")
             if self.QID:
                 return item
             else:

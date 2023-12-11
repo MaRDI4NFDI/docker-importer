@@ -28,6 +28,7 @@ class ZenodoResource():
         self._authors = []
         self._resource_type = ''
         self._main_subject = []
+        self._license = ''
         self.metadata = ''
         self.coauthors = coauthors
         self.__pull()
@@ -49,67 +50,22 @@ class ZenodoResource():
             publication_date = f"{self.metadata['publication_date']}T00:00:00Z"
             self._publication_date = publication_date
         return self._publication_date
+    
+    @property
+    def license(self):
+        if not self._license:
+            self._license = self.metadata['license']
+        return self._license            
 
     @property
     def authors(self):
         if not self._authors:
             for creator in self.metadata['creators']:
                 name = creator.get('name')
-                orcid = creator.get('orcid')
-                affiliation_str = creator.get('affiliation')
-                affiliation = None
-                if affiliation and len(affiliation_str) > 8:
-                    affiliation = self.api.import_from_label(affiliation_str)                    
-                author = authorZenodo(name, orcid, affiliation)
+                orcid = creator.get('orcid')              
+                author = authorZenodo(name, orcid)
                 self._authors.append(author)
         return self._authors
-
-    @property
-    def main_subject(self):
-        if not self._main_subject:
-            if 'keywords' in self.metadata.keys():
-                keywords_raw = self.metadata['keywords']
-                keywords = []
-                short_keywords = []
-                long_keywords = []
-                alias = {}
-
-                for keyword in keywords_raw:
-                    if ';' in keyword:
-                        keywords += keyword.split(';')
-                    if ',' in keyword:
-                        keywords += keyword.split(',')
-                    else:
-                        keywords.append(keyword)
-
-                for keyword in keywords:
-                    if len(keyword) <= 5:
-                        short_keywords.append(keyword)
-                    else:
-                        long_keywords.append(keyword)
-
-                for keyword in long_keywords:
-                    result_id = self.api.import_from_label(keyword)
-                    if result_id:
-                        alias[result_id] = []
-                        self._main_subject.append(result_id)
-                        alias_item = self.api.item.get(entity_id=result_id)
-                        if 'en' in alias_item.aliases.aliases.keys():
-                            for alias_str in alias_item.aliases.aliases['en']:
-                                alias[result_id].append(alias_str.value)
-                
-                for keyword in short_keywords:
-                    similar_alias = False
-                    for entity_id in alias.keys():
-                        if keyword in alias[entity_id]:
-                            similar_alias = True
-                    if not similar_alias:
-                        result_id = self.api.import_from_label(keyword)
-                        if result_id:
-                            self._main_subject.append(result_id)
-
-                
-        return self._main_subject
 
     @property
     def resource_type(self):
@@ -138,6 +94,25 @@ class ZenodoResource():
                 self._resource_type = "wd:Q37866906"
         return self._resource_type
 
+    def update(self):
+        # description_prop_nr = "P727"
+        zenodo_item = self.api.item.new()
+        zenodo_item.labels.set(language="en", value=self.title)
+
+        zenodo_id = zenodo_item.is_instance_of_with_property("wd:Q1172284", "wdt:P4901", self.zenodo_id)
+        new_item = self.api.item.get(entity_id=zenodo_id)
+
+        if self.license['id'] == "cc-by-4.0":
+            new_item.add_claim("wdt:P275", "wd:Q20007257")
+        elif self.license['id'] == "cc-by-sa-4.0":
+            new_item.add_claim("wdt:P275", "wd:Q18199165")
+        elif self.license['id'] == "cc-by-nc-sa-4.0":
+            new_item.add_claim("wdt:P275", "wd:Q42553662")
+        elif self.license['id'] == "mit-license":
+            new_item.add_claim("wdt:P275", "wd:Q334661")
+
+        return new_item.write()        
+
     def create(self):
         item = self.api.item.new()
 
@@ -157,14 +132,6 @@ class ZenodoResource():
                 language="en", 
                 value="Resource published at Zenodo repository"
             )
-
-        # Add subjects
-        if self.main_subject:
-            subject_claims = []
-            for subject in self.main_subject:
-                claim = self.api.get_claim('wdt:P921', subject)
-                subject_claims.append(claim)
-            item.add_claims(subject_claims)
 
         # Publication date
         if self.publication_date:

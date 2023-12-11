@@ -248,6 +248,7 @@ class ZBMathSource(ADataSource):
                         # element content is a simple text
                         text = zb_preview.find(get_tag(tag, self.tag_namespace)).text
 
+                    text = text.replace("\n", " ")
                     new_entry[tag] = text
                 # if tag is not found in zbMath return, we still want to get it from doi
                 else:

@@ -216,7 +216,7 @@ class RPackage:
         self.item.add_claim("wdt:P277", "wd:Q206904")
 
         # Long description
-        prop_nr = self.api.get_local_id_by_label("long description", "property")
+        prop_nr = self.api.get_local_id_by_label("description", "property")
         self.item.add_claim(prop_nr, self.long_description)
 
         # Last update date
@@ -326,6 +326,9 @@ class RPackage:
                     language="en",
                     value=description
                 )
+
+            # Long description
+            self.item.add_claim("description", self.long_description, action="replace_all")
 
             # Last update date
             self.item.add_claim("wdt:P5017", f"+{self.date}T00:00:00Z", action="replace_all")

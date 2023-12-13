@@ -6,7 +6,7 @@
             "datatype": "wikibase-item"
         },
         {
-            "label": "long description",
+            "label": "description",
             "description": "long description of an item",
             "datatype": "string"
         }

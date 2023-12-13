@@ -2,9 +2,14 @@ import feedparser
 import logging
 import requests
 import re
-from bs4 import BeautifulSoup
 
-from .Author import Author
+from bs4 import BeautifulSoup
+from dataclasses import dataclass, field
+from feedparser.util import FeedParserDict
+from typing import List
+
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
+from mardi_importer.publications.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
 
 log = logging.getLogger('CRANlogger')
@@ -43,44 +48,51 @@ taxonomy = ["cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", \
             "q-fin.RM", "q-fin.ST", "q-fin.TR", "stat.AP", "stat.CO", \
             "stat.ME", "stat.ML", "stat.OT", "stat.TH"]
 
-def arxiv_api(arxiv_id):
-    api_url = 'http://export.arxiv.org/api/query?id_list='
-    response = requests.get(api_url + arxiv_id)
-    feed = feedparser.parse(response.text)
-    return feed.entries[0]
-
-class authorArxiv():
-    def __init__(self, author, orcid = None, arxiv_author_id = None):
-        self.name = author
-        self.orcid = orcid
-        self.arxiv_author_id = arxiv_author_id
-
+@dataclass
 class Arxiv():
-    def __init__(self, arxiv_id):
-        self.id = arxiv_id
-        self.entry = arxiv_api(arxiv_id)
-        self._title = ''
-        self._abstract = ''
-        self._publication_date = ''
-        self._authors = []
-        self._arxiv_classification = ''
+    api: MardiIntegrator
+    arxiv_id: str
+    _title: str = None
+    _abstract: str = None
+    _publication_date: str = None
+    _authors: List[Author] = field(default_factory=list)
+    _arxiv_classification: List[str] = field(default_factory=list)
+    entry: FeedParserDict = None
+
+    def __post_init__(self) -> None:
+        self.entry = self.arxiv_api(self.arxiv_id)
 
     @property
-    def title(self):
+    def title(self) -> str:
+        """Get the title of the entry.
+
+        Returns:
+            str: The title of the entry.
+        """
         if not self._title:
             title = self.entry.title
             self._title = title.replace('\n', ' ')
         return self._title
 
     @property
-    def abstract(self):
+    def abstract(self) -> str:
+        """Get the abstract of the entry.
+
+        Returns:
+            str: The abtract of the entry.
+        """
         if not self._abstract:
             abstract = self.entry.summary
             self._abstract = abstract.replace('\n', ' ')
         return self._abstract
 
     @property
-    def publication_date(self):
+    def publication_date(self) -> str:
+        """Get the publication date
+
+        Returns:
+            str: Publication date in format +YYYY-MM-DDT00:00:00Z
+        """
         if not self._publication_date:
             time = self.entry.published
             if not time.startswith("+"):
@@ -90,7 +102,14 @@ class Arxiv():
         return self._publication_date
 
     @property
-    def authors(self):
+    def authors(self) -> List[Author]:
+        """Get the list of authors for the entry
+
+        Returns:
+            List[Author]: 
+                The list of authors for the entry, which can include
+                an arXiv author ID, if found
+        """
         if not self._authors:
             for author in self.entry.authors:
                 author = self.disambiguate_autor(author.name)
@@ -98,15 +117,31 @@ class Arxiv():
         return self._authors
 
     @property
-    def arxiv_classification(self):
+    def arxiv_classification(self) -> List[str]:
+        """Get the ArXiv classification for the entry.
+
+        Returns:
+            List[str]: ArXiv classifications for the entry.
+        """
         if not self._arxiv_classification:
-            self._arxiv_classification = []
             for t in self.entry.tags:
                 self._arxiv_classification.append(t['term'])
         return self._arxiv_classification
 
-    def disambiguate_autor(self, author):
-        author_split = author.lower().split(' ')
+    def disambiguate_autor(self, name: str) -> Author:
+        """Parses arXiv author pages to find a matching author.
+
+        Given a name string, generates possible arxiv author id, which
+        is then visited to find a matching author based on the listed
+        publications.
+
+        Args:
+            name (str): Author's name as returned by the ArXiv API
+
+        Returns:
+            Author: Author object with the arXiv author ID, if found.
+        """
+        author_split = name.lower().split(' ')
         finish = False
         i = 1
         while not finish:
@@ -132,7 +167,7 @@ class Arxiv():
                 author_initials = author_html.split(' ')
                 author_initials = author_initials[0][0] + ". " + author_initials[-1]
 
-                if author_html == author or author_initials == author:
+                if author_html == name or author_initials == name:
                     articles = soup.find_all("div", class_="list-title")
                     for article in articles:
                         article = article.get_text()
@@ -140,8 +175,18 @@ class Arxiv():
                         if article == self.title:
                             finish = True
                             orcid = self.get_orcid(soup)
-                            return authorArxiv(author, orcid, arxiv_author_id)
-        return authorArxiv(author)
+                            return Author(self.api,
+                                          name=name,
+                                          orcid=orcid, 
+                                          arxiv_id=arxiv_author_id)
+        return Author(self.api, name=name)
+
+    @staticmethod
+    def arxiv_api(arxiv_id: str) -> FeedParserDict:
+        api_url = 'http://export.arxiv.org/api/query?id_list='
+        response = requests.get(api_url + arxiv_id)
+        feed = feedparser.parse(response.text)
+        return feed.entries[0]
 
     @staticmethod
     def get_orcid(soup):
@@ -152,26 +197,52 @@ class Arxiv():
                 return orcid.groups()[0]
         return None
 
+@dataclass
 class ArxivPublication():
-    def __init__(self, integrator, arxiv_id, coauthors=[]):
-        self.arxiv_id = arxiv_id
-        self.metadata = Arxiv(arxiv_id)
-        self.api = integrator
-        self.coauthors = coauthors
-        self._title = ''
+    api: MardiIntegrator
+    arxiv_id: str
+    metadata: Arxiv = None
+    title: str = None
+    QID: str = None
+    authors: List[str] = field(default_factory=list)
 
-    @property
-    def title(self):
-        if not self._title:
-            self._title = self.metadata.title
-        return self._title
+    def __post_init__(self):
+        self.metadata = Arxiv(self.api, self.arxiv_id)
+        self.title = self.metadata.title
+        self.authors = self.metadata.authors
+
+        arxiv_id = 'wdt:P818'
+        QID_results = self.api.search_entity_by_value(arxiv_id, self.arxiv_id)
+        if QID_results: self.QID = QID_results[0]
+
+        if self.QID:
+            # Get authors.
+            item = self.api.item.get(self.QID)
+            author_QID = item.get_value('wdt:P50')
+            for QID in author_QID:
+                author_item = self.api.item.get(entity_id=QID)
+                name = str(author_item.labels.get('en'))
+                orcid = author_item.get_value('wdt:P496')
+                orcid = orcid[0] if orcid else None
+                arxiv_author_id = author_item.get_value('wdt:P4594')
+                arxiv_author_id = arxiv_author_id[0] if arxiv_author_id else None
+                aliases = author_item.aliases.get('en')
+                author = Author(self.api, 
+                                name=name,
+                                orcid=orcid,
+                                arxiv_id=arxiv_author_id,
+                                _aliases=aliases,
+                                _QID=QID)
+                self.authors.append(author)
     
     def create(self):
-        publication_ID = None
+        if self.QID:
+            return self.QID
+
         item = self.api.item.new()
-        if self.metadata.title != "Error":
-            item.labels.set(language="en", value=self.metadata.title)
-            if self.metadata.title:
+        if self.title != "Error":
+            item.labels.set(language="en", value=self.title)
+            if self.title:
                 item.descriptions.set(
                     language="en", 
                     value="scientific article from arXiv"
@@ -182,7 +253,6 @@ class ArxivPublication():
 
             # Publication date
             item.add_claim('wdt:P577', self.metadata.publication_date)
-            #item.add_claim('wdt:P577', self.metadata.publication_date)
 
             # Arxiv ID
             item.add_claim('wdt:P818', self.arxiv_id)
@@ -213,44 +283,41 @@ class ArxivPublication():
                 item.add_claims(category_claims)
 
             # Authors
-            author_claims = []
-            author_list = []
-            for author in self.metadata.authors:
-                author_item = Author(self.api, 
-                                    author.name, 
-                                    author.orcid, 
-                                    self.coauthors)
-                author_id = author_item.create()
-                author_list.append(author_id)
-
-                if author.arxiv_author_id:
-                    update_item = self.api.item.get(entity_id=author_id)
-                    claim = self.api.get_claim('wdt:P4594', author.arxiv_author_id)
-                    update_item.claims.add(
-                        claim,
-                        ActionIfExists.APPEND_OR_REPLACE,
-                    )
-                    update_item.write()
-                
-                claim = self.api.get_claim('wdt:P50', author_id)
-                author_claims.append(claim)
-            item.add_claims(author_claims)
-
-            coauthors_ini = self.coauthors
-            for author_qid in author_list:
-                if author_qid not in coauthors_ini:
-                    self.coauthors.append(author_qid)
+            author_QID = self.__preprocess_authors()
+            claims = []
+            for author in author_QID:
+                claims.append(self.api.get_claim("wdt:P50", author))
+            item.add_claims(claims)
 
             # DOI
             doi = '10.48550/arXiv.' + self.arxiv_id
             item.add_claim('wdt:P356', doi)
-                        
-            publication_ID = item.write().id
 
-        if publication_ID:
-            log.info(f"arXiv preprint with arXiv id: {self.arxiv_id} created with ID {publication_ID}.")
-            return publication_ID
+
+                        
+            self.QID = item.write().id
+
+        if self.QID:
+            log.info(f"arXiv preprint with arXiv id: {self.arxiv_id} created with ID {self.QID}.")
+            return self.QID
         else:
             log.info(f"arXiv preprint with arXiv id: {self.arxiv_id} could not be created.")
             return None
+
+    def __preprocess_authors(self) -> List[str]:
+        """Processes the author information of each publication.
+
+        Create the author if it does not exist already as an 
+        entity in wikibase.
+            
+        Returns:
+          List[str]: 
+            QIDs corresponding to each author.
+        """
+        author_QID = []
+        for author in self.authors:
+            if not author.QID:
+                author.create()
+            author_QID.append(author.QID)
+        return author_QID
         

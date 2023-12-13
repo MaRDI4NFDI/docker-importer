@@ -4,6 +4,11 @@
             "label": "imports",
             "description": "Subject software imports object software",
             "datatype": "wikibase-item"
+        },
+        {
+            "label": "description",
+            "description": "long description of an item",
+            "datatype": "string"
         }
     ],
     "items": [

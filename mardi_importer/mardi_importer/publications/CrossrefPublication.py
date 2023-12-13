@@ -2,54 +2,83 @@ import logging
 import pandas as pd
 import re
 
+from dataclasses import dataclass, field
 from habanero import Crossref
 from requests.exceptions import HTTPError
-from .Author import Author
+from typing import List
+
 from wikibaseintegrator.wbi_enums import ActionIfExists
+from mardi_importer.integrator import MardiIntegrator
+from .Author import Author
 
 log = logging.getLogger('CRANlogger')
 
+@dataclass
 class CrossrefPublication:
-    def __init__(self, integrator, doi, coauthors=[]):
-        self.api = integrator
-        self.doi = doi
-        self.coauthors = coauthors
-        self.title = ""
-        self.description = ""
-        self.instance = ""
-        self.author = {}
-        self.journal = ""
-        self.volume = ""
-        self.issue = ""
-        self.page = ""
-        self.issn_print = ""
-        self.issn_online = ""
-        self.book = False
-        self.book_chapter = False
-        self.container_book = ""
-        self.monograph = False
-        self.isbn = ""
-        self.proceedings = ""
-        self.proceedings_month = ""
-        self.proceedings_year = ""
-        self.posted = False
-        self.publisher = ""
-        self.day = ""
-        self.month = ""
-        self.year = ""
-        self.preprint = False
-        self.identical = ""
-        self.__pull()
+    api: MardiIntegrator
+    doi: str
+    authors: List[Author] = field(default_factory=list)
+    title: str = ""
+    description: str = ""
+    instance: str = ""
+    journal: str = ""
+    volume: str = ""
+    issue: str = ""
+    page: str = ""
+    issn_print: str = ""
+    issn_online: str = ""
+    book: bool = False
+    book_chapter: bool = False
+    container_book: str = ""
+    monograph: bool = False
+    isbn: str = ""
+    proceedings: str = ""
+    proceedings_month: str = ""
+    proceedings_year: str = ""
+    posted: bool = False
+    publisher: str = ""
+    day: str = ""
+    month: str = ""
+    year: str = ""
+    preprint: bool = False
+    identical: str = ""
+    QID: str = None
 
-    def __pull(self):
-        try:
-            cr = Crossref()
-            response = cr.works(ids=self.doi)
-        except HTTPError as e:
-            log.warning(f"Publication wit doi: {self.doi} not found in Crossref: {str(e)}")
-            return None
+    def __post_init__(self):
+        item = self.api.item.new()
+        item.labels.set(language="en", value=self.title)
+
+        doi_id = "wdt:P356"
+        QID_results = self.api.search_entity_by_value(doi_id, self.doi)
+        if QID_results: self.QID = QID_results[0]
+
+        if self.QID:
+            # Get authors.
+            item = self.api.item.get(self.QID)
+            author_QID = item.get_value('wdt:P50')
+            for QID in author_QID:
+                author_item = self.api.item.get(entity_id=QID)
+                name = str(author_item.labels.get('en'))
+                orcid = author_item.get_value('wdt:P496')
+                orcid = orcid[0] if orcid else None
+                aliases = author_item.aliases.get('en')
+                author = Author(self.api, 
+                                name=name,
+                                orcid=orcid,
+                                _aliases=aliases,
+                                _QID=QID)
+                self.authors.append(author)
         else:
-            if response['status'] == 'ok':
+            try:
+                cr = Crossref()
+                response = cr.works(ids=self.doi)
+            except HTTPError as e:
+                log.warning(f"Publication with doi: {self.doi} not found in Crossref: {str(e)}")
+                return None
+            else:
+                if response['status'] != 'ok':
+                    return None
+                    
                 metadata = response['message']
                 if 'title' in metadata.keys():
                     if len(metadata['title']) > 0:
@@ -165,7 +194,7 @@ class CrossrefPublication:
                         self.instance = 'wd:Q1385450'
                         self.description = 'dissertation'
                     # The following types are not associated with an instance or description
-                    #['component', 'report-series', 'standard', 'standard-series',
+                    # ['component', 'report-series', 'standard', 'standard-series',
                     # 'book-part', 'book-track', 'reference-entry', 'other', 'peer-review']
 
                 if 'publisher' in metadata.keys():    
@@ -191,9 +220,9 @@ class CrossrefPublication:
                             author_label = f"{author['given'].title()} {author['family'].title()}"
                             if 'ORCID' in author.keys():
                                 orcid_id = re.findall("\d{4}-\d{4}-\d{4}-.{4}", author['ORCID'])[0]
-                                self.author[author_label] = orcid_id
+                                self.authors.append(Author(self.api, name=author_label, orcid=orcid_id))
                             else:
-                                self.author[author_label] = None
+                                self.authors.append(Author(self.api, name=author_label))
 
                 if 'relation' in metadata.keys():
                     if 'is-preprint-of' in metadata['relation'].keys():
@@ -203,12 +232,11 @@ class CrossrefPublication:
                         if 'id' in identical_obj.keys():
                             self.identical = identical_obj['id']
 
-                return self
-        return None
-
     def create(self):
+        if self.QID:
+            return self.QID
+
         item = self.api.item.new()
-        publication_ID = None
         if self.title:
             item.labels.set(language="en", value=self.title)
             
@@ -219,7 +247,7 @@ class CrossrefPublication:
                 )
 
             if self.instance:
-                publication_ID = item.is_instance_of_with_property(
+                self.QID = item.is_instance_of_with_property(
                                 self.instance, 
                                 "wdt:P356",
                                 self.doi
@@ -252,7 +280,7 @@ class CrossrefPublication:
                 elif len(self.isbn) == 10:
                     isbn_prop_nr = 'wdt:P957'
                 item.add_claim(isbn_prop_nr, self.isbn)
-                publication_ID = item.is_instance_of_with_property(
+                self.QID = item.is_instance_of_with_property(
                                 self.instance, 
                                 isbn_prop_nr,
                                 self.isbn
@@ -271,46 +299,51 @@ class CrossrefPublication:
             elif len(self.year) > 0:
                 item.add_claim("wdt:P577", f"+{self.year}-00-00T00:00:00Z", precision=9)
 
-            if len(self.author) > 0:
-                author_ID = self.__preprocess_authors()
-                claims = []
-                for author in author_ID:
-                    claims.append(self.api.get_claim("wdt:P50", author))
-                item.add_claims(claims)
+            author_QID = self.__preprocess_authors()
+            claims = []
+            for author in author_QID:
+                claims.append(self.api.get_claim("wdt:P50", author))
+            item.add_claims(claims)
             
-            if not publication_ID:
-                publication_ID = item.write().id
+            if not self.QID:
+                self.QID = item.write().id
+        else:
+            item.descriptions.set(
+                language="en", 
+                value="scientific article"
+            )
 
-        if publication_ID:
-            log.info(f"Publication with DOI: {self.doi} created with ID {publication_ID}.")
-            return publication_ID
+            scholarly_article = 'wd:Q13442814'
+            item.add_claim('wdt:P31', scholarly_article)
+            item.add_claim('wdt:P356', self.doi)
+
+            if not self.QID:
+                self.QID = item.write().id
+
+
+        if self.QID:
+            log.info(f"Publication with DOI: {self.doi} created with ID {self.QID}.")
+            return self.QID
         else:
             log.info(f"Publication with DOI: {self.doi} could not be created.")
             return None
 
-    def __preprocess_authors(self):
-        """Processes the author information of each Publication. This includes:
+    def __preprocess_authors(self) -> List[str]:
+        """Processes the author information of each publication. 
 
-        - Searching if an author with the given ID already exists in the KG.
-        - Alternatively, create items for new authors.
+        Create the author if it does not exist already as an 
+        entity in wikibase.
             
         Returns:
-          List: 
-            Wikidata QIDs corresponding to each author.
+          List[str]: 
+            QIDs corresponding to each author.
         """
-        author_ID = []
-
-        for name, orcid in self.author.items():
-            author = Author(self.api, name, orcid, self.coauthors)
-            author_qid = author.create()
-            author_ID.append(author_qid)
-
-        coauthors_ini = self.coauthors
-        for author_qid in author_ID:
-            if author_qid not in coauthors_ini:
-                self.coauthors.append(author_qid)
-
-        return author_ID
+        author_QID = []
+        for author in self.authors:
+            if not author.QID:
+                author.create()
+            author_QID.append(author.QID)
+        return author_QID
 
     def __preprocess_journal(self):
         item = self.api.item.new()

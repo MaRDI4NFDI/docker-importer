@@ -1,48 +1,55 @@
-from .Author import Author
+from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
+from mardi_importer.publications.Author import Author
 from wikibaseintegrator.wbi_enums import ActionIfExists
 
-import urllib.request, json, logging
+import logging
+import urllib.request, json 
+from dataclasses import dataclass, field
+from typing import Dict, List
 
 log = logging.getLogger('CRANlogger')
 
-class authorZenodo():
-    def __init__(self, name, orcid = None, affiliation = None):
-        self.name = self.__preprocess_name(name)
-        self.orcid = orcid
-        self.affiliation = affiliation
-
-    def __preprocess_name(self, name):
-        if ',' in name:
-            words = name.split(', ')
-            if len(words) < 2:
-                words = name.split(',')
-            return f"{words[1]} {words[0]}"
-        return name
-
+@dataclass
 class ZenodoResource():
-    def __init__(self, integrator, zenodo_id, coauthors=[]):
-        self.api = integrator
-        self.zenodo_id = zenodo_id
-        self._title = ''
-        self._publication_date = ''
-        self._authors = []
-        self._resource_type = ''
-        self._main_subject = []
-        self._license = ''
-        self.metadata = ''
-        self.coauthors = coauthors
-        self.__pull()
+    api: MardiIntegrator
+    zenodo_id: str
+    title: str = None
+    _publication_date: str = None
+    _authors: List[Author] = field(default_factory=list)
+    _resource_type: str = None
+    _license: str = None
+    metadata: Dict[str, object] = field(default_factory=dict)
+    QID: str = None
 
-    def __pull(self):
+    def __post_init__(self):
         with urllib.request.urlopen(f"https://zenodo.org/api/records/{self.zenodo_id}") as url:
             json_data = json.load(url)
             self.metadata = json_data['metadata']
+        if self.metadata:
+            self.title = self.metadata['title']
 
-    @property
-    def title(self):
-        if not self._title:
-            self._title = self.metadata['title']
-        return self._title
+        zenodo_id = 'wdt:P4901'
+
+        QID_results = self.api.search_entity_by_value(zenodo_id, self.zenodo_id)
+        if QID_results: self.QID = QID_results[0]
+
+        if self.QID:
+            # Get authors.
+            item = self.api.item.get(self.QID)
+            author_QID = item.get_value('wdt:P50')
+            for QID in author_QID:
+                author_item = self.api.item.get(entity_id=QID)
+                name = str(author_item.labels.get('en'))
+                orcid = author_item.get_value('wdt:P496')
+                orcid = orcid[0] if orcid else None
+                aliases = author_item.aliases.get('en')
+                author = Author(self.api, 
+                                name=name,
+                                orcid=orcid,
+                                _aliases=aliases,
+                                _QID=QID)
+                self._authors.append(author)
+            return self.QID
 
     @property
     def publication_date(self):
@@ -62,8 +69,9 @@ class ZenodoResource():
         if not self._authors:
             for creator in self.metadata['creators']:
                 name = creator.get('name')
-                orcid = creator.get('orcid')              
-                author = authorZenodo(name, orcid)
+                orcid = creator.get('orcid')
+                affiliation = creator.get('affiliation')
+                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
                 self._authors.append(author)
         return self._authors
 
@@ -114,6 +122,9 @@ class ZenodoResource():
         return new_item.write()        
 
     def create(self):
+        if self.QID:
+            return self.QID
+
         item = self.api.item.new()
 
         # Add title
@@ -138,29 +149,11 @@ class ZenodoResource():
             item.add_claim('wdt:P577', self.publication_date)
 
         # Authors
-        if self.authors:
-            author_claims = []
-            for author in self.authors:
-                author_item = Author(self.api, 
-                                    author.name, 
-                                    author.orcid, 
-                                    self.coauthors)
-                author_id = author_item.create()
-
-                if author.affiliation:
-                    update_item = self.api.item.get(entity_id=author_id)
-                    affiliation_wd = update_item.get_value('wdt:P108')
-                    if author.affiliation not in affiliation_wd:
-                        claim = self.api.get_claim('wdt:P108', author.affiliation)
-                        update_item.claims.add(
-                            claim,
-                            ActionIfExists.APPEND_OR_REPLACE,
-                        )
-                        update_item.write()
-                
-                claim = self.api.get_claim('wdt:P50', author_id)
-                author_claims.append(claim)
-            item.add_claims(author_claims)
+        author_QID = self.__preprocess_authors()
+        claims = []
+        for author in author_QID:
+            claims.append(self.api.get_claim("wdt:P50", author))
+        item.add_claims(claims)
 
         # Zenodo ID & DOI
         if self.zenodo_id:
@@ -168,20 +161,38 @@ class ZenodoResource():
             doi = f"10.5281/zenodo.{self.zenodo_id}"
             item.add_claim('wdt:P356', doi)
 
-        # Check that the item does not exist already
-        QID = None
-        if self.resource_type != "Other":
-            QID = item.is_instance_of_with_property(self.resource_type, 'wdt:P4901', self.zenodo_id)
+        # License
+        if self.license['id'] == "cc-by-4.0":
+            item.add_claim("wdt:P275", "wd:Q20007257")
+        elif self.license['id'] == "cc-by-sa-4.0":
+            item.add_claim("wdt:P275", "wd:Q18199165")
+        elif self.license['id'] == "cc-by-nc-sa-4.0":
+            item.add_claim("wdt:P275", "wd:Q42553662")
+        elif self.license['id'] == "mit-license":
+            item.add_claim("wdt:P275", "wd:Q334661")
 
-        if QID:
-            log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} already exists with QID: {QID}.")
-            return QID
-        else: 
-            resource_ID = item.write().id
-            if resource_ID:
-                log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} created with ID {resource_ID}.")
-                return resource_ID
-            else:
-                log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} could not be created.")
-                return None
+        self.QID = item.write().id
+        if self.QID:
+            log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} created with ID {self.QID}.")
+            return self.QID
+        else:
+            log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} could not be created.")
+            return None
+
+    def __preprocess_authors(self) -> List[str]:
+        """Processes the author information of each publication.
+
+        Create the author if it does not exist already as an 
+        entity in wikibase.
+            
+        Returns:
+          List[str]: 
+            QIDs corresponding to each author.
+        """
+        author_QID = []
+        for author in self.authors:
+            if not author.QID:
+                author.create()
+            author_QID.append(author.QID)
+        return author_QID
         

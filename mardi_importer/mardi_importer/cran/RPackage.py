@@ -144,7 +144,7 @@ class RPackage:
             soup = BeautifulSoup(page.content, 'lxml')
         except:
             log.warning(f"Package {self.label} package not found in CRAN.")
-            return self
+            return None
         else:
             if soup.find_all('table'):
                 self.long_description = soup.find_all('p')[0].get_text() or ""
@@ -181,7 +181,10 @@ class RPackage:
         Returns:
             None
         """
-        package = self.pull().insert_claims().write()
+        package = self.pull()
+        
+        if package:
+            package = package.insert_claims().write()
 
         if package:
             log.info(f"Package created with QID: {package['QID']}.")

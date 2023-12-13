@@ -17,7 +17,7 @@ class ZenodoResource():
     _publication_date: str = None
     _authors: List[Author] = field(default_factory=list)
     _resource_type: str = None
-    _main_subject: List[str] = field(default_factory=list)
+    _license: str = None
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
 
@@ -160,6 +160,16 @@ class ZenodoResource():
             item.add_claim('wdt:P4901', self.zenodo_id)
             doi = f"10.5281/zenodo.{self.zenodo_id}"
             item.add_claim('wdt:P356', doi)
+
+        # License
+        if self.license['id'] == "cc-by-4.0":
+            item.add_claim("wdt:P275", "wd:Q20007257")
+        elif self.license['id'] == "cc-by-sa-4.0":
+            item.add_claim("wdt:P275", "wd:Q18199165")
+        elif self.license['id'] == "cc-by-nc-sa-4.0":
+            item.add_claim("wdt:P275", "wd:Q42553662")
+        elif self.license['id'] == "mit-license":
+            item.add_claim("wdt:P275", "wd:Q334661")
 
         self.QID = item.write().id
         if self.QID:

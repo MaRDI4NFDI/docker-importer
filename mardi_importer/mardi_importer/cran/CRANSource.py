@@ -96,17 +96,17 @@ class CRANSource(ADataSource):
         for each package.
         """
         # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
-        #self.packages = self.packages.loc[1:20, :]
+        self.packages = self.packages.loc[1:2, :]
 
-        flag = False
+        #flag = False
         
         for _, row in self.packages.iterrows():
             package_date = row["Date"]
             package_label = row["Package"]
             package_title = row["Title"]
 
-            if not flag and package_label != "DataVisualizations":
-                continue
+            #if not flag and package_label != "DataVisualizations":
+            #    continue
             #flag = True
 
             package = RPackage(package_date, package_label, package_title, self.integrator)

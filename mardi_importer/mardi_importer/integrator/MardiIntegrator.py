@@ -29,9 +29,10 @@ class MardiIntegrator(MardiClient):
         self.item = MardiItemEntity(api=self)
         self.property = MardiPropertyEntity(api=self)
 
-        self.excluded_properties = ['P1151', 'P1855', 'P2302', 'P2559', \
-                                    'P2875', 'P3254', 'P3709', 'P3713', \
-                                    'P3734', 'P6104', 'P6685', 'P8979']
+        self.excluded_properties = ['P1151', 'P1855', 'P2139', 'P2302', \
+                                    'P2559', 'P2875', 'P3254', 'P3709', \
+                                    'P3713', 'P3734', 'P6104', 'P6685', \
+                                    'P8093', 'P8979']
 
     def config(self):
         """

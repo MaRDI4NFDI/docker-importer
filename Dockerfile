@@ -45,7 +45,7 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
 # Install wikibaseintegrator from source
 RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \
-	&& pip install ./WikibaseIntegrator
+    && pip install ./WikibaseIntegrator
 
 # Install MaRDI client
 RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git \

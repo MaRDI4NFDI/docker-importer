@@ -177,7 +177,8 @@ class Author:
         # Orcid ID
         if self.orcid:
             self._item.add_claim('ORCID iD', self.orcid)
-            self.sync_with_wikidata()
+            # Deactivate import from Wikidata
+            # self.sync_with_wikidata()
 
         if self.QID:
             self._item = self.api.item.get(self.QID)

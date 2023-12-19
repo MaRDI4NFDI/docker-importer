@@ -128,7 +128,7 @@ class OpenMLSource(ADataSource):
                     'contributors': ['Rob Holte'],
                     'collection_date': ['1989-08-01'],
                     'upload_date': ['2014-04-06T23:19:28'],
-                    'license': ['Public'],
+                    'license': ['CC0'],
                     'url': ['https://api.openml.org/data/v1/download/3/kr-vs-kp.arff'],
                     'default_target_attribute': ['class'],
                     'row_id_attribute': [None],

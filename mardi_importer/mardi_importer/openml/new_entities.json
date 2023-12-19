@@ -6,7 +6,7 @@
             "datatype": "string"
         },
         {
-            "label": "date string",
+            "label": "collection date",
             "description": "date as a string",
             "datatype": "string"
         },
@@ -51,6 +51,11 @@
             "datatype": "quantity"
         },
         {
+            "label": "author name string",
+            "description": "name string of the author",
+            "datatype": "string"
+        },
+        {
             "label": "number of features",
             "description": "the number of features",
             "datatype": "quantity"
@@ -79,6 +84,11 @@
             "label": "number of symbolic features",
             "description": "the number of symbolic features",
             "datatype": "quantity"
+        },
+        {
+            "label": "OpenML dataset ID",
+            "description": "identifier for a dataset in the OpenML database of open datasets for machine learning",
+            "datatype": "string"
         }
     ],
     "items": [

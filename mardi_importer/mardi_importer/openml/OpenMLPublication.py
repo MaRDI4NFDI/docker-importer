@@ -42,6 +42,7 @@ class OpenMLPublication:
             self.QID = None
         else:
             self.QID = QID_list[0]
+        return(self.QID)
 
     def create(self):
         self.item.add_claim("wdt:P31", "wd:Q13442814")

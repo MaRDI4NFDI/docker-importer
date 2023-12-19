@@ -1,5 +1,6 @@
 import re
 import sys
+from .OpenMLPublication import OpenMLPublication
 
 semantic_tags = [
 "Agriculture",
@@ -106,7 +107,8 @@ class OpenMLDataset:
         return(dataset_id)
     
     def insert_claims(self):
-        self.item.add_claim("wdt:P11238", self.dataset_id)
+        prop_nr = self.api.get_local_id_by_label("OpenML dataset ID", "property")
+        self.item.add_claim(prop_nr, str(self.dataset_id))
         if self.version is not None and self.version != "None":
             prop_nr = self.api.get_local_id_by_label("dataset version", "property")
             self.item.add_claim(prop_nr, str(self.version))
@@ -129,11 +131,12 @@ class OpenMLDataset:
                 contributor_claims.append(claim)
             self.item.add_claims(contributor_claims)
         if self.collection_date and self.collection_date != "None":
-            prop_nr = self.api.get_local_id_by_label("dataset version", "property")
+            prop_nr = self.api.get_local_id_by_label("collection date", "property")
             self.item.add_claim(prop_nr, str(self.collection_date))
         if self.upload_date and self.upload_date != "None":
             prop_nr = self.api.get_local_id_by_label("upload date", "property")
-            self.item.add_claim(prop_nr, self.upload_date)
+            date = self.upload_date.split("T")[0] + "T00:00:00Z"
+            self.item.add_claim(prop_nr, date)
         if self.license and self.license != "None":
             claims = self.process_licenses()
             self.item.add_claims(claims)
@@ -270,6 +273,7 @@ class OpenMLDataset:
           item (WBItem):
             Item representing the R package to which the statement must be added.
         """
+        license_str = self.license
         claims = []
         license_qualifier = ""
         if re.findall("\(.*?\)", license_str):
@@ -339,4 +343,87 @@ class OpenMLDataset:
             return(doi, "doi")
         else:
             return(None, None)
-        
+    
+    def get_license_QID(self, license_str: str) -> str:
+        """Returns the Wikidata item ID corresponding to a software license.
+
+        The same license is often denominated in CRAN using differents names.
+        This function returns the wikidata item ID corresponding to a single
+        unique license that is referenced in CRAN under different names (e.g.
+        *Artistic-2.0* and *Artistic License 2.0* both refer to the same
+        license, corresponding to item *Q14624826*).
+
+        Args:
+            license_str (str): String corresponding to a license imported from CRAN.
+
+        Returns:
+            (str): Wikidata item ID.
+        """
+        def get_license(label: str) -> str:
+            license_item = self.api.item.new()
+            license_item.labels.set(language="en", value=label)
+            return license_item.is_instance_of("wd:Q207621")
+
+        license_mapping = {
+            "ACM": get_license("ACM Software License Agreement"),
+            "AGPL":"wd:Q28130012",
+            "AGPL-3": "wd:Q27017232",
+            "Apache License": "wd:Q616526",
+            "Apache License 2.0": "wd:Q13785927",
+            "Apache License version 1.1": "wd:Q17817999",
+            "Apache License version 2.0": "wd:Q13785927",
+            "Artistic-2.0": "wd:Q14624826",
+            "Artistic License 2.0": "wd:Q14624826",
+            "BSD 2-clause License": "wd:Q18517294",
+            "BSD 3-clause License": "wd:Q18491847",
+            "BSD_2_clause": "wd:Q18517294",
+            "BSD_3_clause": "wd:Q18491847",
+            "BSL": "wd:Q2353141",
+            "BSL-1.0": "wd:Q2353141",
+            "CC0": "wd:Q6938433",
+            "CC BY 4.0": "wd:Q20007257",
+            "CC BY-SA 4.0": "wd:Q18199165",
+            "CC BY-NC 4.0": "wd:Q34179348",
+            "CC BY-NC-SA 4.0": "wd:Q42553662",
+            "CeCILL": "wd:Q1052189",
+            "CeCILL-2": "wd:Q19216649",
+            "Common Public License Version 1.0": "wd:Q2477807",
+            "CPL-1.0": "wd:Q2477807",
+            "Creative Commons Attribution 4.0 International License": "wd:Q20007257",
+            "EPL": "wd:Q1281977",
+            "EUPL": "wd:Q1376919",
+            "EUPL-1.1": "wd:Q1376919",
+            "file LICENCE": get_license("File License"),
+            "file LICENSE": get_license("File License"),
+            "FreeBSD": "wd:Q34236",
+            "GNU Affero General Public License": "wd:Q1131681",
+            "GNU General Public License": "wd:Q7603",
+            "GNU General Public License version 2": "wd:Q10513450",
+            "GNU General Public License version 3": "wd:Q10513445",
+            "GPL": "wd:Q7603",
+            "GPL-2": "wd:Q10513450",
+            "GPL-3": "wd:Q10513445",
+            "LGPL": "wd:Q192897",
+            "LGPL-2": "wd:Q23035974",
+            "LGPL-2.1": "wd:Q18534390",
+            "LGPL-3": "wd:Q18534393",
+            "Lucent Public License": "wd:Q6696468",
+            "MIT": "wd:Q334661",
+            "MIT License": "wd:Q334661",
+            "Mozilla Public License 1.1": "wd:Q26737735",
+            "Mozilla Public License 2.0": "wd:Q25428413",
+            "Mozilla Public License Version 2.0": "wd:Q25428413",
+            "MPL": "wd:Q308915",
+            "MPL version 1.0": "wd:Q26737738",
+            "MPL version 1.1": "wd:Q26737735",
+            "MPL version 2.0": "wd:Q25428413",
+            "MPL-1.1": "wd:Q26737735",
+            "MPL-2.0": "wd:Q25428413",
+            "Unlimited": get_license("Unlimited License"),
+        }
+
+        license_info = license_mapping.get(license_str)
+        if callable(license_info):
+            return license_info()
+        else:
+            return license_info

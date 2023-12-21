@@ -73,7 +73,6 @@ class ZBMathSource(ADataSource):
         self.internal_tags = ["author_id", "source", "classifications", "links"]
         self.existing_authors = {}
         self.existing_journals = {}
-        self.existing_publications = []
 
     def setup(self):
         """Create all necessary properties and entities for zbMath"""
@@ -284,11 +283,6 @@ class ZBMathSource(ADataSource):
                 #     else:
                 #         found = True
                 #         continue
-                if info_dict["document_title"] in self.existing_publications:
-                    print(
-                        f"A publication with the name {info_dict['document_title']} was already created in this run."
-                    )
-                    continue
                 # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
                     if (
@@ -307,8 +301,6 @@ class ZBMathSource(ADataSource):
                         document_title = None
                 # only upload those where there was a conflict before
                 else:
-                    print(f"Skipping non-conflict paper {info_dict['document_title']}")
-                    continue
                     document_title = info_dict["document_title"].strip()
                 if not info_dict["zbl_id"] == "None":
                     zbl_id = info_dict["zbl_id"]
@@ -544,11 +536,6 @@ class ZBMathSource(ADataSource):
                         break
                 else:
                     sys.exit("Uploading publication did not work after retries!")
-                # in case a publication is listed twice; this normally happens
-                # within a distance of a few lines
-                if document_title:
-                    self.existing_publications.append(document_title)
-                self.existing_publications = self.existing_publications[-100:]
 
     def get_de_number(self, xml_record):
         """

@@ -270,7 +270,7 @@ class ZBMathSource(ADataSource):
                     headers = line.strip().split("\t")
                     in_header_line = False
                     continue
-                split_line = line.strip().split("\t")
+                split_line = line.strip("\n").split("\t")
                 # formatting error: skip
                 if len(split_line) != len(headers):
                     continue

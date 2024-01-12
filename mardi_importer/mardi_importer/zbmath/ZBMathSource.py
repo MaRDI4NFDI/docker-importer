@@ -216,6 +216,19 @@ class ZBMathSource(ADataSource):
                 value = zb_preview.find(get_tag(tag, self.tag_namespace))
                 if value is not None:
                     if len(value):
+                        if tag == "references":
+                            references = []
+                            for child in value:
+                                subvalue = child.find(
+                                     get_tag("ref_id", self.tag_namespace)
+                                 )
+                                if subvalue is not None:
+                                    references.append(subvalue.text)
+                            if references:
+                                new_entry[tag] = ";".join(references)
+                            else:
+                                new_entry[tag] = None
+                            continue
                         if tag == "review":
                             for subtag in ["review_text", "review_sign", "reviewer_id"]:
                                 subvalue = value.find(

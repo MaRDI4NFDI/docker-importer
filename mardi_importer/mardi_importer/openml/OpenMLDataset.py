@@ -168,6 +168,7 @@ class OpenMLDataset:
                     tag_claims.append(claim)
                 self.item.add_claims(tag_claims)
         if self.paper_url and self.paper_url != "None":
+            #create item for this
             identifier, identifier_type = self.get_identifier()
             publication = OpenMLPublication(integrator=self.api, identifier=identifier, 
                     identifier_type=identifier_type)
@@ -175,6 +176,9 @@ class OpenMLDataset:
             if not paper_qid:
                 paper_qid = publication.create()
             self.item.add_claim("wdt:P2860", paper_qid)
+            #create item for string
+            prop_nr = self.api.get_local_id_by_label("citation text", "property")
+            self.item.add_claim(prop_nr, self.paper_url)
         if self.md5_checksum and self.md5_checksum != "None":
             qualifier = [self.api.get_claim("wdt:P459", "wd:Q185235")]
             self.item.add_claims(self.api.get_claim("wdt:P4092", self.md5_checksum, qualifiers=qualifier))

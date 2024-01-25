@@ -89,6 +89,11 @@
             "label": "OpenML dataset ID",
             "description": "identifier for a dataset in the OpenML database of open datasets for machine learning",
             "datatype": "string"
+        },
+        {
+            "label": "citation text",
+            "description": "free-form text about citation",
+            "datatype": "string"
         }
     ],
     "items": [

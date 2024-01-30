@@ -150,6 +150,7 @@ class RPackage:
                 self.long_description = soup.find_all('p')[0].get_text() or ""
                 self.parse_publications(self.long_description)
                 self.long_description = re.sub("\n", "", self.long_description).strip()
+                self.long_description = re.sub("\t", "", self.long_description).strip()
 
                 table = soup.find_all('table')[0]
                 package_df = self.clean_package_list(table)                

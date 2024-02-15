@@ -1,6 +1,7 @@
 import re
 import sys
 from .OpenMLPublication import OpenMLPublication
+import validators
 
 semantic_tags = [
 "Agriculture",
@@ -39,7 +40,6 @@ class OpenMLDataset:
             self,
             integrator, 
             name,
-            description,
             dataset_id,
             version,
             creators,
@@ -67,7 +67,7 @@ class OpenMLDataset:
             ):
         self.api = integrator
         self.name = name #done
-        self.dataset_id = dataset_id #done
+        self.dataset_id = str(dataset_id) #done
         self.version = version #done
         self.creators = creators
         self.contributors = contributors
@@ -104,18 +104,19 @@ class OpenMLDataset:
         self.item.add_claim("wdt:P31", "wd:Q1172284")
         self.insert_claims()
         dataset_id = self.item.write().id
+        print(f"Dataset with id {dataset_id} created")
         return(dataset_id)
     
     def insert_claims(self):
         prop_nr = self.api.get_local_id_by_label("OpenML dataset ID", "property")
-        self.item.add_claim(prop_nr, str(self.dataset_id))
+        self.item.add_claim(prop_nr, self.dataset_id)
         if self.version is not None and self.version != "None":
             prop_nr = self.api.get_local_id_by_label("dataset version", "property")
             self.item.add_claim(prop_nr, str(self.version))
         if self.creators and self.creators != "None":
             creator_claims = []
             prop_nr = self.api.get_local_id_by_label("author name string", "property")
-            if not isinstance(object, list):
+            if not isinstance(self.creators, list):
                 self.creators = [self.creators]
             for c in self.creators:
                 claim = self.api.get_claim(prop_nr, c)
@@ -124,7 +125,7 @@ class OpenMLDataset:
         if self.contributors and self.contributors != "None":
             contributor_claims = []
             prop_nr = self.api.get_local_id_by_label("author name string", "property")
-            if not isinstance(object, list):
+            if not isinstance(self.contributors, list):
                 self.contributors = [self.contributors]
             for c in self.contributors:
                 claim = self.api.get_claim(prop_nr, c)
@@ -141,10 +142,10 @@ class OpenMLDataset:
             claims = self.process_licenses()
             self.item.add_claims(claims)
         url_claims = []
-        if self.url and self.url != "None":
+        if self.url and self.url != "None" and validators.url(self.url):
             claim = self.api.get_claim("wdt:P953", self.url)
             url_claims.append(claim)
-        if self.original_data_url and self.original_data_url != "None":
+        if self.original_data_url and self.original_data_url != "None" and validators.url(self.original_data_url):
             claim = self.api.get_claim("wdt:P953", self.original_data_url)
             url_claims.append(claim)
         if url_claims:
@@ -170,12 +171,13 @@ class OpenMLDataset:
         if self.paper_url and self.paper_url != "None":
             #create item for this
             identifier, identifier_type = self.get_identifier()
-            publication = OpenMLPublication(integrator=self.api, identifier=identifier, 
+            if identifier:
+                publication = OpenMLPublication(integrator=self.api, identifier=identifier, 
                     identifier_type=identifier_type)
-            paper_qid = publication.exists()
-            if not paper_qid:
-                paper_qid = publication.create()
-            self.item.add_claim("wdt:P2860", paper_qid)
+                paper_qid = publication.exists()
+                if not paper_qid:
+                    paper_qid = publication.create()
+                self.item.add_claim("wdt:P2860", paper_qid)
             #create item for string
             prop_nr = self.api.get_local_id_by_label("citation text", "property")
             self.item.add_claim(prop_nr, self.paper_url)
@@ -227,6 +229,9 @@ class OpenMLDataset:
                 self.item.add_claim("wdt:P2701", qid)
             else:
                 sys.exit(f"Invalid file format {self.format}")
+        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        profile_target = self.api.get_local_id_by_label("MaRDI dataset profile", "property")
+        self.item.add_claim(profile_prop, profile_target)
 
     def exists(self):
         """Checks if a WB item corresponding to the dataset already exists.
@@ -243,6 +248,8 @@ class OpenMLDataset:
         self.QID = self.item.is_instance_of_with_property(
                 "wd:Q1172284", "wdt:P11238", self.dataset_id
             )
+        if self.QID:
+            print(f"Dataset exists with QID {self.QID}")
         return self.QID
 
     def update(self):
@@ -310,41 +317,41 @@ class OpenMLDataset:
         elif "http" not in self.paper_url:
             return(None,None)
         elif "dl.acm.org" in self.paper_url:
-            return("/".join(self.paper_url.split("/")[-2:]), "doi")
+            return("/".join(self.paper_url.split("/")[-2:]).lower(), "doi")
         elif "doi=" in self.paper_url:
             doi = self.paper_url.split("doi=")[-1]
             if "&" in doi:
                 doi = doi.split("&")[0]
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         elif "link.springer" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
             if "%" in doi: 
                 return(None, None)
             else:
-                return(doi, "doi")
+                return(doi.lower(), "doi")
         elif "wiley" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
             if "?" in doi:
                 doi = doi.split("?")[0]
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         elif "biomedcentral" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         elif "tandfonline" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         elif "arxiv" in self.paper_url:
             arxiv_id = self.paper_url.split("/")[-1]
             return(arxiv_id, "arxiv")
         elif "royalsociety" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         elif "sagepub" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         elif "science.org" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi, "doi")
+            return(doi.lower(), "doi")
         else:
             return(None, None)
     

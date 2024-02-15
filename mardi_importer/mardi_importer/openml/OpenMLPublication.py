@@ -37,11 +37,13 @@ class OpenMLPublication:
                     "wdt:P818", self.identifier
                 )
         else:
-            sys.exit("Invalid identifier type")
+            sys.exit(f"Invalid identifier type {self.identifier_type}")
         if not QID_list:
             self.QID = None
         else:
             self.QID = QID_list[0]
+        if self.QID:
+            print(f"Publication with qid {self.QID} exists")
         return(self.QID)
 
     def create(self):
@@ -50,7 +52,11 @@ class OpenMLPublication:
             self.item.add_claim("wdt:P356", self.identifier)
         elif self.identifier_type == "arxiv":
             self.item.add_claim("wdt:P356", self.identifier)
+        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        profile_target = self.api.get_local_id_by_label("MaRDI publication profile", "property")
+        self.item.add_claim(profile_prop, profile_target)
         self.item.descriptions.set(language="en", value=f"scientific article about an OpenML dataset")
         publication_id = self.item.write().id
+        print(f"Publication with the qid {publication_id} has been created.")
         return publication_id
 

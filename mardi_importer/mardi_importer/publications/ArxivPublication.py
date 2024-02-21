@@ -226,7 +226,10 @@ class ArxivPublication():
                 orcid = orcid[0] if orcid else None
                 arxiv_author_id = author_item.get_value('wdt:P4594')
                 arxiv_author_id = arxiv_author_id[0] if arxiv_author_id else None
-                aliases = author_item.aliases.get('en')
+                aliases = []
+                if author_item.aliases.get('en'):
+                    for alias in item.aliases.get('en'):
+                        aliases.append(str(alias))
                 author = Author(self.api, 
                                 name=name,
                                 orcid=orcid,

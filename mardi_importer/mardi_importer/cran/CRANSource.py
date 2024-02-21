@@ -108,7 +108,7 @@ class CRANSource(ADataSource):
             #if not flag and package_label != "BeSS":
             #    continue
             #flag = True
-            if package_label == "apsimx":
+            if package_label == "GeoModels":
 
                 package = RPackage(package_date, package_label, package_title, self.integrator)
                 if package.exists():

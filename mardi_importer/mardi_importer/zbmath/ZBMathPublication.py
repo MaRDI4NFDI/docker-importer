@@ -62,7 +62,7 @@ class ZBMathPublication:
         self.zbl_id = zbl_id
         self.QID = None
         self.language = language
-        self.doi = doi
+        self.doi = doi.lower()
         self.authors = authors
         self.journal = journal
         self.time = time

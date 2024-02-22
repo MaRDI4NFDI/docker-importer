@@ -44,7 +44,7 @@ class ZenodoResource():
                 orcid = orcid[0] if orcid else None
                 aliases = []
                 if author_item.aliases.get('en'):
-                    for alias in item.aliases.get('en'):
+                    for alias in author_item.aliases.get('en'):
                         aliases.append(str(alias))
                 author = Author(self.api, 
                                 name=name,

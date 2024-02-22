@@ -228,7 +228,7 @@ class ArxivPublication():
                 arxiv_author_id = arxiv_author_id[0] if arxiv_author_id else None
                 aliases = []
                 if author_item.aliases.get('en'):
-                    for alias in item.aliases.get('en'):
+                    for alias in author_item.aliases.get('en'):
                         aliases.append(str(alias))
                 author = Author(self.api, 
                                 name=name,

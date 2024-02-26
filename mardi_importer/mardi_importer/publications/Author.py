@@ -187,10 +187,10 @@ class Author:
         if self.arxiv_id:
             self._item.add_claim("wdt:P4594", self.arxiv_id)
 
-        if self.affiliation and len(self.affiliation) > 8:
-            affiliation = self.api.import_from_label(self.affiliation)
-            if affiliation:
-                self._item.add_claim("wdt:P108", affiliation)
+        #if self.affiliation and len(self.affiliation) > 8:
+        #    affiliation = self.api.import_from_label(self.affiliation)
+        #    if affiliation:
+        #        self._item.add_claim("wdt:P108", affiliation)
 
         self._QID = self._item.write().id
         return self.QID

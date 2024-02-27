@@ -6,6 +6,8 @@ from mardi_importer.integrator.MardiEntities import MardiItemEntity
 from dataclasses import dataclass, field
 from typing import List
 from nameparser import HumanName
+from nameparser.config import CONSTANTS
+CONSTANTS.titles.remove('Mahdi')
 
 @dataclass
 class Author:

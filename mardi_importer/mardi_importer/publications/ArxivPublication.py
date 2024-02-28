@@ -207,6 +207,8 @@ class ArxivPublication():
     authors: List[str] = field(default_factory=list)
 
     def __post_init__(self):
+        if ' ' in self.arxiv_id:
+            self.arxiv_id = self.arxiv_id.split(' ')[0]
         self.metadata = Arxiv(self.api, self.arxiv_id)
         self.title = self.metadata.title
         self.authors = self.metadata.authors
@@ -295,8 +297,6 @@ class ArxivPublication():
             # DOI
             doi = '10.48550/arXiv.' + self.arxiv_id
             item.add_claim('wdt:P356', doi)
-
-
                         
             self.QID = item.write().id
 

@@ -450,8 +450,9 @@ class RPackage:
         for arxiv_id in arxiv_references:
             arxiv_id = arxiv_id.replace(":",".")
             publication = ArxivPublication(self.api, arxiv_id)
-            self.author_pool += publication.authors
-            self.arxiv_publications.append(publication)
+            if publication.title != "Error":
+                self.author_pool += publication.authors
+                self.arxiv_publications.append(publication)
 
         for zenodo_id in zenodo_references:
             zenodo_id = zenodo_id.replace(":",".")

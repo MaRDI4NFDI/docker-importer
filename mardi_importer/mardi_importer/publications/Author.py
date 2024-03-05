@@ -8,6 +8,7 @@ from typing import List
 from nameparser import HumanName
 from nameparser.config import CONSTANTS
 CONSTANTS.titles.remove('Mahdi')
+CONSTANTS.titles.remove('Bodhisattva')
 
 @dataclass
 class Author:

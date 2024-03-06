@@ -1,13 +1,14 @@
 import pandas as pd 
 from mardiclient import MardiClient
 from wikibaseintegrator.wbi_helpers import execute_sparql_query, remove_claims
+from wikibaseintegrator.models.qualifiers import Qualifiers
 from wikibaseintegrator import wbi_login
 import sys
 
 
 
 
-mc = MardiClient(user='RedirectionBot', password='password')
+mc = MardiClient(user='RedirectionBot', password='password', login_with_bot=True)
 df = pd.read_csv("redirection.csv")
 new_ids = df["sa"].unique()
 old_new_mapping = dict(zip(df["o"],df["sa"]))
@@ -32,7 +33,9 @@ for str_qid in new_ids:
         query = ("PREFIX wdt: <https://portal.mardi4nfdi.de/prop/direct/> "
             "PREFIX wd: <https://portal.mardi4nfdi.de/entity/> "
             f"SELECT ?item ?itemLabel WHERE "
-            f" {{  ?item ?property wd:{q} . }}")
+            f" {{ VALUES ?excludedProperty {{owl:sameAs}}  "
+            f"?item ?property wd:{q} . " 
+            f" FILTER( ?p != ?excludedProperty ) }}")
         results = execute_sparql_query(query= query, endpoint="http://query.portal.mardi4nfdi.de/proxy/wdqs/bigdata/namespace/wdq/sparql")
         results = results["results"]["bindings"]
         #print(f"cases where old id is referenced: {results}")
@@ -46,12 +49,14 @@ for str_qid in new_ids:
             if "/statement/" in outdated_qid:
                 continue
             outdated_qid = outdated_qid.split("/")[-1]
-            print(f"currently working on outdated qid {outdated_qid}")
-            try:
-                outdated_item = mc.item.get(entity_id=outdated_qid)
-            except:
-                print(f"trying to do item.get for outdated qid {outdated_qid} failed, skipping")
+            if outdated_qid[0] != "Q":
+                print(f"skipping outdated QID {outdated_qid} because it is invalid")
                 continue
+            if outdated_qid in old_new_mapping:
+                print(f"Skipping outdated qid because it is in old_qids")
+                continue
+            print(f"currently working on outdated qid {outdated_qid}")
+            outdated_item = mc.item.get(entity_id=outdated_qid)
             claims = outdated_item.claims.get_json()
             found_instances = []
             #test = False
@@ -80,10 +85,16 @@ for str_qid in new_ids:
                                     found_id = old_new_mapping[found_id]
                                 else:
                                     breaker = True
-                        #else:
                         
-                            #found_id = search_id
-                            found_instances.append({"c_id":kk["id"], "pid": k, "correct_id": found_id})
+                            if "references" in kk:
+                                print(f"found references for id {outdated_item}")
+                            temp_instance = {"c_id":kk["id"], "pid": k, "correct_id": found_id}
+                            if "qualifiers" in kk:
+                                q = Qualifiers()
+                                temp_instance["qualifiers"] = q.from_json(json_data=kk["qualifiers"])
+                            else:
+                                temp_instance["qualifiers"] = None
+                            found_instances.append(temp_instance)
             if not found_instances:
                 continue
             print(f"found instances: {found_instances}")
@@ -94,18 +105,18 @@ for str_qid in new_ids:
                 print(f"current found instances dict {d}")
                 claims_to_remove.append(d["c_id"])
                 if (d["pid"] + d["correct_id"]) not in new_id_tracker:
-                    new_claims.append({"pid": d["pid"], "qid": d["correct_id"]})
+                    new_claims.append({"pid": d["pid"], "qid": d["correct_id"], "qualifiers": d["qualifiers"]})
                     new_id_tracker.append(d["pid"] + d["correct_id"])
             print(f"new_id_tracker: {new_id_tracker}")
             print(f"claims to remove: {claims_to_remove}")
             print(f"new claims {new_claims}")
-            remove_claims("|".join(claims_to_remove), login=mc.login)
+            remove_claims("|".join(claims_to_remove), login=mc.login,is_bot=True)
             #for c in claims_to_remove:
             #    remove_claims(c, login=login)
             outdated_item = mc.item.get(entity_id=outdated_qid)
             print(f"new claims: {new_claims}")
             for d in new_claims:
-                outdated_item.add_claim(d["pid"], d["qid"])
+                outdated_item.add_claim(d["pid"], d["qid"], qualifiers=d["qualifiers"])
             outdated_item.write()
             print(f"write for outdated item {outdated_qid}")
             #print(a)

@@ -84,7 +84,7 @@ class ZBMathSource(ADataSource):
             "zbMATH DE Number", "property"
         )
         self.keyword_prop = self.integrator.get_local_id_by_label(
-            "zbMATH keyword string", "property"
+            "zbMATH Keywords", "property"
         )
 
     def create_local_entities(self):
@@ -321,6 +321,8 @@ class ZBMathSource(ADataSource):
                         author_strings = info_dict["author"].split(";")
                     authors = []
                     for a, a_id in zip(author_strings, author_ids):
+                        if not a and not a_id:
+                            continue
                         if a:
                             a = a.strip()
                         a_id = a_id.strip()

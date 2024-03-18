@@ -30,6 +30,11 @@ class ZBMathAuthor:
         item.labels.set(language="en", value=self.name)
         # instance of: human
         item.add_claim("wdt:P31", "wd:Q5")
+        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        profile_target = self.api.get_local_id_by_label(
+            "MaRDI person profile", "property"
+        )
+        self.item.add_claim(profile_prop, profile_target)
         if self.zbmath_author_id:
             # if self.name:
             #     # is there a human with zbmath author ID = zbmath_author_id

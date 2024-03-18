@@ -409,9 +409,13 @@ class ZBMathSource(ADataSource):
                     time_string = None
 
                 if not self.conflict_string in info_dict["links"]:
-                    pattern = re.compile(r'^([a-z][a-z\d+.-]*):([^][<>\"\x00-\x20\x7F])+$')
+                    pattern = re.compile(
+                        r"^([a-z][a-z\d+.-]*):([^][<>\"\x00-\x20\x7F])+$"
+                    )
                     links = info_dict["links"].split(";")
-                    links = [ x.strip() for x in links if (pattern.match(x) and "http" in x)]
+                    links = [
+                        x.strip() for x in links if (pattern.match(x) and "http" in x)
+                    ]
                 else:
                     links = []
 
@@ -441,6 +445,7 @@ class ZBMathSource(ADataSource):
                         and info_dict["review_sign"].strip() != "None"
                         and not self.conflict_string in info_dict["reviewer_id"]
                         and info_dict["reviewer_id"].strip() != "None"
+                        and info_dict["reviewer_id"].strip() != ""
                     ):
                         reviewer_id = info_dict["reviewer_id"].strip()
                         reviewer_name = (
@@ -485,6 +490,7 @@ class ZBMathSource(ADataSource):
                 if (
                     not self.conflict_string in info_dict["classifications"]
                     and info_dict["classifications"].strip() != "None"
+                    and info_dict["classifications"].strip() != ""
                 ):
                     classifications = info_dict["classifications"].strip().split(";")
                 else:
@@ -498,6 +504,7 @@ class ZBMathSource(ADataSource):
                 if (
                     not self.conflict_string in info_dict["keywords"]
                     and info_dict["keywords"].strip() != "None"
+                    and info_dict["keywords"].strip() != ""
                 ):
                     keywords = info_dict["keywords"].strip().split(";")
                     keywords = [x.strip() for x in keywords]

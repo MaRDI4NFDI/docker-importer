@@ -80,7 +80,10 @@ class ZBMathPublication:
     def init_item(self):
         item = self.api.item.new()
         item.labels.set(language="en", value=self.title)
-        item.descriptions.set(language="en", value=f"scientific article; zbMATH DE number {self.de_number}")
+        item.descriptions.set(
+            language="en",
+            value=f"scientific article; zbMATH DE number {self.de_number}",
+        )
         return item
 
     def create(self):
@@ -137,6 +140,11 @@ class ZBMathPublication:
                 claim = self.api.get_claim(self.keyword_prop, k)
                 kw_claims.append(claim)
             self.item.add_claims(kw_claims)
+        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        profile_target = self.api.get_local_id_by_label(
+            "MaRDI publication profile", "item"
+        )[0]
+        self.item.add_claim(profile_prop, profile_target)
 
     def exists(self):
         """Checks if a WB item corresponding to the publication already exists.

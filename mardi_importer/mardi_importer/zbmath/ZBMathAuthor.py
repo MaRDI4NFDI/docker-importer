@@ -34,7 +34,7 @@ class ZBMathAuthor:
         profile_target = self.api.get_local_id_by_label(
             "MaRDI person profile", "property"
         )
-        self.item.add_claim(profile_prop, profile_target)
+        item.add_claim(profile_prop, profile_target)
         if self.zbmath_author_id:
             # if self.name:
             #     # is there a human with zbmath author ID = zbmath_author_id

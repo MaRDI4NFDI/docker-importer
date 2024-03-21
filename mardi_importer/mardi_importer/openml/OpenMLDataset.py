@@ -162,7 +162,8 @@ class OpenMLDataset:
                 prop_nr = self.api.get_local_id_by_label("OpenML semantic tag", "property")
                 tag_claims = []
                 for vt in valid_tags:
-                    claim = self.api.get_claim(prop_nr, vt)
+                    vt_id = self.api.get_local_id_by_label(vt, "item")
+                    claim = self.api.get_claim(prop_nr, vt_id)
                     tag_claims.append(claim)
                 self.item.add_claims(tag_claims)
         if self.paper_url and self.paper_url != "None":

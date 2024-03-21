@@ -108,27 +108,24 @@ class OpenMLDataset:
         return(dataset_id)
     
     def insert_claims(self):
-        prop_nr = self.api.get_local_id_by_label("OpenML dataset ID", "property")
-        self.item.add_claim(prop_nr, self.dataset_id)
+        self.item.add_claim("wdt:P11238", self.dataset_id)
         if self.version is not None and self.version != "None":
             prop_nr = self.api.get_local_id_by_label("dataset version", "property")
             self.item.add_claim(prop_nr, str(self.version))
         if self.creators and self.creators != "None":
             creator_claims = []
-            prop_nr = self.api.get_local_id_by_label("author name string", "property")
             if not isinstance(self.creators, list):
                 self.creators = [self.creators]
             for c in self.creators:
-                claim = self.api.get_claim(prop_nr, c)
+                claim = self.api.get_claim("wdt:P2093", c)
                 creator_claims.append(claim)
             self.item.add_claims(creator_claims)
         if self.contributors and self.contributors != "None":
             contributor_claims = []
-            prop_nr = self.api.get_local_id_by_label("author name string", "property")
             if not isinstance(self.contributors, list):
                 self.contributors = [self.contributors]
             for c in self.contributors:
-                claim = self.api.get_claim(prop_nr, c)
+                claim = self.api.get_claim("wdt:P2093", c)
                 contributor_claims.append(claim)
             self.item.add_claims(contributor_claims)
         if self.collection_date and self.collection_date != "None":

@@ -25,10 +25,12 @@ setuptools.setup(
         "lxml",
         "mysql-connector-python",
         "nameparser",
+        "openml",
         "pandas",
         "sickle",
         "sparqlwrapper",
         "sqlalchemy",
+        "validators",
         "wikibaseintegrator"
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},

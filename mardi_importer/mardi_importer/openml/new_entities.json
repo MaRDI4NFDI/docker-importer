@@ -1,0 +1,98 @@
+{
+    "properties": [
+        {
+            "label": "dataset version",
+            "description": "Version of a dataset",
+            "datatype": "string"
+        },
+        {
+            "label": "collection date",
+            "description": "date as a string",
+            "datatype": "string"
+        },
+        {
+            "label": "upload date",
+            "description": "upload date of file",
+            "datatype": "time"
+        },
+        {
+            "label": "default target attribute",
+            "description": "the default target attribute",
+            "datatype": "string"
+        },
+        {
+            "label": "row id attribute",
+            "description": "the row id attribute",
+            "datatype": "string"
+        },
+        {
+            "label": "OpenML semantic tag",
+            "description": "the OpenML semantic tag",
+            "datatype": "string"
+        },
+        {
+            "label": "has feature",
+            "description": "it has feature",
+            "datatype": "string"
+        },
+        {
+            "label": "data type",
+            "description": "the data type",
+            "datatype": "string"
+        },
+        {
+            "label": "number of binary features",
+            "description": "the number of binary features",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of classes",
+            "description": "the number of classes",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of features",
+            "description": "the number of features",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of instances",
+            "description": "the number of instances",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of instances with missing values",
+            "description": "the number of instances with missing values",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of missing values",
+            "description": "the number of missing values",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of numeric features",
+            "description": "the number of numeric features",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of symbolic features",
+            "description": "the number of symbolic features",
+            "datatype": "quantity"
+        },
+        {
+            "label": "citation text",
+            "description": "free-form text about citation",
+            "datatype": "string"
+        }
+    ],
+    "items": [
+        {
+            "label": "Sparse ARFF",
+            "description": "File format",
+            "claims": {
+                "wdt:P31": "wd:Q235557"
+            }
+        }
+    ]
+}

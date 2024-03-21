@@ -30,6 +30,7 @@ setuptools.setup(
         "sickle",
         "sparqlwrapper",
         "sqlalchemy",
+        "validators",
         "wikibaseintegrator"
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},

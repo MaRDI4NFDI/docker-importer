@@ -162,7 +162,7 @@ class OpenMLDataset:
                 prop_nr = self.api.get_local_id_by_label("OpenML semantic tag", "property")
                 tag_claims = []
                 for vt in valid_tags:
-                    vt_id = self.api.get_local_id_by_label(vt, "item")
+                    vt_id = self.api.get_local_id_by_label(vt, "item")[0]
                     claim = self.api.get_claim(prop_nr, vt_id)
                     tag_claims.append(claim)
                 self.item.add_claims(tag_claims)
@@ -228,7 +228,7 @@ class OpenMLDataset:
             else:
                 sys.exit(f"Invalid file format {self.format}")
         profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label("MaRDI dataset profile", "property")
+        profile_target = self.api.get_local_id_by_label("MaRDI dataset profile", "item")[0]
         self.item.add_claim(profile_prop, profile_target)
 
     def exists(self):

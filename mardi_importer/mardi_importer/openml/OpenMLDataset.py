@@ -108,7 +108,7 @@ class OpenMLDataset:
     def insert_claims(self):
         self.item.add_claim("wdt:P11238", self.dataset_id)
         if self.version is not None and self.version != "None":
-            prop_nr = self.api.get_local_id_by_label("dataset version", "property")
+            prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
             self.item.add_claim(prop_nr, str(self.version))
         if self.creators and self.creators != "None":
             creator_claims = []

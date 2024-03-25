@@ -54,7 +54,6 @@ class OpenMLDataset:
             original_data_url,
             paper_url,
             md5_checksum,
-            features,
             num_binary_features,
             num_classes,
             num_features,
@@ -81,7 +80,6 @@ class OpenMLDataset:
         self.original_data_url = original_data_url
         self.paper_url = paper_url
         self.md5_checksum = md5_checksum
-        self.features = features
         self.num_binary_features = num_binary_features
         self.num_classes = num_classes
         self.num_features = num_features
@@ -182,19 +180,6 @@ class OpenMLDataset:
         if self.md5_checksum and self.md5_checksum != "None":
             qualifier = [self.api.get_claim("wdt:P459", "wd:Q185235")]
             self.item.add_claims(self.api.get_claim("wdt:P4092", self.md5_checksum, qualifiers=qualifier))
-        if self.features and self.features != "None":
-            for _, v in self.features.items():
-                full_feature = str(v).split(" - ")[1][:-1]
-                match = re.match(r'^(.*?)\s*\(([^()]+)\)$', full_feature)
-                if match:
-                    feature = match.group(1).strip()
-                    feature_type = match.group(2).strip()
-                    if feature_type not in ["numeric", "nominal", "string", "date"]:
-                        sys.exit("Incorrect feature type {feature_type}")
-                    data_type_prop_nr = self.api.get_local_id_by_label("data type", "property")
-                    qualifier = [self.api.get_claim(data_type_prop_nr, feature_type)]
-                    feature_prop_nr = self.api.get_local_id_by_label("has feature", "property")
-                    self.item.add_claims(self.api.get_claim(feature_prop_nr, feature, qualifiers=qualifier))
         if self.num_binary_features is not None and self.num_binary_features != "None":
             prop_nr = self.api.get_local_id_by_label("number of binary features", "property")
             self.item.add_claim(prop_nr, int(self.num_binary_features))

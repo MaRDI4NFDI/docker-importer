@@ -58,12 +58,9 @@ class OpenMLSource(ADataSource):
         did_list = dataset_df["did"].unique()
         for did in did_list:
             try:
-                ds = openml.datasets.get_dataset(int(did), download_data=False)
+                ds = openml.datasets.get_dataset(int(did), download_data=False, download_features_meta_data=False)
             except Exception as e:
-                try:
-                    ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False)
-                except Exception as e:
-                    ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False, download_features_meta_data=False)
+                ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False, download_features_meta_data=False)
             dataset_dict["name"].append(ds.name)
             dataset_dict["dataset_id"].append(did)
             dataset_dict["version"].append(ds.version)
@@ -79,10 +76,6 @@ class OpenMLSource(ADataSource):
             dataset_dict["original_data_url"].append(ds.original_data_url)
             dataset_dict["paper_url"].append(ds.paper_url)
             dataset_dict["md5_checksum"].append(ds.md5_checksum)
-            try:
-                dataset_dict["features"].append(ds.features)
-            except:
-                dataset_dict["features"].append(None)
             try:
                 qualities = ds.qualities
             except:

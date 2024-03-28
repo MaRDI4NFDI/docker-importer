@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.importer.Importer &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html#usage">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tech.html">Importer diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cran.html">CRAN module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../importer.html">mardi_importer.importer module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../integrator.html">mardi_importer.integrator module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../polydb.html">mardi_importer.polydb module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zbmath.html">mardi_importer.zbmath module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">mardi_importer.importer.Importer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mardi_importer.importer.Importer</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Created on Thu Feb 17 18:53:53 2022</span>
+
+<span class="sd">@author: alvaro</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="Importer">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.Importer">[docs]</a>
+<span class="k">class</span> <span class="nc">Importer</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Controller class for importing data from an external source to the local Wikibase.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataSource</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Construct.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            entityCreator: object implementing AEntityCreator</span>
+<span class="sd">            dataSource: object implementig ADataSource</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataSource</span> <span class="o">=</span> <span class="n">dataSource</span>
+
+<div class="viewcode-block" id="Importer.import_all">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.Importer.import_all">[docs]</a>
+    <span class="k">def</span> <span class="nf">import_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pull</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">push</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Manages the import process.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataSource</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">pull</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataSource</span><span class="o">.</span><span class="n">pull</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">push</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dataSource</span><span class="o">.</span><span class="n">push</span><span class="p">()</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ADataSource">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.ADataSource">[docs]</a>
+<span class="k">class</span> <span class="nc">ADataSource</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for reading data from external sources.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ADataSource.write_data_dump">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.ADataSource.write_data_dump">[docs]</a>
+    <span class="k">def</span> <span class="nf">write_data_dump</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write data dump from API.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="ADataSource.process_data">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.ADataSource.process_data">[docs]</a>
+    <span class="k">def</span> <span class="nf">process_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Process data dump.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="ADataSource.pull">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.ADataSource.pull">[docs]</a>
+    <span class="k">def</span> <span class="nf">pull</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Pull data from DataSource</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="ADataSource.push">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.ADataSource.push">[docs]</a>
+    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Push data into the MaRDI knowledge graph.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="AConfigParser">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.AConfigParser">[docs]</a>
+<span class="k">class</span> <span class="nc">AConfigParser</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for parsing config files&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="AConfigParser.parse_config">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.AConfigParser.parse_config">[docs]</a>
+    <span class="k">def</span> <span class="nf">parse_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse config file.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Dictionary: Dictionary containing config values</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ImporterException">
+<a class="viewcode-back" href="../../../importer.html#mardi_importer.importer.Importer.ImporterException">[docs]</a>
+<span class="k">class</span> <span class="nc">ImporterException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Failed importer operation.&quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

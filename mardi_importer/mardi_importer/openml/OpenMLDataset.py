@@ -43,6 +43,7 @@ class OpenMLDataset:
             dataset_id,
             version,
             creators,
+            contributors,
             collection_date,
             upload_date,
             license,
@@ -68,6 +69,7 @@ class OpenMLDataset:
         self.dataset_id = str(dataset_id) #done
         self.version = version #done
         self.creators = creators
+        self.contributors = contributors
         self.collection_date = collection_date
         self.upload_date = upload_date
         self.license = license
@@ -109,13 +111,24 @@ class OpenMLDataset:
             prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
             self.item.add_claim(prop_nr, str(self.version))
         if self.creators and self.creators != "None":
+            #object has role 
+            qualifier = [self.api.get_claim("wdt:P3831", "wd:Q59275219")]
             creator_claims = []
             if not isinstance(self.creators, list):
                 self.creators = [self.creators]
             for c in self.creators:
-                claim = self.api.get_claim("wdt:P2093", c)
+                claim = self.api.get_claim("wdt:P2093", c, qualifiers=qualifier)
                 creator_claims.append(claim)
             self.item.add_claims(creator_claims)
+        if self.contributors and self.contributors != "None":
+            qualifier = [self.api.get_claim("wdt:P3831", "wd:Q20204892")]
+            contributor_claims = []
+            if not isinstance(self.contributors, list):
+                self.contributors = [self.contributors]
+            for c in self.contributors:
+                claim = self.api.get_claim("wdt:P2093", c, qualifiers=qualifier)
+                contributor_claims.append(claim)
+            self.item.add_claims(contributor_claims)
         if self.collection_date and self.collection_date != "None":
             prop_nr = self.api.get_local_id_by_label("collection date", "property")
             self.item.add_claim(prop_nr, str(self.collection_date))

@@ -49,7 +49,7 @@ class OpenMLSource(ADataSource):
 
     def pull(self):
         dataset_dict = {"name": [], "dataset_id": [], "version": [], "creators": [],
-                        "contributors": [], "collection_date": [], "upload_date": [], 
+                        "collection_date": [], "upload_date": [], 
                         "license": [], "url":[], "default_target_attribute":[], "row_id_attribute":[],
                         "tags":[], "original_data_url":[], "paper_url":[],
                         "md5_checksum": [], "num_binary_features":[],
@@ -67,7 +67,6 @@ class OpenMLSource(ADataSource):
             dataset_dict["dataset_id"].append(did)
             dataset_dict["version"].append(ds.version)
             dataset_dict["creators"].append(ds.creator)
-            dataset_dict["contributors"].append(ds.contributor)
             dataset_dict["collection_date"].append(ds.collection_date)
             dataset_dict["upload_date"].append(ds.upload_date)
             dataset_dict["license"].append(ds.licence)

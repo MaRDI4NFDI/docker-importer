@@ -43,7 +43,6 @@ class OpenMLDataset:
             dataset_id,
             version,
             creators,
-            contributors,
             collection_date,
             upload_date,
             license,
@@ -54,7 +53,6 @@ class OpenMLDataset:
             original_data_url,
             paper_url,
             md5_checksum,
-            features,
             num_binary_features,
             num_classes,
             num_features,
@@ -70,7 +68,6 @@ class OpenMLDataset:
         self.dataset_id = str(dataset_id) #done
         self.version = version #done
         self.creators = creators
-        self.contributors = contributors
         self.collection_date = collection_date
         self.upload_date = upload_date
         self.license = license
@@ -81,7 +78,6 @@ class OpenMLDataset:
         self.original_data_url = original_data_url
         self.paper_url = paper_url
         self.md5_checksum = md5_checksum
-        self.features = features
         self.num_binary_features = num_binary_features
         self.num_classes = num_classes
         self.num_features = num_features
@@ -110,7 +106,7 @@ class OpenMLDataset:
     def insert_claims(self):
         self.item.add_claim("wdt:P11238", self.dataset_id)
         if self.version is not None and self.version != "None":
-            prop_nr = self.api.get_local_id_by_label("dataset version", "property")
+            prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
             self.item.add_claim(prop_nr, str(self.version))
         if self.creators and self.creators != "None":
             creator_claims = []
@@ -120,14 +116,6 @@ class OpenMLDataset:
                 claim = self.api.get_claim("wdt:P2093", c)
                 creator_claims.append(claim)
             self.item.add_claims(creator_claims)
-        if self.contributors and self.contributors != "None":
-            contributor_claims = []
-            if not isinstance(self.contributors, list):
-                self.contributors = [self.contributors]
-            for c in self.contributors:
-                claim = self.api.get_claim("wdt:P2093", c)
-                contributor_claims.append(claim)
-            self.item.add_claims(contributor_claims)
         if self.collection_date and self.collection_date != "None":
             prop_nr = self.api.get_local_id_by_label("collection date", "property")
             self.item.add_claim(prop_nr, str(self.collection_date))
@@ -162,7 +150,7 @@ class OpenMLDataset:
                 prop_nr = self.api.get_local_id_by_label("OpenML semantic tag", "property")
                 tag_claims = []
                 for vt in valid_tags:
-                    vt_id = self.api.get_local_id_by_label(vt, "item")
+                    vt_id = self.api.get_local_id_by_label(vt, "item")[0]
                     claim = self.api.get_claim(prop_nr, vt_id)
                     tag_claims.append(claim)
                 self.item.add_claims(tag_claims)
@@ -182,19 +170,6 @@ class OpenMLDataset:
         if self.md5_checksum and self.md5_checksum != "None":
             qualifier = [self.api.get_claim("wdt:P459", "wd:Q185235")]
             self.item.add_claims(self.api.get_claim("wdt:P4092", self.md5_checksum, qualifiers=qualifier))
-        if self.features and self.features != "None":
-            for _, v in self.features.items():
-                full_feature = str(v).split(" - ")[1][:-1]
-                match = re.match(r'^(.*?)\s*\(([^()]+)\)$', full_feature)
-                if match:
-                    feature = match.group(1).strip()
-                    feature_type = match.group(2).strip()
-                    if feature_type not in ["numeric", "nominal", "string", "date"]:
-                        sys.exit("Incorrect feature type {feature_type}")
-                    data_type_prop_nr = self.api.get_local_id_by_label("data type", "property")
-                    qualifier = [self.api.get_claim(data_type_prop_nr, feature_type)]
-                    feature_prop_nr = self.api.get_local_id_by_label("has feature", "property")
-                    self.item.add_claims(self.api.get_claim(feature_prop_nr, feature, qualifiers=qualifier))
         if self.num_binary_features is not None and self.num_binary_features != "None":
             prop_nr = self.api.get_local_id_by_label("number of binary features", "property")
             self.item.add_claim(prop_nr, int(self.num_binary_features))
@@ -228,7 +203,7 @@ class OpenMLDataset:
             else:
                 sys.exit(f"Invalid file format {self.format}")
         profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label("MaRDI dataset profile", "property")
+        profile_target = self.api.get_local_id_by_label("MaRDI dataset profile", "item")[0]
         self.item.add_claim(profile_prop, profile_target)
 
     def exists(self):

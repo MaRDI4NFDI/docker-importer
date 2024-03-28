@@ -1,7 +1,7 @@
 {
     "properties": [
         {
-            "label": "dataset version",
+            "label": "dataset version identifier",
             "description": "Version of a dataset",
             "datatype": "string"
         },
@@ -28,12 +28,7 @@
         {
             "label": "OpenML semantic tag",
             "description": "the OpenML semantic tag",
-            "datatype": "string"
-        },
-        {
-            "label": "has feature",
-            "description": "it has feature",
-            "datatype": "string"
+            "datatype": "wikibase-item"
         },
         {
             "label": "data type",
@@ -84,6 +79,11 @@
             "label": "citation text",
             "description": "free-form text about citation",
             "datatype": "string"
+        },
+        {
+            "label": "MaRDI profile type",
+            "description": "defines the types of MaRDI profiles expected to work for this item",
+            "datatype": "wikibase-item"
         }
     ],
     "items": [
@@ -93,6 +93,130 @@
             "claims": {
                 "wdt:P31": "wd:Q235557"
             }
+        },
+        {
+            "label": "Agriculture",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Astronomy",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Chemistry",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Computational Universe",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Computer Systems",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Culture",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Demographics",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Earth Science",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Economics",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Education",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Geography",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Health",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "History",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Human Activities",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Images",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Language",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Life Science",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Machine Learning",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Manufacturing",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Mathematics",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Medicine",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Meteorology",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Physical Sciences",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Politics",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Social Media",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Sociology",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Statistics",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "text & Literature",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "Transportation",
+            "description": "OpenML semantic tag"
+        },
+        {
+            "label": "MaRDI dataset profile",
+            "description": "type of MaRDI profile"
+        },
+        {
+            "label": "MaRDI publication profile",
+            "description": "type of MaRDI profile"
         }
     ]
 }

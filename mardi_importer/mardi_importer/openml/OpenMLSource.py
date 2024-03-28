@@ -5,6 +5,7 @@ from .OpenMLDataset import OpenMLDataset
 import os
 import json
 from itertools import zip_longest
+import pickle
 
 class OpenMLSource(ADataSource):
     def __init__(self):
@@ -40,17 +41,18 @@ class OpenMLSource(ADataSource):
             item = self.integrator.item.new()
             item.labels.set(language="en", value=item_element["label"])
             item.descriptions.set(language="en", value=item_element["description"])
-            for key, value in item_element["claims"].items():
-                item.add_claim(key, value=value)
+            if "claims" in item_element:
+                for key, value in item_element["claims"].items():
+                    item.add_claim(key, value=value)
             if not item.exists():
                 item.write()
 
     def pull(self):
         dataset_dict = {"name": [], "dataset_id": [], "version": [], "creators": [],
-                        "contributors": [], "collection_date": [], "upload_date": [], 
+                        "collection_date": [], "upload_date": [], 
                         "license": [], "url":[], "default_target_attribute":[], "row_id_attribute":[],
                         "tags":[], "original_data_url":[], "paper_url":[],
-                        "md5_checksum": [], "features": [], "num_binary_features":[],
+                        "md5_checksum": [], "num_binary_features":[],
                         "num_classes":[], "num_features":[], "num_instances":[], "num_instances_missing_vals":[],
                         "num_missing_vals":[], "num_numeric_features":[], "num_symbolic_features":[], 
                         "format":[]}
@@ -58,17 +60,13 @@ class OpenMLSource(ADataSource):
         did_list = dataset_df["did"].unique()
         for did in did_list:
             try:
-                ds = openml.datasets.get_dataset(int(did), download_data=False)
+                ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=True, download_features_meta_data=False)
             except Exception as e:
-                try:
-                    ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False)
-                except Exception as e:
-                    ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False, download_features_meta_data=False)
+                ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False, download_features_meta_data=False)
             dataset_dict["name"].append(ds.name)
             dataset_dict["dataset_id"].append(did)
             dataset_dict["version"].append(ds.version)
             dataset_dict["creators"].append(ds.creator)
-            dataset_dict["contributors"].append(ds.contributor)
             dataset_dict["collection_date"].append(ds.collection_date)
             dataset_dict["upload_date"].append(ds.upload_date)
             dataset_dict["license"].append(ds.licence)
@@ -79,10 +77,6 @@ class OpenMLSource(ADataSource):
             dataset_dict["original_data_url"].append(ds.original_data_url)
             dataset_dict["paper_url"].append(ds.paper_url)
             dataset_dict["md5_checksum"].append(ds.md5_checksum)
-            try:
-                dataset_dict["features"].append(ds.features)
-            except:
-                dataset_dict["features"].append(None)
             try:
                 qualities = ds.qualities
             except:
@@ -127,10 +121,11 @@ class OpenMLSource(ADataSource):
                 dataset_dict["num_symbolic_features"].append(ds.qualities['NumberOfSymbolicFeatures'])
             else:
                 dataset_dict["num_symbolic_features"].append(None)
+        with open('dataset_dict.p', 'wb') as handle:
+            pickle.dump(dataset_dict, handle)
         return(dataset_dict)
     
     def push(self):
-        import pickle
         with open('/data/dataset_dict.p', 'rb') as handle:
             dataset_dict = pickle.load(handle)
         # dataset_dict = {'name': ['kr-vs-kp'],

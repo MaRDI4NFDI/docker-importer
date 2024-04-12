@@ -6,6 +6,11 @@
             "datatype": "string"
         },
         {
+            "label": "description",
+            "description": "long description of an item",
+            "datatype": "string"
+        },
+        {
             "label": "collection date",
             "description": "date as a string",
             "datatype": "string"

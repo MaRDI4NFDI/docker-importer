@@ -41,6 +41,7 @@ class OpenMLDataset:
             integrator, 
             name,
             dataset_id,
+            description,
             version,
             creators,
             contributors,
@@ -67,6 +68,7 @@ class OpenMLDataset:
         self.api = integrator
         self.name = name #done
         self.dataset_id = str(dataset_id) #done
+        self.description=description
         self.version = version #done
         self.creators = creators
         self.contributors = contributors
@@ -110,6 +112,9 @@ class OpenMLDataset:
         if self.version is not None and self.version != "None":
             prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
             self.item.add_claim(prop_nr, str(self.version))
+        if self.description is not None:
+            prop_nr = self.api.get_local_id_by_label("description", "property")
+            self.item.add_claim(prop_nr, str(self.description))
         if self.creators and self.creators != "None":
             #object has role 
             qualifier = [self.api.get_claim("wdt:P3831", "wd:Q59275219")]

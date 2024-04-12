@@ -48,7 +48,7 @@ class OpenMLSource(ADataSource):
                 item.write()
 
     def pull(self):
-        dataset_dict = {"name": [], "dataset_id": [], "version": [], "creators": [],
+        dataset_dict = {"name": [], "dataset_id": [], "description":[], "version": [], "creators": [],
                         "contributors" : [], "collection_date": [], "upload_date": [], 
                         "license": [], "url":[], "default_target_attribute":[], "row_id_attribute":[],
                         "tags":[], "original_data_url":[], "paper_url":[],
@@ -65,6 +65,7 @@ class OpenMLSource(ADataSource):
                 ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False, download_features_meta_data=False)
             dataset_dict["name"].append(ds.name)
             dataset_dict["dataset_id"].append(did)
+            dataset_dict["description"].append(ds.description)
             dataset_dict["version"].append(ds.version)
             dataset_dict["creators"].append(ds.creator)
             dataset_dict["contributors"].append(ds.contributor)
@@ -78,6 +79,7 @@ class OpenMLSource(ADataSource):
             dataset_dict["original_data_url"].append(ds.original_data_url)
             dataset_dict["paper_url"].append(ds.paper_url)
             dataset_dict["md5_checksum"].append(ds.md5_checksum)
+            dataset_dict["format"].append(ds.format)
             try:
                 qualities = ds.qualities
             except:

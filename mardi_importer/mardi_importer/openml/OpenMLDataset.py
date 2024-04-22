@@ -2,6 +2,7 @@ import re
 import sys
 from .OpenMLPublication import OpenMLPublication
 import validators
+import math
 
 semantic_tags = [
 "Agriculture",
@@ -114,7 +115,9 @@ class OpenMLDataset:
             self.item.add_claim(prop_nr, str(self.version))
         if self.description is not None:
             prop_nr = self.api.get_local_id_by_label("description", "property")
-            self.item.add_claim(prop_nr, str(self.description))
+            description = self.description.replace("\n", "\\N")
+            description = description.replace("\t", "\\T")
+            self.item.add_claim(prop_nr, description)
         if self.creators and self.creators != "None":
             #object has role 
             qualifier = [self.api.get_claim("wdt:P3831", "wd:Q59275219")]
@@ -122,6 +125,9 @@ class OpenMLDataset:
             if not isinstance(self.creators, list):
                 self.creators = [self.creators]
             for c in self.creators:
+                if not c or c == "None":
+                    continue
+                c = c.replace("\n", " ")
                 claim = self.api.get_claim("wdt:P2093", c, qualifiers=qualifier)
                 creator_claims.append(claim)
             self.item.add_claims(creator_claims)
@@ -131,6 +137,9 @@ class OpenMLDataset:
             if not isinstance(self.contributors, list):
                 self.contributors = [self.contributors]
             for c in self.contributors:
+                if not c or c == "None":
+                    continue
+                c = c.replace("\n", " ")
                 claim = self.api.get_claim("wdt:P2093", c, qualifiers=qualifier)
                 contributor_claims.append(claim)
             self.item.add_claims(contributor_claims)
@@ -191,7 +200,7 @@ class OpenMLDataset:
         if self.num_binary_features is not None and self.num_binary_features != "None":
             prop_nr = self.api.get_local_id_by_label("number of binary features", "property")
             self.item.add_claim(prop_nr, int(self.num_binary_features))
-        if self.num_classes is not None and self.num_classes != "None":
+        if self.num_classes is not None and not math.isnan(self.num_classes) and self.num_classes != "None":
             prop_nr = self.api.get_local_id_by_label("number of classes", "property")
             self.item.add_claim(prop_nr, int(self.num_classes))
         if self.num_features is not None and self.num_features != "None":
@@ -216,7 +225,7 @@ class OpenMLDataset:
             if self.format.lower() == "arff":
                 self.item.add_claim("wdt:P2701", "wd:Q4489412")
             elif self.format.lower() == "sparse_arff":
-                qid = self.api.get_local_id_by_label("Sparse ARFF", "item")
+                qid = self.api.get_local_id_by_label("Sparse ARFF", "item")[0]
                 self.item.add_claim("wdt:P2701", qid)
             else:
                 sys.exit(f"Invalid file format {self.format}")

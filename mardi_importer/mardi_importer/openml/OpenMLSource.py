@@ -170,8 +170,14 @@ class OpenMLSource(ADataSource):
         #             'num_numeric_features': [0.0],
         #             'num_symbolic_features': [37.0],
         #             'format': ['ARFF']}
+        found = False
         for items in zip_longest(*[dataset_dict[key] for key in dataset_dict], fillvalue=None):
             lookup_dict = dict(zip(dataset_dict.keys(), items))
+            # if lookup_dict["dataset_id"] == 3:
+            #     found = True
+            #     continue
+            # if not found:
+            #     continue
             dataset = OpenMLDataset(
                 integrator = self.integrator,
                 **lookup_dict

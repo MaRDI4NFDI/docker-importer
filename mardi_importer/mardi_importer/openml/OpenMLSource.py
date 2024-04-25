@@ -16,7 +16,7 @@ class OpenMLSource(ADataSource):
         # Import entities from Wikidata
         filename = self.filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
-        self.create_local_entities()
+        #self.create_local_entities()
         # self.de_number_prop = self.integrator.get_local_id_by_label(
         #     "zbMATH DE Number", "property"
         # )

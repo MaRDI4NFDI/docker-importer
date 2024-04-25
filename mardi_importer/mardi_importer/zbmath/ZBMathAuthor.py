@@ -31,9 +31,7 @@ class ZBMathAuthor:
         # instance of: human
         item.add_claim("wdt:P31", "wd:Q5")
         profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label("MaRDI person profile", "item")[
-            0
-        ]
+        profile_target = self.api.get_local_id_by_label("MaRDI person profile", "item")[0]
         item.add_claim(profile_prop, profile_target)
         if self.zbmath_author_id:
             # if self.name:

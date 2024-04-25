@@ -11,10 +11,15 @@
             "datatype": "external-id"
         },
         {
-            "label": "zbMATH keyword string",
+            "label": "zbMATH Keywords",
             "description": "keyword string from zbMATH",
             "datatype": "string"
         }
     ],
-    "items": []
+    "items": [
+        {
+            "label": "MaRDI person profile",
+            "description": "type of MaRDI profile"
+        }
+    ]
 }

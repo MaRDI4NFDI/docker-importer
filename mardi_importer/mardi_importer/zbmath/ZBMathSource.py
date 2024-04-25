@@ -79,7 +79,7 @@ class ZBMathSource(ADataSource):
         # Import entities from Wikidata
         filename = self.filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
-        self.create_local_entities()
+        #self.create_local_entities()
         self.de_number_prop = self.integrator.get_local_id_by_label(
             "zbMATH DE Number", "property"
         )
@@ -104,8 +104,9 @@ class ZBMathSource(ADataSource):
             item = self.integrator.item.new()
             item.labels.set(language="en", value=item_element["label"])
             item.descriptions.set(language="en", value=item_element["description"])
-            for key, value in item_element["claims"].items():
-                item.add_claim(key, value=value)
+            if "claims" in item_element:
+                for key, value in item_element["claims"].items():
+                    item.add_claim(key, value=value)
             if not item.exists():
                 item.write()
 
@@ -416,6 +417,11 @@ class ZBMathSource(ADataSource):
                     links = [
                         x.strip() for x in links if (pattern.match(x) and "http" in x)
                     ]
+                    arxiv_prefix = "https://arxiv.org/abs/"
+                    arxiv_id = None
+                    for l in links:
+                        if arxiv_prefix in l:
+                            arxiv_id = l.removeprefix(arxiv_prefix)
                 else:
                     links = []
 
@@ -523,6 +529,7 @@ class ZBMathSource(ADataSource):
                             links=links,
                             creation_date=creation_date,
                             zbl_id=zbl_id,
+                            arxiv_id=arxiv_id,
                             review_text=review_text,
                             reviewer=reviewer,
                             classifications=classifications,

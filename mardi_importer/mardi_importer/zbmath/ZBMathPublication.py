@@ -21,6 +21,8 @@ class ZBMathPublication:
             creation date of entry
         zbl_id:
             zbl_id
+        arxiv_id:
+            arxiv_id
         review_text:
             review text
         reviewer:
@@ -49,6 +51,7 @@ class ZBMathPublication:
         links,
         creation_date,
         zbl_id,
+        arxiv_id,
         review_text,
         reviewer,
         classifications,
@@ -60,9 +63,12 @@ class ZBMathPublication:
         self.api = integrator
         self.title = title
         self.zbl_id = zbl_id
+        self.arxiv_id = arxiv_id
         self.QID = None
         self.language = language
-        self.doi = doi.lower()
+        self.doi = doi
+        if self.doi:
+            self.doi = self.doi.lower()
         self.authors = authors
         self.journal = journal
         self.time = time
@@ -100,6 +106,8 @@ class ZBMathPublication:
         # zbmath document id
         if self.zbl_id:
             self.item.add_claim("wdt:P894", self.zbl_id)
+        if self.arxiv_id:
+            self.item.add_claim("wdt:P818", self.arxiv_id)
         if self.doi:
             self.item.add_claim("wdt:P356", self.doi)
         author_claims = []
@@ -160,17 +168,24 @@ class ZBMathPublication:
         # instance of scholarly article
         if self.title:
             self.QID = self.item.is_instance_of_with_property(
-                "wd:Q13442814", "P1451", self.de_number
+                "wd:Q13442814", self.de_number_prop, self.de_number
             )
+            if not self.QID:
+                if self.arxiv_id:
+                    self.QID = self.item.is_instance_of_with_property(
+                    "wd:Q13442814", "wdt:P818", self.arxiv_id)
         else:
             QID_list = self.api.search_entity_by_value(
                 self.de_number_prop, self.de_number
             )
             if not QID_list:
-                self.QID = None
-            else:
-                # should not be more than one
-                self.QID = QID_list[0]
+                if self.arxiv_id:
+                    QID_list = self.api.search_entity_by_value("wdt:P818", self.arxiv_id)
+                if not QID_list:
+                    self.QID = None
+                    return(self.QID)
+            # should not be more than one
+            self.QID = QID_list[0]
         return self.QID
 
     def update(self):

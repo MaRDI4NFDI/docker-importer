@@ -170,22 +170,16 @@ class ZBMathPublication:
             self.QID = self.item.is_instance_of_with_property(
                 "wd:Q13442814", self.de_number_prop, self.de_number
             )
-            if not self.QID:
-                if self.arxiv_id:
-                    self.QID = self.item.is_instance_of_with_property(
-                    "wd:Q13442814", "wdt:P818", self.arxiv_id)
         else:
             QID_list = self.api.search_entity_by_value(
                 self.de_number_prop, self.de_number
             )
-            if not QID_list:
-                if self.arxiv_id:
-                    QID_list = self.api.search_entity_by_value("wdt:P818", self.arxiv_id)
-                if not QID_list:
-                    self.QID = None
-                    return(self.QID)
             # should not be more than one
-            self.QID = QID_list[0]
+            self.QID = QID_list[0] if QID_list else None
+        if not self.QID:
+            if self.arxiv_id:
+                QID_list = self.api.search_entity_by_value("wdt:P818", self.arxiv_id)
+                self.QID = QID_list[0] if QID_list else None
         return self.QID
 
     def update(self):

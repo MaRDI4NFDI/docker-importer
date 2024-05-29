@@ -2,17 +2,29 @@ import sys
 import logging
 import logging.config
 from argparse import ArgumentParser
-from mardi_importer.importer import Importer
+
 from mardi_importer.zbmath import ZBMathSource, ZBMathConfigParser
-#from mardi_importer.openml import OpenMLSource
+from mardi_importer.openml import OpenMLSource
+from mardi_importer.importer import Importer
 from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
+from mardi_importer.zenodo import ZenodoSource
+
+from mardiclient import MardiClient
+from mardiclient import config
+
+#todo mc
+
+# config['IMPORTER_API_URL'] = 'https://importer.staging.mardi4nfdi.org'
+# config['MEDIAWIKI_API_URL'] = 'https://staging.mardi4nfdi.org/w/api.php'
+# config['SPARQL_ENDPOINT_URL'] = 'http://query.staging.mardi4nfdi.org/proxy/wdqs/bigdata/namespace/wdq/sparql'
+# config['WIKIBASE_URL'] = 'https://staging.mardi4nfdi.org'
 
 def get_parser():
     """Get arguments parser"""
     parser = ArgumentParser()
     parser.add_argument(
-        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb", "OpenML"]
+        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb","OpenML", "zenodo"]
     )
     parser.add_argument("--conf_path", required=False)
     parser.add_argument("--wikidata_id_file_path", required=False)
@@ -58,6 +70,11 @@ def main(**args):
 
     elif args["mode"] == "polydb":
         data_source = PolyDBSource()
+        importer = Importer(data_source)
+        importer.import_all()
+
+    elif args["mode"] == "zenodo":
+        data_source = ZenodoSource(out_dir = "~/ZenodoData")
         importer = Importer(data_source)
         importer.import_all()
 

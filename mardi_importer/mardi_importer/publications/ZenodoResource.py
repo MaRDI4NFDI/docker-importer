@@ -1,5 +1,7 @@
 from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.publications.Author import Author
+from mardi_importer.zenodo.Community import Community
+from mardi_importer.zenodo.Project import Project
 from wikibaseintegrator.wbi_enums import ActionIfExists
 
 import logging
@@ -18,6 +20,8 @@ class ZenodoResource():
     _authors: List[Author] = field(default_factory=list)
     _resource_type: str = None
     _license: str = None
+    _communities: List[Community] = field(default_factory=list)
+    _projects: List[Project] = field(default_factory = list)
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
 
@@ -105,6 +109,31 @@ class ZenodoResource():
                 self._resource_type = "wd:Q37866906"
         return self._resource_type
 
+    @property
+    def communities(self):
+        if not self._communities:
+            for communityCur in self.metadata["communities"]:
+                community_id = communityCur.get("id")
+                community = Community(self.api, community_id = community_id)
+                self._communities.append(community)
+                return self._communities
+    
+    @property
+    def projects(self):
+        community = None
+        if self._communities:
+            for communityCur in self._communities:
+                if communityCur.community_id == "mathplus":
+                    community = communityCur
+                    break
+        if not self._project and community:
+            for related_ids in self.metadata["related_identifiers"]:
+                if related_ids["identifier"] in Project.get_project_ids():
+                    project = Project(self.api, community = community, project_id = related_ids["identifier"])
+                    self._projects
+        return self._projects
+
+
     def update(self):
         # description_prop_nr = "P727"
         zenodo_item = self.api.item.new()
@@ -173,6 +202,16 @@ class ZenodoResource():
             item.add_claim("wdt:P275", "wd:Q42553662")
         elif self.license['id'] == "mit-license":
             item.add_claim("wdt:P275", "wd:Q334661")
+
+        # communities
+        if self.communities:
+            for community in self.commuities:
+                item.add_claim("wd:P1495", community)
+
+        # projects
+        if self.projects:
+            for project in self.projects:
+                item.add_claim("wd:P1507", project)
 
         self.QID = item.write().id
         if self.QID:

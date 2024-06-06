@@ -4,11 +4,8 @@ import logging.config
 from argparse import ArgumentParser
 
 from mardi_importer.zbmath import ZBMathSource, ZBMathConfigParser
-<<<<<<< HEAD
 from mardi_importer.openml import OpenMLSource
-=======
 from mardi_importer.importer import Importer
->>>>>>> 58a5ec2... zenodo scripts v1.1
 from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
 from mardi_importer.zenodo import ZenodoSource
@@ -16,7 +13,7 @@ from mardi_importer.zenodo import ZenodoSource
 from mardiclient import MardiClient
 from mardiclient import config
 
-#todo mc
+# 
 
 # config['IMPORTER_API_URL'] = 'https://importer.staging.mardi4nfdi.org'
 # config['MEDIAWIKI_API_URL'] = 'https://staging.mardi4nfdi.org/w/api.php'
@@ -77,7 +74,13 @@ def main(**args):
         importer.import_all()
 
     elif args["mode"] == "zenodo":
-        data_source = ZenodoSource(out_dir = "~/ZenodoData")
+        data_source = ZenodoSource(
+            #out_dir = "/mardi_importer/mardi_importer/zenodo/ZenodoData", 
+            out_dir = "/ZenodoData/", 
+            #raw_dump_path =  "/mardi_importer/mardi_importer/zenodo/ZenodoData/rawdata", 
+            raw_dump_path =  "/ZenodoData/rawdata/", 
+            #processed_dump_path = "/mardi_importer/mardi_importer/zenodo/ZenodoData/processeddata")
+            processed_dump_path = "/ZenodoData/processeddata/")
         importer = Importer(data_source)
         importer.import_all()
 

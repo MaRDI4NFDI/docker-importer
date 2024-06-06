@@ -112,8 +112,10 @@ class ZenodoResource():
     @property
     def communities(self):
         if not self._communities:
+            #print ("communities")
             for communityCur in self.metadata["communities"]:
                 community_id = communityCur.get("id")
+                #print ("adding community" + str(community_id))
                 community = Community(self.api, community_id = community_id)
                 self._communities.append(community)
                 return self._communities
@@ -126,13 +128,31 @@ class ZenodoResource():
                 if communityCur.community_id == "mathplus":
                     community = communityCur
                     break
-        if not self._project and community:
+        if not self._projects and community:
             for related_ids in self.metadata["related_identifiers"]:
                 if related_ids["identifier"] in Project.get_project_ids():
                     project = Project(self.api, community = community, project_id = related_ids["identifier"])
                     self._projects
         return self._projects
 
+    def exists(self):
+        
+        if self.QID:
+            print("wee")
+            return self.QID
+
+        QID_results = self.api.search_entity_by_value("wdt:P4901", str(self.zenodo_id))
+        #print ("here" + QID_results[0])
+        print ("QID results")
+        print(QID_results)
+        if QID_results: 
+            print("woo")
+            self.QID = QID_results[0]
+        print (QID_results)
+        print (self.QID)
+        if self.QID:
+            print(f"Zenodo item exists with QID {self.QID}")
+        return self.QID
 
     def update(self):
         # description_prop_nr = "P727"
@@ -151,7 +171,21 @@ class ZenodoResource():
         elif self.license['id'] == "mit-license":
             new_item.add_claim("wdt:P275", "wd:Q334661")
 
-        return new_item.write()        
+        return new_item.write()  
+
+    def update2(self):
+
+        self.item = self.api.item.get(entity_id=self.QID)
+
+        self.insert_claims()
+        self.item.write()
+
+        if self.QID:
+            print(f"zenodo item with ID {self.QID} has been updated.")
+            return self.QID
+        else:
+            print(f"zenodo item could not be updated.")
+            return None      
 
     def create(self):
         if self.QID:
@@ -175,11 +209,12 @@ class ZenodoResource():
                 language="en", 
                 value="Resource published at Zenodo repository"
             )
-
+        #item.add_claim('wdt:P31',self.resource_type)  
+   
         # Publication date
-        if self.publication_date:
-            item.add_claim('wdt:P577', self.publication_date)
-
+        # if self.publication_date:
+        #     item.add_claim('wdt:P577', self.publication_date)
+        
         # Authors
         author_QID = self.__preprocess_authors()
         claims = []
@@ -191,9 +226,10 @@ class ZenodoResource():
         if self.zenodo_id:
             item.add_claim('wdt:P4901', self.zenodo_id)
             doi = f"10.5281/zenodo.{self.zenodo_id}"
+            #item.add_claim("doi", doi)
             item.add_claim('wdt:P356', doi)
 
-        # License
+        #License
         if self.license['id'] == "cc-by-4.0":
             item.add_claim("wdt:P275", "wd:Q20007257")
         elif self.license['id'] == "cc-by-sa-4.0":
@@ -203,17 +239,22 @@ class ZenodoResource():
         elif self.license['id'] == "mit-license":
             item.add_claim("wdt:P275", "wd:Q334661")
 
-        # communities
-        if self.communities:
-            for community in self.commuities:
-                item.add_claim("wd:P1495", community)
+        #communities
+        # if self.communities:
+        #     for community in self._communities:
+        #         item.add_claim("community", community)
 
         # projects
-        if self.projects:
-            for project in self.projects:
-                item.add_claim("wd:P1507", project)
+        # if self.projects:
+        #     for project in self.projects:
+        #         item.add_claim("wd:P1507", project)
+        
+        print ("current zenodo ID:" + self.zenodo_id + "something")
+
+        print(item.claims.get_json())
 
         self.QID = item.write().id
+
         if self.QID:
             log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} created with ID {self.QID}.")
             return self.QID

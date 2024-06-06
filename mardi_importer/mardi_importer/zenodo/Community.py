@@ -44,14 +44,14 @@ class Community:
         item.descriptions.set(language="en", value = self.community_str)
 
         # instance of = community
-        item.add_claim("wdt:P31", "wdt:Q177634")
+        item.add_claim("wdt:P31", "community")
 
         # Add zenodo community ID
         if self.community_id:
             item.add_claim("wdt:P9934", self.community_id)
 
         # mardi profile type: mardi community profile
-        item.add_claim("wd:P1460", "wd:Q6205095")
+        item.add_claim("MaRDI profile type", "MaRDI community profile")
 
         if self.url:
             item.add_claim("wdt:P973", self.url)

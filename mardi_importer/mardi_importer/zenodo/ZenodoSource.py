@@ -2,11 +2,15 @@ import requests
 import json
 import time
 import os
+import re
+import pickle
 from datetime import datetime
 from glob import glob
+from pathlib import Path
 
 from mardi_importer.importer import ADataSource
 from mardi_importer.integrator import MardiIntegrator
+from mardi_importer.publications import ZenodoResource
 
 class ZenodoSource(ADataSource):
     """Reads data from Zenodo API."""
@@ -34,6 +38,10 @@ class ZenodoSource(ADataSource):
 
         self.integrator = MardiIntegrator()
         self.filepath = os.path.realpath(os.path.dirname(__file__))
+        self.raw_dump_path = raw_dump_path
+        os.makedirs(self.raw_dump_path, exist_ok=True)
+        self.processed_dump_path = processed_dump_path
+        os.makedirs(self.processed_dump_path, exist_ok=True)
 
     def setup(self):
         """Create all necessary properties and entities for zenodo"""
@@ -50,7 +58,7 @@ class ZenodoSource(ADataSource):
         access_token = "OjHPMu82rl7uLYf2YjGzhxrUVCEGuwhLHMGsP97Yg5X5fjPIC59ChKI7sUoT"
 
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        self.raw_dump_path = self.out_dir + "raw_zenodo_data_dump" + timestr + ".txt"
+        #self.raw_dump_path = self.out_dir + "/raw_zenodo_data_dump/" + timestr + ".txt"
 
         # TODO: better way to get all hits? could use a really large number. but this works
         response = requests.get('https://zenodo.org/api/records',
@@ -61,7 +69,7 @@ class ZenodoSource(ADataSource):
         total_hits = response_json.get("hits").get("total")
 
         for page in range(1, total_hits+1):
-            url = 'https://zenodo.org/api/records?page=' + str(page) + "&size=1&sort=newest"
+            url = 'https://zenodo.org/api/records?communities=mathplus&page=' + str(page) + "&size=1&sort=newest"
             response = requests.get(url, params = {'access_token' : access_token})    
             response_json = response.json()
 
@@ -69,7 +77,7 @@ class ZenodoSource(ADataSource):
             # TODO: reformat time
             #date_created = response_json.get("hits").get("hits")[0].get("created")
             # TODO: can probably use date created for early stopping
-            out_file = "id_" + str(zenodo_id) + "\tcreation_date_" + date_created 
+            out_file = "/id_" + str(zenodo_id) + ".json"
             with open(self.raw_dump_path + out_file, 'w+') as f:
                 json.dump(response_json, f)
         
@@ -111,10 +119,9 @@ class ZenodoSource(ADataSource):
         """
         # Load the dict object with prev records
 
-        self.processed_dump_path = self.out_dir + "processed_zenodo_data/zenodoData_dict.pkl"
-
         file = Path(self.processed_dump_path + "/zenodoData_dict.pkl")
-        if file.is_file:
+        if file.is_file():
+            print ("Loading existing processed data file")
             file = open(self.processed_dump_path + "/zenodoData_dict.pkl" , 'rb')
             records_all = pickle.load(file)
             file.close()
@@ -124,15 +131,16 @@ class ZenodoSource(ADataSource):
         
         for fname in glob(self.raw_dump_path + "*.json"):
             id = str(re.findall(r'\d+', fname)[0])
+            print ("processing file with id " + str(id)) 
             if (id not in records_all.keys()) or update :
                 print (id)
                 with open(fname, 'r') as f:
                     record_json = json.load(f) 
-                    record_cur = parse_record(record_json)
+                    record_cur = self.parse_record(record_json)
                     if record_cur:
                             records_all[id] =  record_cur
 
-        with open(self.processed_dump_path, 'wb') as outfile:
+        with open(self.processed_dump_path + "/zenodoData_dict.pkl", 'wb') as outfile:
             pickle.dump(records_all, outfile)
         outfile.close()
 
@@ -179,7 +187,11 @@ class ZenodoSource(ADataSource):
         return new_entry
 
     def pull(self):
-        self.process_data()
+        #self.write_data_dump()
+        #self.process_data()
+        print("skip")
+
+        
 
     def push(self):
 
@@ -188,18 +200,24 @@ class ZenodoSource(ADataSource):
         file.close()
 
         for x in records_all:
-            entry = ZenodoResource(api = self.integrator,
-            zenodo_id = x,
-            title = entry['title'],
+            
+            entry = ZenodoResource.ZenodoResource(
+                self.integrator,
+                zenodo_id = str(x),
+                #title = records_all[x]['title'],
             #_publication_date = entry['publication_date'],
             #_authors = entry['authors'],
             #_resource_type = entry['resource_type'],
             #_license = entry['lisence'],
-            metadata = entry['metadata'])
+            metadata = records_all[x]['metadata'])
 
             if not entry.exists():
+                print ("creatig entry for zenodo id" + str(x) + "something")
                 entry.create()
             else:
-                entry.update()
+                print (" entry for zenodo id " + str(x) + "already exists. updating")
+                entry.update2()
+            
+            #break
 
 

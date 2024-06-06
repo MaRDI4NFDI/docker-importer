@@ -10,6 +10,7 @@ from datetime import datetime
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from sickle import Sickle
+import pandas as pd
 
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource
@@ -145,6 +146,71 @@ class ZBMathSource(ADataSource):
         with open(self.raw_dump_path, "w+") as f:
             for rec in records:
                 f.write(rec.raw + "\n")
+
+    def new_process_data(self):
+        """
+        Overrides abstract method.
+        Reads a raw zbMath data dump and processes it, then saves it as a csv.
+        """
+        if not self.processed_dump_path:
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            self.processed_dump_path = (
+                self.out_dir + "zbmath_data_dump" + timestr + ".csv"
+            )
+        with open(self.processed_dump_path, "a") as outfile:
+            outfile.write(
+                "de_number\t"
+                + "creation_date\t"
+                + ("\t").join(self.tags)
+                + "_text\treview_sign\treviewer_id\n"
+                )
+            
+            df = pd.read_csv(self.raw_dump_path, sep = "\t")
+    #         author, author_ids, document_title, source, classifications, language, links,
+    # keywords, doi, publication_year, serial, zbl_id, references, review
+            for _, row in df.iterrows():
+                record = {}
+                record["de_number"] = row["id"]
+                record["creation_date"] = row["datestamp"]
+                #doi, publication_year, serial, zbl_id, review_text, review_sign, reviewer_id
+                authors = []
+                author_ids = []
+                for d in row["contributors"]["authors"]:
+                    authors.append(d['name'])
+                    author_ids.append(d["codes"][0])
+                record["author"] = ";".join(authors)
+                record["author_ids"] = ";".join(author_ids)
+                record["document_title"] = row["title"]["title"]
+                record["source"] = row["source"]["source"]
+                msc = []
+                for d in row["msc"]:
+                    msc.append(d["code"])
+                record["classifications"] = ";".join(msc)
+                record["language"] = row["language"]["languages"][0]
+                links = []
+                doi = None
+                for d in row["links"]:
+                    if "type" not in d:
+                        continue
+                    if d["type"].isin("http", "https"):
+                        if d['url'] is not None and d['url'] != "None":
+                            links.append(d['url'])
+                    elif d["type"] == "doi":
+                        doi = d["identifier"]
+                record["links"] = ";".join(links)
+                record["keywords"] = ";".join(row["keywords"])
+                record["doi"] = doi
+                record["publication_year"] = row["year"]
+                record["serial"] = row["source"]["series"]["title"]
+                record["zbl_id"] = row["identifier"]
+                ref_ids = []
+                for d in row["references"]:
+                    ref_ids.append(d["zbmath"]["document_id"])
+                record["references"] = ";".join(ref_ids)
+                if record:
+                    outfile.write(
+                        "\t".join(str(x) for x in record.values()) + "\n"
+                    )
 
     def process_data(self):
         """

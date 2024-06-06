@@ -1,14 +1,23 @@
 {
     "properties": [
         {
-            "label": "Internal Project ID",
-            "description": "An identifier for a project, e.g. from a community such as MATH+ or SFB1234",
-            "datatype": "Item"
-        },
-        {
             "label": "community",
             "description": "The community this item is connected to, e.g. some science framework such as SFB1234 or MATH+",
             "datatype": "Item"
+        },
+        {
+            "label": "MaRDI profile type",
+            "description": "defines the types of MaRDI profiles expected to work for this item",
+            "datatype": "Item"
+        }
+    ],
+    "items": [
+        {
+            "label" : "MaRDI community profile",
+            "description" : "type of MaRDI profile"
+        },
+        {
+            
         }
     ]
 }

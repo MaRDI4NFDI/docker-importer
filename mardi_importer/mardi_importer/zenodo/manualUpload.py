@@ -1,9 +1,7 @@
 from mardiclient import MardiClient
 from mardiclient import config
 
-mc = MardiClient(user="Rim", password="changethispassword")
-
-
+mc = MardiClient(user="Rim", password="M!dight^2469")
 
 config['IMPORTER_API_URL'] = 'https://importer.staging.mardi4nfdi.org'
 config['MEDIAWIKI_API_URL'] = 'https://staging.mardi4nfdi.org/w/api.php'

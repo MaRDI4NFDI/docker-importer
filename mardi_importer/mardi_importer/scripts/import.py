@@ -4,7 +4,7 @@ import logging.config
 from argparse import ArgumentParser
 from mardi_importer.importer import Importer
 from mardi_importer.zbmath import ZBMathSource, ZBMathConfigParser
-from mardi_importer.openml import OpenMLSource
+#from mardi_importer.openml import OpenMLSource
 from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
 
@@ -39,7 +39,7 @@ def main(**args):
             processed_dump_path=conf["processed_dump_path"],
         )
         importer = Importer(data_source)
-        importer.import_all(pull=False, push=True)
+        importer.import_all(pull=True, push=False)
 
     elif args["mode"] == "OpenML":
         # if args["conf_path"] is None:

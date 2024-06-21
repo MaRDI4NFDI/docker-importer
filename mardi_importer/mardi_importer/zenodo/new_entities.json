@@ -3,12 +3,17 @@
         {
             "label": "community",
             "description": "The community this item is connected to, e.g. some science framework such as SFB1234 or MATH+",
-            "datatype": "Item"
+            "datatype": "wikibase-item"
         },
         {
             "label": "MaRDI profile type",
             "description": "defines the types of MaRDI profiles expected to work for this item",
-            "datatype": "Item"
+            "datatype": "wikibase-item"
+        },
+        {
+            "label" : "Internal Project ID",
+            "description" : "An identifier for a project, e.g. from a community such as MATH+ or SFB1234",
+            "datatype" : "wikibase-item"
         }
     ],
     "items": [
@@ -17,7 +22,8 @@
             "description" : "type of MaRDI profile"
         },
         {
-            
+            "label" : "scientific project",
+            "description": "A scientific project"
         }
     ]
 }

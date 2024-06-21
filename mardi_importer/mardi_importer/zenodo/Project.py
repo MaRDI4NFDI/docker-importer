@@ -12,7 +12,7 @@ from typing import List
 
 @dataclass
 class Project:
-    api = MardiIntegrator
+    api: MardiIntegrator
     community : Community
     project_id : str
     project_title : str = None
@@ -20,7 +20,7 @@ class Project:
     instance_of : str = None
     QID : str = None
 
-    def __post_init(self):
+    def __post_init__(self):
 
         item = self.api.item.new()
         item.labels.set(language="en", value=self.project_id)
@@ -175,8 +175,8 @@ class Project:
         emerging_fields_IDs = ["EF1-10", "EF1-11", "EF1-12", "EF1-16", "EF1-19", "EF1-20", "EF1-21", "EF1-23", "EF1-24",
         ]
 
-        all_IDs = application_areas_IDs.append(emerging_fields_IDs)
-
+        all_IDs = application_areas_IDs + emerging_fields_IDs
+        #print(all_IDs)
         if id_category == "EA":
             return emerging_fields_IDs
         else:
@@ -186,30 +186,60 @@ class Project:
                 #if id_category == "all":
                 return all_IDs
 
+    def exists(self):
+        
+        if self.QID:
+            return self.QID
+
+        QID_results = self.api.get_local_id_by_label(self.project_id, "item")
+        #QID_results = self.api.search_entity_by_value(prop_nr, self.project_id)
+        print (QID_results)
+        if QID_results: 
+            self.QID = QID_results[0]
+
+        if self.QID:
+            print(f"Internal project exists with QID {self.QID}")
+        return self.QID
+
 
     def create(self):
 
         if self.QID:
             return self.QID
 
-        item = self.api.item.new()
+        if not self.exists(): 
+            item = self.api.item.new()
+        else:
+            print("Proj already exists")
+            item = self.api.item.get(entity_id=self.QID)
 
         if self.project_id:
             item.labels.set(language="en", value = self.project_id)
             descr = "Project " + self.project_id 
-            if self.community.community_str:
-                descr = descr + "in " + Community.community_str
+            if self.community.community_title:
+                descr = descr + " in " + self.community.community_title
             if self.project_title:
                 descr = descr + " ("+ self.project_title + ")"
-            item.description.set(language="en", value = descr)
+            item.descriptions.set(language="en", value = descr)
 
         if self.community:
-            item.add_claim("wdt:Q177634", self.community)
+            prop_nr = self.api.get_local_id_by_label("community", "property")
+            community_nr = self.api.get_local_id_by_label(self.community.community_id, "property")
+            item.add_claim(prop_nr, self.community.QID)
 
         # instance of scientific project
-        item.add_claim("wdt:P31", "wd:Q6205094")
+        item_nr = self.api.get_local_id_by_label("scientific project", "item")[0]
+        item.add_claim("wdt:P31", item_nr)
 
-        item.write()
+        print(item.claims.get_json())
+        self.QID = item.write().id
+
+        if self.QID:
+            print(f"Internal project with project id: {self.project_id} created with ID {self.QID}.")
+            return self.QID
+        else:
+            print(f"Internal project with project id: {self.project_id} could not be created.")
+            return None
 
 
 

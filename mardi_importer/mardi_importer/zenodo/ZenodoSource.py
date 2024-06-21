@@ -11,6 +11,10 @@ from pathlib import Path
 from mardi_importer.importer import ADataSource
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.publications import ZenodoResource
+from mardiclient import config
+from mardiclient import MardiClient
+
+
 
 class ZenodoSource(ADataSource):
     """Reads data from Zenodo API."""
@@ -31,12 +35,19 @@ class ZenodoSource(ADataSource):
             processed_dump_path (string, optional): path to the processed dump file
             split_id (string, optional): Zenodo id from where to start processing the raw dump, in case it aborted mid-processing
         """
+
+
+        config['IMPORTER_API_URL'] = 'https://importer.staging.mardi4nfdi.org'
+        config['MEDIAWIKI_API_URL'] = 'https://staging.mardi4nfdi.org/w/api.php'
+        config['SPARQL_ENDPOINT_URL'] = 'http://query.staging.mardi4nfdi.org/proxy/wdqs/bigdata/namespace/wdq/sparql'
+        config['WIKIBASE_URL'] = 'https://staging.mardi4nfdi.org'
     
         if out_dir[-1] != "/":
             out_dir = out_dir + "/"
         self.out_dir = out_dir
 
         self.integrator = MardiIntegrator()
+        #self.integrator = mc
         self.filepath = os.path.realpath(os.path.dirname(__file__))
         self.raw_dump_path = raw_dump_path
         os.makedirs(self.raw_dump_path, exist_ok=True)
@@ -48,6 +59,7 @@ class ZenodoSource(ADataSource):
         
         filename = self.filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
+        self.create_local_entities()
 
     def write_data_dump(self):
         """
@@ -191,6 +203,29 @@ class ZenodoSource(ADataSource):
         #self.process_data()
         print("skip")
 
+    def create_local_entities(self):
+        filename = self.filepath + "/new_entities.json"
+        f = open(filename)
+        entities = json.load(f)
+
+        for prop_element in entities["properties"]:
+            prop = self.integrator.property.new()
+            prop.labels.set(language="en", value=prop_element["label"])
+            prop.descriptions.set(language="en", value=prop_element["description"])
+            prop.datatype = prop_element["datatype"]
+            if not prop.exists():
+                prop.write()
+
+        for item_element in entities["items"]:
+            item = self.integrator.item.new()
+            item.labels.set(language="en", value=item_element["label"])
+            item.descriptions.set(language="en", value=item_element["description"])
+            if "claims" in item_element:
+                for key, value in item_element["claims"].items():
+                    item.add_claim(key, value=value)
+            if not item.exists():
+                item.write()
+
         
 
     def push(self):
@@ -202,7 +237,7 @@ class ZenodoSource(ADataSource):
         for x in records_all:
             
             entry = ZenodoResource.ZenodoResource(
-                self.integrator,
+                mc,
                 zenodo_id = str(x),
                 #title = records_all[x]['title'],
             #_publication_date = entry['publication_date'],
@@ -212,11 +247,11 @@ class ZenodoSource(ADataSource):
             metadata = records_all[x]['metadata'])
 
             if not entry.exists():
-                print ("creatig entry for zenodo id" + str(x) + "something")
-                entry.create()
+                print ("creatig entry for zenodo id" + str(x))
+                entry.create(update = False)
             else:
-                print (" entry for zenodo id " + str(x) + "already exists. updating")
-                entry.update2()
+                print (" entry for zenodo id " + str(x) + " already exists. updating")
+                entry.create(update = True)
             
             #break
 

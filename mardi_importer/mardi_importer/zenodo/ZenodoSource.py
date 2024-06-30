@@ -11,9 +11,6 @@ from pathlib import Path
 from mardi_importer.importer import ADataSource
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.publications import ZenodoResource
-from mardiclient import config
-from mardiclient import MardiClient
-
 
 
 class ZenodoSource(ADataSource):
@@ -35,12 +32,6 @@ class ZenodoSource(ADataSource):
             processed_dump_path (string, optional): path to the processed dump file
             split_id (string, optional): Zenodo id from where to start processing the raw dump, in case it aborted mid-processing
         """
-
-
-        config['IMPORTER_API_URL'] = 'https://importer.staging.mardi4nfdi.org'
-        config['MEDIAWIKI_API_URL'] = 'https://staging.mardi4nfdi.org/w/api.php'
-        config['SPARQL_ENDPOINT_URL'] = 'http://query.staging.mardi4nfdi.org/proxy/wdqs/bigdata/namespace/wdq/sparql'
-        config['WIKIBASE_URL'] = 'https://staging.mardi4nfdi.org'
     
         if out_dir[-1] != "/":
             out_dir = out_dir + "/"
@@ -67,7 +58,7 @@ class ZenodoSource(ADataSource):
         This method queries the Zenodo API to get a data dump of all records.
         """
 
-        access_token = "OjHPMu82rl7uLYf2YjGzhxrUVCEGuwhLHMGsP97Yg5X5fjPIC59ChKI7sUoT"
+        access_token = os.environ.get("ZENODO_API_KEY")
 
         timestr = time.strftime("%Y%m%d-%H%M%S")
         #self.raw_dump_path = self.out_dir + "/raw_zenodo_data_dump/" + timestr + ".txt"
@@ -237,7 +228,7 @@ class ZenodoSource(ADataSource):
         for x in records_all:
             
             entry = ZenodoResource.ZenodoResource(
-                mc,
+                self.integrator,
                 zenodo_id = str(x),
                 #title = records_all[x]['title'],
             #_publication_date = entry['publication_date'],

@@ -10,15 +10,6 @@ from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
 from mardi_importer.zenodo import ZenodoSource
 
-from mardiclient import MardiClient
-from mardiclient import config
-
-mc = MardiClient(user="Rim", password="M!dnight^2469")
-
-config['IMPORTER_API_URL'] = 'https://importer.staging.mardi4nfdi.org'
-config['MEDIAWIKI_API_URL'] = 'https://staging.mardi4nfdi.org/w/api.php'
-config['SPARQL_ENDPOINT_URL'] = 'http://query.staging.mardi4nfdi.org/proxy/wdqs/bigdata/namespace/wdq/sparql'
-config['WIKIBASE_URL'] = 'https://staging.mardi4nfdi.org'
 
 def get_parser():
     """Get arguments parser"""
@@ -75,6 +66,7 @@ def main(**args):
 
     elif args["mode"] == "zenodo":
         data_source = ZenodoSource(
+            
             #out_dir = "/mardi_importer/mardi_importer/zenodo/ZenodoData", 
             out_dir = "/ZenodoData/", 
             #raw_dump_path =  "/mardi_importer/mardi_importer/zenodo/ZenodoData/rawdata", 

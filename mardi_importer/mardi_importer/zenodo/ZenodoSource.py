@@ -71,18 +71,25 @@ class ZenodoSource(ADataSource):
         response_json = response.json()
         total_hits = response_json.get("hits").get("total")
 
+        zenodo_ids = []
+        zenodo_ids_file = "zenodo_ids.txt"
         for page in range(1, total_hits+1):
             url = 'https://zenodo.org/api/records?communities=mathplus&page=' + str(page) + "&size=1&sort=newest"
             response = requests.get(url, params = {'access_token' : access_token})    
             response_json = response.json()
 
             zenodo_id = response_json.get("hits").get("hits")[0].get("id")
+            zenodo_ids = zenodo_ids + zenodo_id
             # TODO: reformat time
             #date_created = response_json.get("hits").get("hits")[0].get("created")
             # TODO: can probably use date created for early stopping
-            out_file = "/id_" + str(zenodo_id) + ".json"
-            with open(self.raw_dump_path + out_file, 'w+') as f:
-                json.dump(response_json, f)
+            # out_file = "/id_" + str(zenodo_id) + ".json"
+            # with open(self.raw_dump_path + out_file, 'w+') as f:
+            #     json.dump(response_json, f)
+
+        with open(self.raw_dump_path + zenodo_ids_file, 'w') as f:
+            for id in zenodo_ids:
+                f.write(f"{id}\n")
         
 
     #     # TODO: do i want to save records as a batch per json file or 1 json file per hit.
@@ -190,9 +197,9 @@ class ZenodoSource(ADataSource):
         return new_entry
 
     def pull(self):
-        #self.write_data_dump()
+        self.write_data_dump()
         #self.process_data()
-        print("skip")
+        #print("skip")
 
     def create_local_entities(self):
         filename = self.filepath + "/new_entities.json"
@@ -221,21 +228,21 @@ class ZenodoSource(ADataSource):
 
     def push(self):
 
-        file = open(self.processed_dump_path + "/zenodoData_dict.pkl" , 'rb')
-        records_all = pickle.load(file)
-        file.close()
+        # file = open(self.processed_dump_path + "/zenodoData_dict.pkl" , 'rb')
+        # records_all = pickle.load(file)
+        # file.close()
+        with open(self.raw_dump_path + "zenodo_ids.txt") as file:
+            zenodo_ids = [line.rstrip() for line in file]
+        #zenodo_ids = open(self.raw_dump_path + "zenodo_ids.txt")
 
-        for x in records_all:
-            
+        #for x in records_all:
+        for id in zenodo_ids:   
             entry = ZenodoResource.ZenodoResource(
                 self.integrator,
-                zenodo_id = str(x),
-                #title = records_all[x]['title'],
-            #_publication_date = entry['publication_date'],
-            #_authors = entry['authors'],
-            #_resource_type = entry['resource_type'],
-            #_license = entry['lisence'],
-            metadata = records_all[x]['metadata'])
+                #zenodo_id = str(x)
+                zenodo_id = id
+            )
+            #metadata = records_all[x]['metadata'])
 
             if not entry.exists():
                 print ("creatig entry for zenodo id" + str(x))

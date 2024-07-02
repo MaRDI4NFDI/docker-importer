@@ -2,17 +2,20 @@ import sys
 import logging
 import logging.config
 from argparse import ArgumentParser
-from mardi_importer.importer import Importer
+
 from mardi_importer.zbmath import ZBMathSource, ZBMathConfigParser
 from mardi_importer.openml import OpenMLSource
+from mardi_importer.importer import Importer
 from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
+from mardi_importer.zenodo import ZenodoSource
+
 
 def get_parser():
     """Get arguments parser"""
     parser = ArgumentParser()
     parser.add_argument(
-        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb", "OpenML"]
+        "--mode", type=str, required=True, choices=["ZBMath", "CRAN", "polydb","OpenML", "zenodo"]
     )
     parser.add_argument("--conf_path", required=False)
     parser.add_argument("--wikidata_id_file_path", required=False)
@@ -58,6 +61,18 @@ def main(**args):
 
     elif args["mode"] == "polydb":
         data_source = PolyDBSource()
+        importer = Importer(data_source)
+        importer.import_all()
+
+    elif args["mode"] == "zenodo":
+        data_source = ZenodoSource(
+            
+            #out_dir = "/mardi_importer/mardi_importer/zenodo/ZenodoData", 
+            out_dir = "/ZenodoData/", 
+            #raw_dump_path =  "/mardi_importer/mardi_importer/zenodo/ZenodoData/rawdata", 
+            raw_dump_path =  "/ZenodoData/rawdata/", 
+            #processed_dump_path = "/mardi_importer/mardi_importer/zenodo/ZenodoData/processeddata")
+            processed_dump_path = "/ZenodoData/processeddata/")
         importer = Importer(data_source)
         importer.import_all()
 

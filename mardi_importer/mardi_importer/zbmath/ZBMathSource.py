@@ -13,6 +13,7 @@ from sickle import Sickle
 import pandas as pd
 import requests
 from time import sleep
+from ast import literal_eval
 
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource
@@ -220,55 +221,72 @@ class ZBMathSource(ADataSource):
                 + "_text\treview_sign\treviewer_id\n"
                 )
             
-            df = pd.read_csv(self.raw_dump_path, sep = "\t")
-            for _, row in df.iterrows():
-                record = {}
-                record["de_number"] = row["id"]
-                record["creation_date"] = row["datestamp"]
-                authors = []
-                author_ids = []
-                for d in row["contributors"]["authors"]:
-                    authors.append(d['name'])
-                    author_ids.append(d["codes"][0])
-                record["author"] = ";".join(authors)
-                record["author_ids"] = ";".join(author_ids)
-                record["document_title"] = row["title"]["title"]
-                record["source"] = row["source"]["source"]
-                msc = []
-                for d in row["msc"]:
-                    msc.append(d["code"])
-                record["classifications"] = ";".join(msc)
-                record["language"] = row["language"]["languages"][0]
-                links = []
-                doi = None
-                for d in row["links"]:
-                    if "type" not in d:
-                        continue
-                    if d["type"].isin("http", "https"):
-                        if d['url'] is not None and d['url'] != "None":
-                            links.append(d['url'])
-                    elif d["type"] == "doi":
-                        doi = d["identifier"]
-                record["links"] = ";".join(links)
-                record["keywords"] = ";".join(row["keywords"])
-                record["doi"] = doi
-                record["publication_year"] = row["year"]
-                record["serial"] = row["source"]["series"]["title"]
-                record["zbl_id"] = row["identifier"]
-                ref_ids = []
-                for d in row["references"]:
-                    ref_ids.append(d["zbmath"]["document_id"])
-                record["references"] = ";".join(ref_ids)
-                for d in row["editorial_contributions"]: 
-                    if d["contribution_type"] == "review":
-                        row["review_text"] = d["text"]
-                        row["review_sign"] = d["reviewer"]["name"]
-                        row["reviewer_id"] = d["reviewer"]["author_code"]
-                        break
-                if record:
-                    outfile.write(
-                        "\t".join(str(x) for x in record.values()) + "\n"
-                    )
+            #df = pd.read_csv(self.raw_dump_path, sep = "\t")
+            found = False
+            for chunk in pd.read_csv(self.raw_dump_path, sep = "\t", chunksize=2000):
+                for _, row in chunk.iterrows():
+                    record = {}
+                    record["de_number"] = row["id"]
+                    # if row["id"] == 2522407:
+                    #     found = True
+                    #     continue
+                    # if not found:
+                    #     continue
+                    record["creation_date"] = row["datestamp"]
+                    authors = []
+                    author_ids = []
+                    for d in literal_eval(row["contributors"])["authors"]:
+                        authors.append(d['name'])
+                        if d["codes"]:
+                            author_ids.append(d["codes"][0])
+                        else:
+                            author_ids.append("None")
+                    record["author"] = ";".join(authors)
+                    record["author_ids"] = ";".join(author_ids)
+                    title =  literal_eval(row["title"])["title"]
+                    record["document_title"] = title
+                    record["source"] = literal_eval(row["source"])["source"]
+                    msc = []
+                    for d in literal_eval(row["msc"]):
+                        msc.append(d["code"])
+                    record["classifications"] = ";".join(msc)
+                    if literal_eval(row["language"])["languages"]:
+                        record["language"] = literal_eval(row["language"])["languages"][0]
+                    links = []
+                    doi = None
+                    for d in literal_eval(row["links"]):
+                        if "type" not in d:
+                            continue
+                        if d["type"] in ["http", "https"]:
+                            if d['url'] is not None and d['url'] != "None":
+                                links.append(d['url'])
+                        elif d["type"] == "doi":
+                            doi = d["identifier"]
+                    record["links"] = ";".join(links)
+                    record["keywords"] = ";".join([x for x in literal_eval(row["keywords"]) if x])
+                    record["doi"] = doi
+                    record["publication_year"] = row["year"]
+                    if literal_eval(row["source"])["series"]:
+                        record["serial"] = literal_eval(row["source"])["series"][0]["title"]
+                    record["zbl_id"] = row["identifier"]
+                    ref_ids = []
+                    for d in literal_eval(row["references"]):
+                        ref_ids.append(str(d["zbmath"]["document_id"]))
+                    record["references"] = ";".join(ref_ids)
+                    for d in literal_eval(row["editorial_contributions"]): 
+                        if d["contribution_type"] == "review":
+                            review_text = d["text"]
+                            row["review_text"] = review_text
+                            row["review_sign"] = d["reviewer"]["name"]
+                            row["reviewer_id"] = d["reviewer"]["author_code"]
+                            break
+                    if record:
+                        for key, value in record.items():
+                            if isinstance(value, str):
+                                record[key] = value.replace("\t", " ").replace("\n", " ")
+                        outfile.write(
+                            "\t".join(str(x) for x in record.values()) + "\n"
+                        )
 
     def old_process_data(self):
         """

@@ -10,6 +10,10 @@ from datetime import datetime
 from habanero import Crossref  # , RequestError
 from requests.exceptions import HTTPError, ContentDecodingError
 from sickle import Sickle
+import pandas as pd
+import requests
+from time import sleep
+from ast import literal_eval
 
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.importer import ADataSource
@@ -114,7 +118,60 @@ class ZBMathSource(ADataSource):
         # self.write_data_dump()
         self.process_data()
 
+
+    def get_line(values):
+        new_values = []
+        for x in values:
+            x = str(x)
+            x = x.replace("\t", " ")
+            new_values.append(x)
+        return("\t".join(new_values) + "\n")
+
     def write_data_dump(self):
+        """
+        Overrides abstract method.
+        This method queries the zbMath API to get a data dump of all records,
+        optionally between from_date and until_date
+        """
+        url = "https://api.zbmath.org/v1/document/_all"
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        self.raw_dump_path = self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt"
+        headers = ['biographic_references', 'contributors', 'database', 'datestamp', 'document_type', 'editorial_contributions', 'id', 'identifier', 'keywords', 'language', 'license', 'links', 'msc', 'references', 'source', 'states', 'title', 'year', 'zbmath_url']
+        with open(self.raw_dump_path, "a+") as f:
+            f.write("\t".join(headers) + "\n")
+            start_after = 0
+            retries = 0
+            max_retries = 5
+            while True:
+                results = []
+                params = {"start_after": start_after,
+                            "results_per_request": 500}
+                response = requests.get(url, params=params)
+                if response.status_code == 200:
+                    retries = 0
+                    data=response.json()
+                    if not data["result"]:
+                        break
+                    results.extend(data["result"])
+                    start_after = data["status"]["last_id"]
+                    for r in results:
+                        if list(r.keys()) != headers:
+                            print(f"wrong headers in {r}")
+                            break
+                        f.write(get_line(r.values()))
+                    f.flush()
+                    os.fsync(f)
+                elif response.status_code == 502 and retries < max_retries:
+                    print("Encountered 502 error, retrying...")
+                    retries += 1
+                    sleep(5)
+                    continue
+                else:
+                    print(f"Failed to retrieve data: {response.status_code}")
+                    break
+    
+    
+    def old_write_data_dump(self):
         """
         Overrides abstract method.
         This method queries the zbMath API to get a data dump of all records,
@@ -147,6 +204,91 @@ class ZBMathSource(ADataSource):
                 f.write(rec.raw + "\n")
 
     def process_data(self):
+        """
+        Overrides abstract method.
+        Reads a raw zbMath data dump and processes it, then saves it as a csv.
+        """
+        if not self.processed_dump_path:
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            self.processed_dump_path = (
+                self.out_dir + "zbmath_data_dump" + timestr + ".csv"
+            )
+        with open(self.processed_dump_path, "a") as outfile:
+            outfile.write(
+                "de_number\t"
+                + "creation_date\t"
+                + ("\t").join(self.tags)
+                + "_text\treview_sign\treviewer_id\n"
+                )
+            
+            #df = pd.read_csv(self.raw_dump_path, sep = "\t")
+            found = False
+            for chunk in pd.read_csv(self.raw_dump_path, sep = "\t", chunksize=2000):
+                for _, row in chunk.iterrows():
+                    record = {}
+                    record["de_number"] = row["id"]
+                    # if row["id"] == 2522407:
+                    #     found = True
+                    #     continue
+                    # if not found:
+                    #     continue
+                    record["creation_date"] = row["datestamp"]
+                    authors = []
+                    author_ids = []
+                    for d in literal_eval(row["contributors"])["authors"]:
+                        authors.append(d['name'])
+                        if d["codes"]:
+                            author_ids.append(d["codes"][0])
+                        else:
+                            author_ids.append("None")
+                    record["author"] = ";".join(authors)
+                    record["author_ids"] = ";".join(author_ids)
+                    title =  literal_eval(row["title"])["title"]
+                    record["document_title"] = title
+                    record["source"] = literal_eval(row["source"])["source"]
+                    msc = []
+                    for d in literal_eval(row["msc"]):
+                        msc.append(d["code"])
+                    record["classifications"] = ";".join(msc)
+                    if literal_eval(row["language"])["languages"]:
+                        record["language"] = literal_eval(row["language"])["languages"][0]
+                    links = []
+                    doi = None
+                    for d in literal_eval(row["links"]):
+                        if "type" not in d:
+                            continue
+                        if d["type"] in ["http", "https"]:
+                            if d['url'] is not None and d['url'] != "None":
+                                links.append(d['url'])
+                        elif d["type"] == "doi":
+                            doi = d["identifier"]
+                    record["links"] = ";".join(links)
+                    record["keywords"] = ";".join([x for x in literal_eval(row["keywords"]) if x])
+                    record["doi"] = doi
+                    record["publication_year"] = row["year"]
+                    if literal_eval(row["source"])["series"]:
+                        record["serial"] = literal_eval(row["source"])["series"][0]["title"]
+                    record["zbl_id"] = row["identifier"]
+                    ref_ids = []
+                    for d in literal_eval(row["references"]):
+                        ref_ids.append(str(d["zbmath"]["document_id"]))
+                    record["references"] = ";".join(ref_ids)
+                    for d in literal_eval(row["editorial_contributions"]): 
+                        if d["contribution_type"] == "review":
+                            review_text = d["text"]
+                            row["review_text"] = review_text
+                            row["review_sign"] = d["reviewer"]["name"]
+                            row["reviewer_id"] = d["reviewer"]["author_code"]
+                            break
+                    if record:
+                        for key, value in record.items():
+                            if isinstance(value, str):
+                                record[key] = value.replace("\t", " ").replace("\n", " ")
+                        outfile.write(
+                            "\t".join(str(x) for x in record.values()) + "\n"
+                        )
+
+    def old_process_data(self):
         """
         Overrides abstract method.
         Reads a raw zbMath data dump and processes it, then saves it as a csv.

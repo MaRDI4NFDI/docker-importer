@@ -176,14 +176,13 @@ class Project:
         ]
 
         all_IDs = application_areas_IDs + emerging_fields_IDs
-        #print(all_IDs)
+
         if id_category == "EA":
             return emerging_fields_IDs
         else:
             if id_category == "AA":
                 return application_areas_IDs
             else:
-                #if id_category == "all":
                 return all_IDs
 
     def exists(self):
@@ -192,8 +191,6 @@ class Project:
             return self.QID
 
         QID_results = self.api.get_local_id_by_label(self.project_id, "item")
-        #QID_results = self.api.search_entity_by_value(prop_nr, self.project_id)
-        print (QID_results)
         if QID_results: 
             self.QID = QID_results[0]
 
@@ -210,7 +207,7 @@ class Project:
         if not self.exists(): 
             item = self.api.item.new()
         else:
-            print("Proj already exists")
+            print("Project already exists")
             item = self.api.item.get(entity_id=self.QID)
 
         if self.project_id:
@@ -224,14 +221,12 @@ class Project:
 
         if self.community:
             prop_nr = self.api.get_local_id_by_label("community", "property")
-            community_nr = self.api.get_local_id_by_label(self.community.community_id, "property")
             item.add_claim(prop_nr, self.community.QID)
 
         # instance of scientific project
         item_nr = self.api.get_local_id_by_label("scientific project", "item")[0]
         item.add_claim("wdt:P31", item_nr)
 
-        print(item.claims.get_json())
         self.QID = item.write().id
 
         if self.QID:

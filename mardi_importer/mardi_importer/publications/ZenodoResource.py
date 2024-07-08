@@ -2,7 +2,6 @@ from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.publications.Author import Author
 from mardi_importer.zenodo.Community import Community
 from mardi_importer.zenodo.Project import Project
-from wikibaseintegrator.wbi_enums import ActionIfExists
 
 import logging
 import urllib.request, json, re
@@ -115,11 +114,9 @@ class ZenodoResource():
         if not self._communities:
             for communityCur in self.metadata["communities"]:
                 community_id = communityCur.get("id")
-                if not community_id == "mathplus":
-                    next
-                community = Community(api = self.api, community_id = community_id)
-                community_qid = community.create()
-                self._communities.append(community)
+                if community_id == "mathplus":
+                    community = Community(api = self.api, community_id = community_id)
+                    self._communities.append(community)
         return self._communities
     
     @property
@@ -130,30 +127,17 @@ class ZenodoResource():
                 if communityCur.community_id == "mathplus":
                     community = communityCur
                     break
-        if (not self._projects) and community and self.metadata.get("related_identifiers"):
-            #print(Project.get_project_ids())
+        if not self._projects and community and self.metadata.get("related_identifiers"):
             for related_ids in self.metadata.get("related_identifiers"):
-                print("identifier: " + related_ids["identifier"])
+                #print("identifier: " + related_ids["identifier"])
                 if related_ids["identifier"] in Project.get_project_ids():
                     project = Project(api = self.api, community = community, project_id = related_ids["identifier"])
-                    #if project.exis
-                    projet_QID = project.create()
                     self._projects.append(project)
         return self._projects
 
-    def exists(self):
-        
+    def exists(self):        
         if self.QID:
             return self.QID
-
-        QID_results = self.api.search_entity_by_value("wdt:P4901", str(self.zenodo_id))
-        
-        if QID_results: 
-            self.QID = QID_results[0]
-
-        if self.QID:
-            print(f"Zenodo item exists with QID {self.QID}")
-        return self.QID
 
     def update(self):
         # description_prop_nr = "P727"
@@ -171,7 +155,6 @@ class ZenodoResource():
             new_item.add_claim("wdt:P275", "wd:Q42553662")
         elif self.license['id'] == "mit-license":
             new_item.add_claim("wdt:P275", "wd:Q334661")
-
 
         return new_item.write()  
 
@@ -214,7 +197,6 @@ class ZenodoResource():
                 language="en", 
                 value="Resource published at Zenodo repository"
             )
-        #item.add_claim('wdt:P31',self.resource_type)  
    
         # Publication date
         if self.publication_date:
@@ -231,10 +213,9 @@ class ZenodoResource():
         if self.zenodo_id:
             item.add_claim('wdt:P4901', self.zenodo_id)
             doi = f"10.5281/zenodo.{self.zenodo_id}"
-            #item.add_claim("doi", doi)
             item.add_claim('wdt:P356', doi)
 
-        #License
+        # License
         if self.license['id'] == "cc-by-4.0":
             item.add_claim("wdt:P275", "wd:Q20007257")
         elif self.license['id'] == "cc-by-sa-4.0":
@@ -244,23 +225,19 @@ class ZenodoResource():
         elif self.license['id'] == "mit-license":
             item.add_claim("wdt:P275", "wd:Q334661")
 
-        #communities
+        # Communities
         if self.communities:
-            for community in self._communities:
+            for community in self.communities:
                 prop_nr = self.api.get_local_id_by_label("community", "property")
-                community_nr = self.api.get_local_id_by_label(community.community_id, "item")
                 item.add_claim(prop_nr, community.QID)
 
-        #projects
+        # Projects
         if self.projects:
-            for project in self._projects:
+            for project in self.projects:
+                project.create()
                 prop_nr = self.api.get_local_id_by_label("Internal Project ID", "property")
-                #project_qid = self.api.get_local_id_by_label(community.community_id, "item")
                 item.add_claim(prop_nr, project.QID)
         
-
-        #print(item.claims.get_json())
-
         self.QID = item.write().id
 
         if self.QID:

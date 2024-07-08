@@ -4,7 +4,7 @@ import logging.config
 from argparse import ArgumentParser
 
 from mardi_importer.zbmath import ZBMathSource, ZBMathConfigParser
-from mardi_importer.openml import OpenMLSource
+#from mardi_importer.openml import OpenMLSource
 from mardi_importer.importer import Importer
 from mardi_importer.cran import CRANSource
 from mardi_importer.polydb import PolyDBSource
@@ -50,9 +50,10 @@ def main(**args):
         #conf_parser = OpenMLConfigParser(args["conf_path"])
         #conf = conf_parser.parse_config()
 
-        data_source = OpenMLSource()
-        importer = Importer(data_source)
-        importer.import_all(pull=False, push=True)
+        #data_source = OpenMLSource()
+        #importer = Importer(data_source)
+        #importer.import_all(pull=False, push=True)
+        print('Deactivate due to error in openml package')
 
     elif args["mode"] == "CRAN":
         data_source = CRANSource()
@@ -65,14 +66,7 @@ def main(**args):
         importer.import_all()
 
     elif args["mode"] == "zenodo":
-        data_source = ZenodoSource(
-            
-            #out_dir = "/mardi_importer/mardi_importer/zenodo/ZenodoData", 
-            out_dir = "/ZenodoData/", 
-            #raw_dump_path =  "/mardi_importer/mardi_importer/zenodo/ZenodoData/rawdata", 
-            raw_dump_path =  "/ZenodoData/rawdata/", 
-            #processed_dump_path = "/mardi_importer/mardi_importer/zenodo/ZenodoData/processeddata")
-            processed_dump_path = "/ZenodoData/processeddata/")
+        data_source = ZenodoSource()
         importer = Importer(data_source)
         importer.import_all()
 

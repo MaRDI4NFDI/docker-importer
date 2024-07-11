@@ -1,9 +1,10 @@
 from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.publications.Author import Author
-from wikibaseintegrator.wbi_enums import ActionIfExists
+from mardi_importer.zenodo.Community import Community
+from mardi_importer.zenodo.Project import Project
 
 import logging
-import urllib.request, json 
+import urllib.request, json, re
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -18,6 +19,8 @@ class ZenodoResource():
     _authors: List[Author] = field(default_factory=list)
     _resource_type: str = None
     _license: str = None
+    _communities: List[Community] = field(default_factory=list)
+    _projects: List[Project] = field(default_factory = list)
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
 
@@ -57,8 +60,9 @@ class ZenodoResource():
     @property
     def publication_date(self):
         if not self._publication_date:
-            publication_date = f"{self.metadata['publication_date']}T00:00:00Z"
-            self._publication_date = publication_date
+            if re.match("\d{4}-\d{2}-\d{2}",self.metadata['publication_date']):
+                publication_date = f"{self.metadata['publication_date']}T00:00:00Z"
+                self._publication_date = publication_date
         return self._publication_date
     
     @property
@@ -105,6 +109,36 @@ class ZenodoResource():
                 self._resource_type = "wd:Q37866906"
         return self._resource_type
 
+    @property
+    def communities(self):
+        if not self._communities:
+            for communityCur in self.metadata["communities"]:
+                community_id = communityCur.get("id")
+                if community_id == "mathplus":
+                    community = Community(api = self.api, community_id = community_id)
+                    self._communities.append(community)
+        return self._communities
+    
+    @property
+    def projects(self):
+        community = None
+        if self._communities:
+            for communityCur in self._communities:
+                if communityCur.community_id == "mathplus":
+                    community = communityCur
+                    break
+        if not self._projects and community and self.metadata.get("related_identifiers"):
+            for related_ids in self.metadata.get("related_identifiers"):
+                #print("identifier: " + related_ids["identifier"])
+                if related_ids["identifier"] in Project.get_project_ids():
+                    project = Project(api = self.api, community = community, project_id = related_ids["identifier"])
+                    self._projects.append(project)
+        return self._projects
+
+    def exists(self):        
+        if self.QID:
+            return self.QID
+
     def update(self):
         # description_prop_nr = "P727"
         zenodo_item = self.api.item.new()
@@ -122,14 +156,31 @@ class ZenodoResource():
         elif self.license['id'] == "mit-license":
             new_item.add_claim("wdt:P275", "wd:Q334661")
 
-        return new_item.write()        
+        return new_item.write()  
 
-    def create(self):
+    def update2(self):
+
+        self.item = self.api.item.get(entity_id=self.QID)
+
+        self.insert_claims()
+        self.item.write()
+
         if self.QID:
+            print(f"zenodo item with ID {self.QID} has been updated.")
             return self.QID
+        else:
+            print(f"zenodo item could not be updated.")
+            return None      
 
-        item = self.api.item.new()
+    def create(self, update = False):
 
+        if not update:
+            if self.QID:
+                return self.QID
+
+            item = self.api.item.new()
+        else:
+            item = self.api.item.get(entity_id=self.QID)
         # Add title
         if self.title:
             item.labels.set(language="en", value=self.title)
@@ -146,11 +197,11 @@ class ZenodoResource():
                 language="en", 
                 value="Resource published at Zenodo repository"
             )
-
+   
         # Publication date
         if self.publication_date:
             item.add_claim('wdt:P577', self.publication_date)
-
+        
         # Authors
         author_QID = self.__preprocess_authors()
         claims = []
@@ -174,7 +225,21 @@ class ZenodoResource():
         elif self.license['id'] == "mit-license":
             item.add_claim("wdt:P275", "wd:Q334661")
 
+        # Communities
+        if self.communities:
+            for community in self.communities:
+                prop_nr = self.api.get_local_id_by_label("community", "property")
+                item.add_claim(prop_nr, community.QID)
+
+        # Projects
+        if self.projects:
+            for project in self.projects:
+                project.create()
+                prop_nr = self.api.get_local_id_by_label("Internal Project ID", "property")
+                item.add_claim(prop_nr, project.QID)
+        
         self.QID = item.write().id
+
         if self.QID:
             log.info(f"Zenodo resource with Zenodo id: {self.zenodo_id} created with ID {self.QID}.")
             return self.QID

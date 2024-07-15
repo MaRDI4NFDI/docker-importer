@@ -51,12 +51,9 @@ class ZenodoSource(ADataSource):
         This method queries the Zenodo API to get a data dump of all records.
         """
 
-        access_token = os.environ.get("ZENODO_API_KEY")
-
         response = requests.get('https://zenodo.org/api/records',
                                 params={'size' : 1,
-                                'communities' : 'mathplus',
-                                'access_token': access_token})
+                                'communities' : 'mathplus'})
         response_json = response.json()
         total_hits = response_json.get("hits").get("total")
 

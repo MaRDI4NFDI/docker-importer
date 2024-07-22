@@ -33,6 +33,9 @@ class MardiIntegrator(MardiClient):
                                     'P2559', 'P2875', 'P3254', 'P3709', \
                                     'P3713', 'P3734', 'P6104', 'P6685', \
                                     'P8093', 'P8979', 'P12861']
+        
+        self.excluded_datatypes = ['wikibase-lexeme', 'wikibase-sense', \
+                                   'wikibase-form', 'entity-schema']
 
     def config(self):
         """
@@ -256,7 +259,7 @@ class MardiIntegrator(MardiClient):
                     continue
 
                 if entity.type == "property" and entity.datatype.value in \
-                    ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+                    self.excluded_datatypes:
                     print(f"Warning: Lexemes not supported. Property skipped")
                     continue
 
@@ -389,8 +392,7 @@ class MardiIntegrator(MardiClient):
                 return None
 
             if entity.type == "property" and \
-                entity.datatype.value in ["wikibase-lexeme", \
-                        "wikibase-sense", "wikibase-form"]:
+                entity.datatype.value in self.excluded_datatypes:
                 return None
                 
             elif wikidata_id != entity.id:
@@ -534,7 +536,7 @@ class MardiIntegrator(MardiClient):
                             new_c.id = None
                         else:
                             continue
-                    elif c_dict["mainsnak"]["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+                    elif c_dict["mainsnak"]["datatype"] in self.excluded_datatypes:
                         continue
                     else:
                         self.convert_entity_links(snak=c_dict["mainsnak"])
@@ -592,7 +594,7 @@ class MardiIntegrator(MardiClient):
                             continue
                         snak["datavalue"]["value"]["id"] = new_snak_id
                         snak["datavalue"]["value"]["numeric-id"] = int(new_snak_id[1:])
-                    elif snak["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+                    elif snak["datatype"] in self.excluded_datatypes:
                         continue
                     else:
                         self.convert_entity_links(
@@ -643,7 +645,7 @@ class MardiIntegrator(MardiClient):
                     qual_val["datavalue"]["value"]["numeric-id"] = int(
                         new_qual_val_id[1:]
                     )
-                elif qual_val["datatype"] in ["wikibase-lexeme", "wikibase-sense", "wikibase-form"]:
+                elif qual_val["datatype"] in self.excluded_datatypes:
                     continue
                 else:
                     self.convert_entity_links(

@@ -59,7 +59,7 @@ class ZenodoSource(ADataSource):
 
         for page in range(1, total_hits+1):
             url = 'https://zenodo.org/api/records?communities=mathplus&page=' + str(page) + "&size=1&sort=newest"
-            response = requests.get(url, params = {'access_token' : access_token})    
+            response = requests.get(url)    
             response_json = response.json()
 
             zenodo_id = response_json.get("hits").get("hits")[0].get("id")

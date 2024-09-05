@@ -18,6 +18,7 @@ class ZenodoResource():
     _publication_date: str = None
     _authors: List[Author] = field(default_factory=list)
     _resource_type: str = None
+    _mardi_type: str = None
     _license: str = None
     _communities: List[Community] = field(default_factory=list)
     _projects: List[Project] = field(default_factory = list)
@@ -88,12 +89,15 @@ class ZenodoResource():
             resource_type = self.metadata['resource_type']['title']
             if resource_type == "Dataset":
                 self._resource_type = "wd:Q1172284"
+                self._mardi_type = "MaRDI dataset profile"
             elif resource_type == "Software":
                 self._resource_type = "wd:Q7397"
+                self._mardi_type = "MaRDI software profile"
             elif resource_type == "Presentation":
                 self._resource_type = "wd:Q604733"
             elif resource_type == "Report":
                 self._resource_type = "wd:Q10870555"
+                self._mardi_type = "MaRDI publication profile"
             elif resource_type == "Poster":
                 self._resource_type = "wd:Q429785"
             elif resource_type == "Figure":
@@ -104,6 +108,7 @@ class ZenodoResource():
                 self._resource_type = "wd:Q379833"
             elif resource_type == "Preprint":
                 self._resource_type = "wd:Q580922"
+                self._mardi_type = "MaRDI publication profile"
             else:
                 # Other -> Information resource
                 self._resource_type = "wd:Q37866906"
@@ -237,6 +242,9 @@ class ZenodoResource():
                 project.create()
                 prop_nr = self.api.get_local_id_by_label("Internal Project ID", "property")
                 item.add_claim(prop_nr, project.QID)
+
+        if self._mardi_type:
+            item.add_claim('MaRDI profile type', self._mardi_type)
         
         self.QID = item.write().id
 

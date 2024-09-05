@@ -11,19 +11,31 @@
             "datatype": "wikibase-item"
         },
         {
-            "label" : "Internal Project ID",
-            "description" : "An identifier for a project, e.g. from a community such as MATH+ or SFB1234",
-            "datatype" : "wikibase-item"
+            "label": "Internal Project ID",
+            "description": "An identifier for a project, e.g. from a community such as MATH+ or SFB1234",
+            "datatype": "wikibase-item"
         }
     ],
     "items": [
         {
-            "label" : "MaRDI community profile",
-            "description" : "type of MaRDI profile"
+            "label": "MaRDI community profile",
+            "description": "type of MaRDI profile"
         },
         {
-            "label" : "scientific project",
+            "label": "scientific project",
             "description": "A scientific project"
+        },
+        {
+            "label": "MaRDI dataset profile",
+            "description": "type of MaRDI profile"
+        },
+        {
+            "label": "MaRDI software profile",
+            "description": "type of MaRDI profile"
+        },
+        {
+            "label": "MaRDI publication profile",
+            "description": "type of MaRDI profile"
         }
     ]
 }

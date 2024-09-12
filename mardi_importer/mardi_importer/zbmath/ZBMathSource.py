@@ -276,9 +276,9 @@ class ZBMathSource(ADataSource):
                     for d in literal_eval(row["editorial_contributions"]): 
                         if d["contribution_type"] == "review":
                             review_text = d["text"]
-                            row["review_text"] = review_text
-                            row["review_sign"] = d["reviewer"]["name"]
-                            row["reviewer_id"] = d["reviewer"]["author_code"]
+                            record["review_text"] = review_text
+                            record["review_sign"] = d["reviewer"]["name"]
+                            record["reviewer_id"] = d["reviewer"]["author_code"]
                             break
                     if record:
                         for key, value in record.items():

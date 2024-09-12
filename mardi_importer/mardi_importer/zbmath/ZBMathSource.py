@@ -252,6 +252,8 @@ class ZBMathSource(ADataSource):
                     record["classifications"] = ";".join(msc)
                     if literal_eval(row["language"])["languages"]:
                         record["language"] = literal_eval(row["language"])["languages"][0]
+                    else:
+                        record["language"] = None
                     links = []
                     doi = None
                     for d in literal_eval(row["links"]):
@@ -268,18 +270,26 @@ class ZBMathSource(ADataSource):
                     record["publication_year"] = row["year"]
                     if literal_eval(row["source"])["series"]:
                         record["serial"] = literal_eval(row["source"])["series"][0]["title"]
+                    else:
+                        record["serial"] = None
                     record["zbl_id"] = row["identifier"]
                     ref_ids = []
                     for d in literal_eval(row["references"]):
                         ref_ids.append(str(d["zbmath"]["document_id"]))
                     record["references"] = ";".join(ref_ids)
+                    review_text = None
+                    review_sign = None
+                    reviewer_id = None
                     for d in literal_eval(row["editorial_contributions"]): 
                         if d["contribution_type"] == "review":
                             review_text = d["text"]
-                            record["review_text"] = review_text
-                            record["review_sign"] = d["reviewer"]["name"]
-                            record["reviewer_id"] = d["reviewer"]["author_code"]
+                            review_sign = d["reviewer"]["name"]
+                            reviewer_id = d["reviewer"]["author_code"]
                             break
+                    record["review_text"] = review_text
+                    record["review_sign"] = review_sign
+                    record["reviewer_id"] = reviewer_id
+                        
                     if record:
                         for key, value in record.items():
                             if isinstance(value, str):
@@ -420,8 +430,8 @@ class ZBMathSource(ADataSource):
                 info_dict = dict(zip(headers, split_line))
                 # this part is for continuing at a certain position if the import failed
                 # if not found:
-                #     if info_dict["de_number"].strip() != " ":
-                #     if info_dict["document_title"] != "Unimodular supergravity":
+                #     if info_dict["de_number"].strip() != "49686":
+                #     #if info_dict["document_title"] != "Unimodular supergravity":
                 #         continue
                 #     else:
                 #         found = True

@@ -14,11 +14,20 @@
             "label": "zbMATH Keywords",
             "description": "keyword string from zbMATH",
             "datatype": "string"
+        },
+        {
+            "label": "MaRDI profile type",
+            "description": "defines the types of MaRDI profiles expected to work for this item",
+            "datatype": "wikibase-item"
         }
     ],
     "items": [
         {
             "label": "MaRDI person profile",
+            "description": "type of MaRDI profile"
+        },
+        {
+            "label": "MaRDI publication profile",
             "description": "type of MaRDI profile"
         }
     ]

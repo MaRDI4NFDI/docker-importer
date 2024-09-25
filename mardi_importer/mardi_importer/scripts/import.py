@@ -42,7 +42,7 @@ def main(**args):
             processed_dump_path=conf["processed_dump_path"],
         )
         importer = Importer(data_source)
-        importer.import_all(pull=True, push=False)
+        importer.import_all(pull=False, push=True)
 
     elif args["mode"] == "OpenML":
         # if args["conf_path"] is None:

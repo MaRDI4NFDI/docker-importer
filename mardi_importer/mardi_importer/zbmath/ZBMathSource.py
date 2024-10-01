@@ -255,7 +255,7 @@ class ZBMathSource(ADataSource):
                     else:
                         record["language"] = None
                     links = []
-                    dois = None
+                    doi = None
                     for d in literal_eval(row["links"]):
                         if "type" not in d:
                             continue

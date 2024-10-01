@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.integrator.MardiEntities &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html#usage">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tech.html">Importer diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cran.html">CRAN module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../importer.html">mardi_importer.importer module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../integrator.html">mardi_importer.integrator module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../polydb.html">mardi_importer.polydb module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zbmath.html">mardi_importer.zbmath module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">mardi_importer.integrator.MardiEntities</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mardi_importer.integrator.MardiEntities</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy</span> <span class="k">as</span> <span class="nn">db</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">and_</span><span class="p">,</span> <span class="n">case</span>
+
+<span class="kn">from</span> <span class="nn">mardiclient</span> <span class="kn">import</span> <span class="n">MardiItem</span><span class="p">,</span> <span class="n">MardiProperty</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.wbi_exceptions</span> <span class="kn">import</span> <span class="n">ModificationFailed</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.datatypes</span> <span class="kn">import</span> <span class="n">ExternalID</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.wbi_enums</span> <span class="kn">import</span> <span class="n">ActionIfExists</span>
+<span class="kn">from</span> <span class="nn">mardi_importer.importer</span> <span class="kn">import</span> <span class="n">ImporterException</span>
+
+<div class="viewcode-block" id="MardiItemEntity">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiItemEntity">[docs]</a>
+<span class="k">class</span> <span class="nc">MardiItemEntity</span><span class="p">(</span><span class="n">MardiItem</span><span class="p">):</span>
+
+<div class="viewcode-block" id="MardiItemEntity.new">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiItemEntity.new">[docs]</a>
+    <span class="k">def</span> <span class="nf">new</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MardiItemEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MardiItemEntity.get">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiItemEntity.get">[docs]</a>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">json_data</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">MardiItemEntity</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">entity_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">MardiItemEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">)</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">json_data</span><span class="o">=</span><span class="n">json_data</span><span class="p">[</span><span class="s1">&#39;entities&#39;</span><span class="p">][</span><span class="n">entity_id</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="MardiItemEntity.get_QID">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiItemEntity.get_QID">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_QID</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a list of QID of all items in the local wikibase with the</span>
+<span class="sd">        same label</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            QIDs (list): List of QID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;en&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;en&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+        <span class="n">is_truncated</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">label</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">250</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">label</span><span class="p">[:</span><span class="mi">250</span><span class="p">]</span>
+            <span class="n">is_truncated</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="k">def</span> <span class="nf">query_wikidata_table</span><span class="p">(</span><span class="n">field_type</span><span class="p">):</span>
+            <span class="c1"># field_type = 1 : Label</span>
+            <span class="c1"># field_type = 2 : Alias</span>
+            <span class="c1"># see: https://doc.wikimedia.org/Wikibase/REL1_41/php/docs_sql_wbt_type.html</span>
+            <span class="n">entity_id</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+                <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">wbt_item_terms</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                        <span class="s2">&quot;wbt_item_terms&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                    <span class="p">)</span>
+                    <span class="n">wbt_term_in_lang</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                        <span class="s2">&quot;wbt_term_in_lang&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                    <span class="p">)</span>
+                    <span class="n">wbt_text_in_lang</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                        <span class="s2">&quot;wbt_text_in_lang&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                    <span class="p">)</span>
+                    <span class="n">wbt_text</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                        <span class="s2">&quot;wbt_text&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                    <span class="p">)</span>
+                    <span class="n">query</span> <span class="o">=</span> <span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">wbt_item_terms</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbit_item_id</span><span class="p">)</span>
+                            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wbt_term_in_lang</span><span class="p">,</span> <span class="n">wbt_item_terms</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbit_term_in_lang_id</span> <span class="o">==</span> <span class="n">wbt_term_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbtl_id</span><span class="p">)</span>
+                            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wbt_text_in_lang</span><span class="p">,</span> <span class="n">wbt_term_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbtl_text_in_lang_id</span> <span class="o">==</span> <span class="n">wbt_text_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbxl_id</span><span class="p">)</span>
+                            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wbt_text</span><span class="p">,</span> <span class="n">wbt_text</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbx_id</span> <span class="o">==</span> <span class="n">wbt_text_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbxl_text_id</span><span class="p">)</span>
+                            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">and_</span><span class="p">(</span>
+                                        <span class="k">case</span><span class="p">(</span>
+                                           <span class="p">(</span><span class="n">is_truncated</span><span class="p">,</span> <span class="n">wbt_text</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbx_text</span><span class="o">.</span><span class="n">like</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="sa">b</span><span class="s2">&quot;%&quot;</span><span class="p">)),</span>
+                                           <span class="n">else_</span><span class="o">=</span><span class="n">wbt_text</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbx_text</span> <span class="o">==</span> <span class="n">label</span><span class="p">),</span> 
+                                        <span class="n">wbt_term_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbtl_type_id</span> <span class="o">==</span> <span class="n">field_type</span><span class="p">,</span>
+                                        <span class="n">wbt_text_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbxl_language</span> <span class="o">==</span> <span class="nb">bytes</span><span class="p">(</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">))))</span>
+                    <span class="n">results</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                            <span class="n">entity_id</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Q</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">ImporterException</span><span class="p">(</span>
+                        <span class="s2">&quot;Error attempting to read mappings from database</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="p">)</span>
+                
+                <span class="k">return</span> <span class="n">entity_id</span>
+            
+        <span class="n">entity_id</span> <span class="o">=</span> <span class="n">query_wikidata_table</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">alias</span><span class="p">:</span>
+            <span class="n">entity_id</span> <span class="o">+=</span> <span class="n">query_wikidata_table</span><span class="p">(</span><span class="n">field_type</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">entity_id</span></div>
+</div>
+
+    
+
+<div class="viewcode-block" id="MardiPropertyEntity">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiPropertyEntity">[docs]</a>
+<span class="k">class</span> <span class="nc">MardiPropertyEntity</span><span class="p">(</span><span class="n">MardiProperty</span><span class="p">):</span>
+
+<div class="viewcode-block" id="MardiPropertyEntity.new">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.new">[docs]</a>
+    <span class="k">def</span> <span class="nf">new</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">MardiPropertyEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MardiPropertyEntity.get">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get">[docs]</a>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">json_data</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">MardiPropertyEntity</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">entity_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">MardiPropertyEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">)</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">json_data</span><span class="o">=</span><span class="n">json_data</span><span class="p">[</span><span class="s1">&#39;entities&#39;</span><span class="p">][</span><span class="n">entity_id</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="MardiPropertyEntity.get_PID">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get_PID">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_PID</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the PID of the property with the same label</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;en&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;en&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">wbt_property_terms</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                    <span class="s2">&quot;wbt_property_terms&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                <span class="p">)</span>
+                <span class="n">wbt_term_in_lang</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                    <span class="s2">&quot;wbt_term_in_lang&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                <span class="p">)</span>
+                <span class="n">wbt_text_in_lang</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                    <span class="s2">&quot;wbt_text_in_lang&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                <span class="p">)</span>
+                <span class="n">wbt_text</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                    <span class="s2">&quot;wbt_text&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+                <span class="p">)</span>
+                <span class="n">query</span> <span class="o">=</span> <span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">wbt_property_terms</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbpt_property_id</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wbt_term_in_lang</span><span class="p">,</span> <span class="n">wbt_term_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbtl_id</span> <span class="o">==</span> <span class="n">wbt_property_terms</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbpt_term_in_lang_id</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wbt_text_in_lang</span><span class="p">,</span> <span class="n">wbt_term_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbtl_text_in_lang_id</span> <span class="o">==</span> <span class="n">wbt_text_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbxl_id</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">wbt_text</span><span class="p">,</span> <span class="n">wbt_text</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbx_id</span> <span class="o">==</span> <span class="n">wbt_text_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbxl_text_id</span><span class="p">)</span>
+                        <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">and_</span><span class="p">(</span><span class="n">wbt_text</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbx_text</span> <span class="o">==</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">),</span> 
+                                    <span class="n">wbt_term_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbtl_type_id</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span>
+                                    <span class="n">wbt_text_in_lang</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wbxl_language</span> <span class="o">==</span> <span class="nb">bytes</span><span class="p">(</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">))))</span>
+                <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;P&quot;</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;P</span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ImporterException</span><span class="p">(</span>
+                    <span class="s2">&quot;Error attempting to read mappings from database</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.integrator.MardiIntegrator &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html#usage">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tech.html">Importer diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cran.html">CRAN module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../importer.html">mardi_importer.importer module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../integrator.html">mardi_importer.integrator module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../polydb.html">mardi_importer.polydb module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zbmath.html">mardi_importer.zbmath module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">mardi_importer.integrator.MardiIntegrator</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mardi_importer.integrator.MardiIntegrator</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy</span> <span class="k">as</span> <span class="nn">db</span>
+
+<span class="kn">from</span> <span class="nn">.MardiEntities</span> <span class="kn">import</span> <span class="n">MardiItemEntity</span><span class="p">,</span> <span class="n">MardiPropertyEntity</span>
+<span class="kn">from</span> <span class="nn">mardiclient</span> <span class="kn">import</span> <span class="n">MardiClient</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator</span> <span class="kn">import</span> <span class="n">wbi_login</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.models</span> <span class="kn">import</span> <span class="n">Claim</span><span class="p">,</span> <span class="n">Claims</span><span class="p">,</span> <span class="n">Qualifiers</span><span class="p">,</span> <span class="n">Reference</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.wbi_config</span> <span class="kn">import</span> <span class="n">config</span> <span class="k">as</span> <span class="n">wbi_config</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.wbi_enums</span> <span class="kn">import</span> <span class="n">ActionIfExists</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.wbi_helpers</span> <span class="kn">import</span> <span class="n">search_entities</span><span class="p">,</span> <span class="n">execute_sparql_query</span>
+<span class="kn">from</span> <span class="nn">wikibaseintegrator.datatypes</span> <span class="kn">import</span> <span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="n">CommonsMedia</span><span class="p">,</span> <span class="n">ExternalID</span><span class="p">,</span> <span class="n">Form</span><span class="p">,</span> <span class="n">GeoShape</span><span class="p">,</span> <span class="n">GlobeCoordinate</span><span class="p">,</span> <span class="n">Item</span><span class="p">,</span> <span class="n">Lexeme</span><span class="p">,</span> <span class="n">Math</span><span class="p">,</span> <span class="n">MonolingualText</span><span class="p">,</span> <span class="n">MusicalNotation</span><span class="p">,</span> <span class="n">Property</span><span class="p">,</span> <span class="n">Quantity</span><span class="p">,</span>
+                                          <span class="n">Sense</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">TabularData</span><span class="p">,</span> <span class="n">Time</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MardiIntegrator">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator">[docs]</a>
+<span class="k">class</span> <span class="nc">MardiIntegrator</span><span class="p">(</span><span class="n">MardiClient</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">languages</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="s2">&quot;de&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="o">=</span> <span class="n">languages</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">setup</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">login</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">()</span>        
+        <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_engine</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_db_table</span><span class="p">()</span>
+
+        <span class="c1"># local id of properties for linking to wikidata PID/QID</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wikidata_PID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_wikidata_PID</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wikidata_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_wikidata_QID</span><span class="p">()</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span> <span class="o">=</span> <span class="n">MardiItemEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">property</span> <span class="o">=</span> <span class="n">MardiPropertyEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">excluded_properties</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;P1151&#39;</span><span class="p">,</span> <span class="s1">&#39;P1855&#39;</span><span class="p">,</span> <span class="s1">&#39;P2139&#39;</span><span class="p">,</span> <span class="s1">&#39;P2302&#39;</span><span class="p">,</span> \
+                                    <span class="s1">&#39;P2559&#39;</span><span class="p">,</span> <span class="s1">&#39;P2875&#39;</span><span class="p">,</span> <span class="s1">&#39;P3254&#39;</span><span class="p">,</span> <span class="s1">&#39;P3709&#39;</span><span class="p">,</span> \
+                                    <span class="s1">&#39;P3713&#39;</span><span class="p">,</span> <span class="s1">&#39;P3734&#39;</span><span class="p">,</span> <span class="s1">&#39;P6104&#39;</span><span class="p">,</span> <span class="s1">&#39;P6685&#39;</span><span class="p">,</span> \
+                                    <span class="s1">&#39;P8093&#39;</span><span class="p">,</span> <span class="s1">&#39;P8979&#39;</span><span class="p">,</span> <span class="s1">&#39;P12861&#39;</span><span class="p">]</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">excluded_datatypes</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;wikibase-lexeme&#39;</span><span class="p">,</span> <span class="s1">&#39;wikibase-sense&#39;</span><span class="p">,</span> \
+                                   <span class="s1">&#39;wikibase-form&#39;</span><span class="p">,</span> <span class="s1">&#39;entity-schema&#39;</span><span class="p">]</span>
+
+<div class="viewcode-block" id="MardiIntegrator.config">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.config">[docs]</a>
+    <span class="k">def</span> <span class="nf">config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sets up initial configuration for the integrator</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Clientlogin object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IMPORTER_USER&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IMPORTER_PASS&quot;</span><span class="p">):</span> 
+            <span class="n">wbi_config</span><span class="p">[</span><span class="s2">&quot;USER_AGENT&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IMPORTER_AGENT&quot;</span><span class="p">)</span>
+            <span class="n">wbi_config</span><span class="p">[</span><span class="s2">&quot;MEDIAWIKI_API_URL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;MEDIAWIKI_API_URL&quot;</span><span class="p">)</span>
+            <span class="n">wbi_config</span><span class="p">[</span><span class="s2">&quot;SPARQL_ENDPOINT_URL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;SPARQL_ENDPOINT_URL&quot;</span><span class="p">)</span>
+            <span class="n">wbi_config</span><span class="p">[</span><span class="s2">&quot;WIKIBASE_URL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;WIKIBASE_URL&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">wbi_login</span><span class="o">.</span><span class="n">Clientlogin</span><span class="p">(</span>
+                <span class="n">user</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IMPORTER_USER&quot;</span><span class="p">),</span>
+                <span class="n">password</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IMPORTER_PASS&quot;</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setup</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.create_engine">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_engine">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates SQLalchemy engine</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            SQLalchemy engine</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">setup</span><span class="p">:</span>
+            <span class="n">db_user</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;DB_USER&quot;</span><span class="p">]</span>
+            <span class="n">db_pass</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;DB_PASS&quot;</span><span class="p">]</span>
+            <span class="n">db_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;DB_NAME&quot;</span><span class="p">]</span>
+            <span class="n">db_host</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;DB_HOST&quot;</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">db</span><span class="o">.</span><span class="n">create_engine</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;mysql+mysqlconnector://</span><span class="si">{</span><span class="n">db_user</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">db_pass</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">db_host</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">db_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.create_id_list_from_file">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_id_list_from_file">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_id_list_from_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for creating a list of ids</span>
+<span class="sd">        from a while where each id is in a new line</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            file: path to file</span>
+
+<span class="sd">        Returns: list of ids</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">id_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">id_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">id_list</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.create_db_table">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_db_table">[docs]</a>
+    <span class="k">def</span> <span class="nf">create_db_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if db table for id mapping is there; if not, create.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            None</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+                <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">db</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span><span class="o">.</span><span class="n">has_table</span><span class="p">(</span><span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">):</span>
+                    <span class="n">mapping_table</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                        <span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">,</span>
+                        <span class="n">metadata</span><span class="p">,</span>
+                        <span class="n">db</span><span class="o">.</span><span class="n">Column</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">Integer</span><span class="p">,</span> <span class="n">primary_key</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+                        <span class="n">db</span><span class="o">.</span><span class="n">Column</span><span class="p">(</span><span class="s2">&quot;wikidata_id&quot;</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">String</span><span class="p">(</span><span class="mi">24</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                        <span class="n">db</span><span class="o">.</span><span class="n">Column</span><span class="p">(</span><span class="s2">&quot;local_id&quot;</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">String</span><span class="p">(</span><span class="mi">24</span><span class="p">),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                        <span class="n">db</span><span class="o">.</span><span class="n">Column</span><span class="p">(</span><span class="s2">&quot;has_all_claims&quot;</span><span class="p">,</span> <span class="n">db</span><span class="o">.</span><span class="n">Boolean</span><span class="p">(),</span> <span class="n">nullable</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>  
+                        <span class="n">db</span><span class="o">.</span><span class="n">UniqueConstraint</span><span class="p">(</span><span class="s2">&quot;wikidata_id&quot;</span><span class="p">),</span>
+                        <span class="n">db</span><span class="o">.</span><span class="n">UniqueConstraint</span><span class="p">(</span><span class="s2">&quot;local_id&quot;</span><span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="MardiIntegrator.insert_id_in_db">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.insert_id_in_db">[docs]</a>
+    <span class="k">def</span> <span class="nf">insert_id_in_db</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">,</span> <span class="n">local_id</span><span class="p">,</span> <span class="n">has_all_claims</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Insert wikidata_id, local_id and has_all_claims into mapping table.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            wikidata_id: Wikidata id</span>
+<span class="sd">            local_id: local Wikibase id</span>
+<span class="sd">            has_all_claims: Boolean indicating whether the entity has been</span>
+<span class="sd">                imported with all claims or no claims (i.e. no recurse)</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+            <span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">,</span> 
+            <span class="n">metadata</span><span class="p">,</span>
+            <span class="n">autoload_with</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span>
+        <span class="p">)</span>
+
+        <span class="n">ins</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">insert</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">(</span>
+            <span class="n">wikidata_id</span><span class="o">=</span><span class="n">wikidata_id</span><span class="p">,</span>
+            <span class="n">local_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">,</span>
+            <span class="n">has_all_claims</span><span class="o">=</span><span class="n">has_all_claims</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">ins</span><span class="p">)</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.update_has_all_claims">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.update_has_all_claims">[docs]</a>
+    <span class="k">def</span> <span class="nf">update_has_all_claims</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the has_all_claims property in the wb_id_mapping table</span>
+<span class="sd">        to True for the given wikidata_id.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            wikidata_id: Wikidata id to be updated.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+            <span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">,</span> 
+            <span class="n">metadata</span><span class="p">,</span>
+            <span class="n">autoload_with</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span>
+        <span class="p">)</span>
+
+        <span class="n">ins</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">update</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">(</span>
+            <span class="n">has_all_claims</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">c</span><span class="o">.</span><span class="n">wikidata_id</span> <span class="o">==</span> <span class="n">wikidata_id</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">ins</span><span class="p">)</span>
+            <span class="n">connection</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.init_wikidata_PID">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_PID">[docs]</a>
+    <span class="k">def</span> <span class="nf">init_wikidata_PID</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Searches the wikidata PID property ID to link</span>
+<span class="sd">        properties to its ID in wikidata. When not found,</span>
+<span class="sd">        it creates the property.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            wikidata_PID (str): wikidata PID property ID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;Wikidata PID&quot;</span>
+        <span class="n">wikidata_PID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="s2">&quot;property&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">wikidata_PID</span><span class="p">:</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">property</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+            <span class="n">prop</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+            <span class="n">prop</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+                <span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> 
+                <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Identifier in Wikidata of the corresponding properties&quot;</span>
+            <span class="p">)</span>
+            <span class="n">prop</span><span class="o">.</span><span class="n">datatype</span> <span class="o">=</span> <span class="s2">&quot;external-id&quot;</span>
+            <span class="n">wikidata_PID</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">,</span> <span class="n">as_new</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">wikidata_PID</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.init_wikidata_QID">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_QID">[docs]</a>
+    <span class="k">def</span> <span class="nf">init_wikidata_QID</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Searches the wikidata QID property ID to link</span>
+<span class="sd">        items to its ID in wikidata. When not found,</span>
+<span class="sd">        it creates the property.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            wikidata_QID (str): wikidata QID property ID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="s2">&quot;Wikidata QID&quot;</span>
+        <span class="n">wikidata_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="s2">&quot;property&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">wikidata_QID</span><span class="p">:</span>
+            <span class="n">prop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">property</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+            <span class="n">prop</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+            <span class="n">prop</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+                <span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> 
+                <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Corresponding QID in Wikidata&quot;</span>
+            <span class="p">)</span>
+            <span class="n">prop</span><span class="o">.</span><span class="n">datatype</span> <span class="o">=</span> <span class="s2">&quot;external-id&quot;</span>
+            <span class="n">wikidata_QID</span> <span class="o">=</span> <span class="n">prop</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">,</span> <span class="n">as_new</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="n">wikidata_QID</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.import_entities">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_entities">[docs]</a>
+    <span class="k">def</span> <span class="nf">import_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">id_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">recurse</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for importing entities from wikidata</span>
+<span class="sd">        into the local instance.</span>
+
+<span class="sd">        It can accept a single id, a list of ids or a file containing</span>
+<span class="sd">        a the ids to be imported.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            id_list: Single string or list of strings of wikidata </span>
+<span class="sd">                entity ids. Lexemes not supported.</span>
+<span class="sd">            filename: Filename containing list of entities to be </span>
+<span class="sd">                imported.</span>
+<span class="sd">            recurse: Whether to import claims for the entities in </span>
+<span class="sd">                id_list</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Imported entities (Dict): Dictionary containing the local ids of </span>
+<span class="sd">            all the imported entities.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">imported_entities</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">filename</span><span class="p">:</span> <span class="n">id_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_id_list_from_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">id_list</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span> <span class="n">id_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">id_list</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">wikidata_id</span> <span class="ow">in</span> <span class="n">id_list</span><span class="p">:</span>
+
+            <span class="k">if</span> <span class="n">wikidata_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;L&quot;</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Warning: Lexemes not supported. Lexeme </span><span class="si">{</span><span class="n">wikidata_id</span><span class="si">}</span><span class="s2"> was not imported&quot;</span>
+                <span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;importing entity </span><span class="si">{</span><span class="n">wikidata_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">has_all_claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;has_all_claims&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">has_all_claims</span><span class="p">:</span>
+                <span class="c1"># API call</span>
+                <span class="n">entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wikidata_information</span><span class="p">(</span>
+                    <span class="n">wikidata_id</span><span class="p">,</span> 
+                    <span class="n">recurse</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">entity</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No labels for entity with id </span><span class="si">{</span><span class="n">wikidata_id</span><span class="si">}</span><span class="s2">, skipping&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+
+                <span class="k">if</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;property&quot;</span> <span class="ow">and</span> <span class="n">entity</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> \
+                    <span class="bp">self</span><span class="o">.</span><span class="n">excluded_datatypes</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Lexemes not supported. Property skipped&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+
+                <span class="c1"># Check if there is an internal ID redirection in Wikidata</span>
+                <span class="k">if</span> <span class="n">wikidata_id</span> <span class="o">!=</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+                    <span class="n">wikidata_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span>
+                    <span class="n">has_all_claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;has_all_claims&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">has_all_claims</span><span class="p">:</span>
+                        <span class="n">imported_entities</span><span class="p">[</span><span class="n">wikidata_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                <span class="k">if</span> <span class="n">recurse</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">convert_claim_ids</span><span class="p">(</span><span class="n">entity</span><span class="p">)</span>
+
+                <span class="n">entity</span><span class="o">.</span><span class="n">add_linker_claim</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+                
+                <span class="n">local_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">local_id</span><span class="p">:</span>
+                    <span class="n">local_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">local_id</span><span class="p">:</span>
+                    <span class="c1"># Update existing entity</span>
+                    <span class="k">if</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;item&quot;</span><span class="p">:</span>
+                        <span class="n">local_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;property&quot;</span><span class="p">:</span>
+                        <span class="n">local_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">property</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">)</span>
+                    <span class="c1"># replace descriptions</span>
+                    <span class="n">local_entity</span><span class="o">.</span><span class="n">descriptions</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span>
+                    <span class="c1"># add new claims if they are different from old claims</span>
+                    <span class="n">local_entity</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                        <span class="n">entity</span><span class="o">.</span><span class="n">claims</span><span class="p">,</span>
+                        <span class="n">ActionIfExists</span><span class="o">.</span><span class="n">APPEND_OR_REPLACE</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">local_entity</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span> <span class="ow">and</span> <span class="n">recurse</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">update_has_all_claims</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">insert_id_in_db</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">,</span> <span class="n">local_id</span><span class="p">,</span> <span class="n">has_all_claims</span><span class="o">=</span><span class="n">recurse</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Create entity</span>
+                    <span class="n">local_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">,</span> <span class="n">as_new</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">insert_id_in_db</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">,</span> <span class="n">local_id</span><span class="p">,</span> <span class="n">has_all_claims</span><span class="o">=</span><span class="n">recurse</span><span class="p">)</span>  
+
+            <span class="k">if</span> <span class="n">has_all_claims</span><span class="p">:</span>
+                <span class="n">imported_entities</span><span class="p">[</span><span class="n">wikidata_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">imported_entities</span><span class="p">[</span><span class="n">wikidata_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">local_id</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">imported_entities</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">imported_entities</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">imported_entities</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.overwrite_entity">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.overwrite_entity">[docs]</a>
+    <span class="k">def</span> <span class="nf">overwrite_entity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">,</span> <span class="n">local_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for completing an already existing local entity</span>
+<span class="sd">        with its statements from wikidata.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            wikidata_id: Wikidata entity ID to be imported.</span>
+<span class="sd">            local_id: Local id of the existing entity that needs to</span>
+<span class="sd">                be completed with further statements.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            local_id: Local entity ID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">wikidata_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;L&quot;</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Warning: Lexemes not supported. Lexeme </span><span class="si">{</span><span class="n">wikidata_id</span><span class="si">}</span><span class="s2"> was not imported&quot;</span>
+            <span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Overwriting entity </span><span class="si">{</span><span class="n">local_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">has_all_claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;has_all_claims&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">has_all_claims</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># API call</span>
+            <span class="n">entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wikidata_information</span><span class="p">(</span>
+                <span class="n">wikidata_id</span><span class="p">,</span> 
+                <span class="n">recurse</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">entity</span><span class="p">:</span>
+
+                <span class="c1"># Check if there is an entity ID redirection in Wikidata</span>
+                <span class="k">if</span> <span class="n">wikidata_id</span> <span class="o">!=</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+                    <span class="n">wikidata_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span>
+                    <span class="n">has_all_claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;has_all_claims&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">has_all_claims</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">convert_claim_ids</span><span class="p">(</span><span class="n">entity</span><span class="p">)</span>
+                <span class="n">entity</span><span class="o">.</span><span class="n">add_linker_claim</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+                
+                <span class="c1"># Retrieve existing entity</span>
+                <span class="k">if</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;item&quot;</span><span class="p">:</span>
+                    <span class="n">local_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;property&quot;</span><span class="p">:</span>
+                    <span class="n">local_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">property</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">)</span>
+                <span class="c1"># replace descriptions</span>
+                <span class="n">local_entity</span><span class="o">.</span><span class="n">descriptions</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span>
+                <span class="c1"># add new claims if they are different from old claims</span>
+                <span class="n">local_entity</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                    <span class="n">entity</span><span class="o">.</span><span class="n">claims</span><span class="p">,</span>
+                    <span class="n">ActionIfExists</span><span class="o">.</span><span class="n">APPEND_OR_REPLACE</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">local_entity</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">update_has_all_claims</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">insert_id_in_db</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">,</span> <span class="n">local_id</span><span class="p">,</span> <span class="n">has_all_claims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  
+            
+            <span class="k">return</span> <span class="n">local_id</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.import_claim_entities">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_claim_entities">[docs]</a>
+    <span class="k">def</span> <span class="nf">import_claim_entities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for importing entities that are mentioned</span>
+<span class="sd">        in claims from wikidata to the local wikibase instance</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            wikidata_id(str): id of the entity to be imported</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            local id or None, if the entity had no labels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">local_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">local_id</span><span class="p">:</span> <span class="k">return</span> <span class="n">local_id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wikidata_information</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">entity</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+
+            <span class="k">if</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;property&quot;</span> <span class="ow">and</span> \
+                <span class="n">entity</span><span class="o">.</span><span class="n">datatype</span><span class="o">.</span><span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">excluded_datatypes</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+                
+            <span class="k">elif</span> <span class="n">wikidata_id</span> <span class="o">!=</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span><span class="p">:</span>
+                <span class="n">wikidata_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span>
+                <span class="n">local_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">local_id</span><span class="p">:</span> <span class="k">return</span> <span class="n">local_id</span>
+
+            <span class="c1"># Check if the entity has been redirected by Wikidata</span>
+            <span class="c1"># into another entity that has already been imported</span>
+            <span class="n">local_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="n">entity</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">local_id</span><span class="p">:</span> <span class="k">return</span> <span class="n">local_id</span>
+
+            <span class="n">local_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">local_id</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;item&quot;</span><span class="p">:</span>
+                    <span class="n">new_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">entity</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;property&quot;</span><span class="p">:</span>
+                    <span class="n">new_entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">property</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">local_id</span><span class="p">)</span>
+                <span class="c1"># replace descriptions</span>
+                <span class="n">new_entity</span><span class="o">.</span><span class="n">descriptions</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span>
+                <span class="n">entity</span> <span class="o">=</span> <span class="n">new_entity</span>
+                <span class="n">entity</span><span class="o">.</span><span class="n">add_linker_claim</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+                <span class="n">local_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">entity</span><span class="o">.</span><span class="n">add_linker_claim</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">)</span>
+                <span class="n">local_id</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">login</span><span class="p">,</span> <span class="n">as_new</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">id</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">insert_id_in_db</span><span class="p">(</span><span class="n">wikidata_id</span><span class="p">,</span> <span class="n">local_id</span><span class="p">,</span> <span class="n">has_all_claims</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">local_id</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.get_wikidata_information">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_wikidata_information">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_wikidata_information</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">,</span> <span class="n">recurse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for pulling wikidata information</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            wikidata_id (str): wikidata id of the desired entity</span>
+<span class="sd">            recurse (Bool): if claims should also be imported</span>
+
+<span class="sd">        Returns: wikibase integrator entity or None, if the entity has no labels</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">wikidata_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;Q&quot;</span><span class="p">):</span>
+            <span class="n">entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">entity_id</span><span class="o">=</span><span class="n">wikidata_id</span><span class="p">,</span> 
+                <span class="n">mediawiki_api_url</span><span class="o">=</span><span class="s1">&#39;https://www.wikidata.org/w/api.php&#39;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">wikidata_id</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;P&quot;</span><span class="p">):</span>
+            <span class="n">entity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">property</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">entity_id</span><span class="o">=</span><span class="n">wikidata_id</span><span class="p">,</span> 
+                <span class="n">mediawiki_api_url</span><span class="o">=</span><span class="s1">&#39;https://www.wikidata.org/w/api.php&#39;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Wrong ID format, should start with P, L or Q but ID is </span><span class="si">{</span><span class="n">wikidata_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+            <span class="c1"># set labels in desired languages</span>
+            <span class="n">label_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">k</span><span class="p">:</span> <span class="n">entity</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">entity</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span>
+            <span class="p">}</span>
+            <span class="c1"># if there are no labels, this is not</span>
+            <span class="c1"># a valid entity</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">label_dict</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span>
+            <span class="n">entity</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">label_dict</span>
+
+            <span class="c1"># set descriptions in desired languages</span>
+            <span class="n">description_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">k</span><span class="p">:</span> <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">values</span>
+            <span class="p">}</span>
+            <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">description_dict</span>
+            
+            <span class="c1"># make sure label != description (e.g. wdt:P121)</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">label_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">and</span> 
+                    <span class="n">label_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="n">description_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)):</span>
+                    <span class="n">entity</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">set</span><span class="p">(</span>
+                    <span class="n">language</span><span class="o">=</span><span class="n">k</span><span class="p">,</span>
+                    <span class="n">value</span><span class="o">=</span><span class="kc">None</span>
+                <span class="p">)</span>            
+
+            <span class="c1"># set aliases in desired languages</span>
+            <span class="n">alias_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">k</span><span class="p">:</span> <span class="n">entity</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">languages</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">entity</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">aliases</span>
+            <span class="p">}</span>
+            <span class="n">entity</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">aliases</span> <span class="o">=</span> <span class="n">alias_dict</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">recurse</span><span class="p">:</span>
+            <span class="n">entity</span><span class="o">.</span><span class="n">claims</span> <span class="o">=</span> <span class="n">Claims</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">entity</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.convert_claim_ids">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_claim_ids">[docs]</a>
+    <span class="k">def</span> <span class="nf">convert_claim_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for in-place conversion of wikidata</span>
+<span class="sd">        ids found in claims into local ids</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entity</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">entity_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;wikibase-item&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;wikibase-property&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">claims</span> <span class="o">=</span> <span class="n">entity</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">claims</span>
+        <span class="n">new_claims</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># structure of claims: Dict[str,List[Claim]]</span>
+        <span class="c1"># where str is the property id</span>
+        <span class="k">for</span> <span class="n">prop_id</span><span class="p">,</span> <span class="n">claim_list</span> <span class="ow">in</span> <span class="n">claims</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">local_claim_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">if</span> <span class="n">prop_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">excluded_properties</span><span class="p">:</span>
+                <span class="n">local_prop_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span><span class="n">wikidata_id</span><span class="o">=</span><span class="n">prop_id</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">local_prop_id</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Warning: local id skipped&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">claim_list</span><span class="p">:</span>
+                    <span class="n">c_dict</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">entity_names</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="s2">&quot;datavalue&quot;</span> <span class="ow">in</span> <span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">]:</span>
+                            <span class="n">local_mainsnak_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span>
+                                <span class="n">wikidata_id</span><span class="o">=</span><span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+                            <span class="p">)</span>
+                            <span class="k">if</span> <span class="ow">not</span> <span class="n">local_mainsnak_id</span><span class="p">:</span>
+                                <span class="k">continue</span>
+                            <span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span>
+                                <span class="s2">&quot;id&quot;</span>
+                            <span class="p">]</span> <span class="o">=</span> <span class="n">local_mainsnak_id</span>
+                            <span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;numeric-id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                                <span class="n">local_mainsnak_id</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                            <span class="p">)</span>
+                            <span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;property&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">local_prop_id</span>
+                            <span class="c1"># to avoid problem with missing reference hash</span>
+                            <span class="k">if</span> <span class="s2">&quot;references&quot;</span> <span class="ow">in</span> <span class="n">c_dict</span><span class="p">:</span>
+                                <span class="n">c_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;references&quot;</span><span class="p">)</span>
+                            <span class="n">new_c</span> <span class="o">=</span> <span class="n">Claim</span><span class="p">()</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">c_dict</span><span class="p">)</span>
+                            <span class="n">new_c</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                    <span class="k">elif</span> <span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">excluded_datatypes</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">convert_entity_links</span><span class="p">(</span><span class="n">snak</span><span class="o">=</span><span class="n">c_dict</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">])</span>
+                        <span class="n">new_c</span> <span class="o">=</span> <span class="n">c</span>
+                        <span class="n">new_c</span><span class="o">.</span><span class="n">mainsnak</span><span class="o">.</span><span class="n">property_number</span> <span class="o">=</span> <span class="n">local_prop_id</span>
+                        <span class="n">new_c</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="c1"># get reference details</span>
+                    <span class="n">new_references</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_references</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">new_references</span><span class="p">:</span>
+                        <span class="n">new_c</span><span class="o">.</span><span class="n">references</span><span class="o">.</span><span class="n">references</span> <span class="o">=</span> <span class="n">new_references</span>
+                    <span class="c1"># get qualifier details</span>
+                    <span class="n">new_qualifiers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_qualifiers</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                    <span class="n">new_c</span><span class="o">.</span><span class="n">qualifiers</span> <span class="o">=</span> <span class="n">new_qualifiers</span>
+                    <span class="n">local_claim_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_c</span><span class="p">)</span>
+                <span class="n">new_claims</span><span class="p">[</span><span class="n">local_prop_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">local_claim_list</span>
+        <span class="n">entity</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">claims</span> <span class="o">=</span> <span class="n">new_claims</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.get_references">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_references">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_references</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">claim</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for creating references from wikidata references</span>
+<span class="sd">        and in place adding them to the claim</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            claim: a wikibaseintegrator claim</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List with references, can also be an empty list</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">entity_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;wikibase-item&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;wikibase-property&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="c1"># format: List(Reference)</span>
+        <span class="n">ref_list</span> <span class="o">=</span> <span class="n">claim</span><span class="o">.</span><span class="n">references</span><span class="o">.</span><span class="n">references</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ref_list</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">new_ref_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ref</span> <span class="ow">in</span> <span class="n">ref_list</span><span class="p">:</span>
+            <span class="n">new_snak_dict</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">snak_dict</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">prop_id</span><span class="p">,</span> <span class="n">snak_list</span> <span class="ow">in</span> <span class="n">snak_dict</span><span class="p">[</span><span class="s2">&quot;snaks&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">new_snak_list</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">new_prop_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span>
+                    <span class="n">wikidata_id</span><span class="o">=</span><span class="n">prop_id</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">new_prop_id</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">snak</span> <span class="ow">in</span> <span class="n">snak_list</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">entity_names</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="s2">&quot;datavalue&quot;</span> <span class="ow">in</span> <span class="n">snak</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                        <span class="n">new_snak_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span>
+                            <span class="n">wikidata_id</span><span class="o">=</span><span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+                        <span class="p">)</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">new_snak_id</span><span class="p">:</span>
+                            <span class="k">continue</span>
+                        <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_snak_id</span>
+                        <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;numeric-id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">new_snak_id</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                    <span class="k">elif</span> <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">excluded_datatypes</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">convert_entity_links</span><span class="p">(</span>
+                            <span class="n">snak</span><span class="o">=</span><span class="n">snak</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;property&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_prop_id</span>
+                    <span class="n">new_snak_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">snak</span><span class="p">)</span>
+                <span class="n">new_snak_dict</span><span class="p">[</span><span class="n">new_prop_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_snak_list</span>
+            <span class="n">complete_new_snak_dict</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">complete_new_snak_dict</span><span class="p">[</span><span class="s2">&quot;hash&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">complete_new_snak_dict</span><span class="p">[</span><span class="s2">&quot;snaks&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_snak_dict</span>
+            <span class="n">complete_new_snak_dict</span><span class="p">[</span><span class="s2">&quot;snaks-order&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">Reference</span><span class="p">()</span>
+            <span class="n">new_ref_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">json_data</span><span class="o">=</span><span class="n">complete_new_snak_dict</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">new_ref_list</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.get_qualifiers">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_qualifiers">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_qualifiers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">claim</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for creating qualifiers from wikidata qualifiers</span>
+<span class="sd">        and in place adding them to the claim</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            claim: a wikibaseintegrator claim</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Qualifiers object, can also be an empty object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">entity_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;wikibase-item&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;wikibase-property&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">qual_dict</span> <span class="o">=</span> <span class="n">claim</span><span class="o">.</span><span class="n">qualifiers</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+        <span class="n">new_qual_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">qual_id</span><span class="p">,</span> <span class="n">qual_list</span> <span class="ow">in</span> <span class="n">qual_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">new_qual_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span><span class="n">wikidata_id</span><span class="o">=</span><span class="n">qual_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">new_qual_id</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">new_qual_list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">qual_val</span> <span class="ow">in</span> <span class="n">qual_list</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">qual_val</span><span class="p">[</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">entity_names</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="s2">&quot;datavalue&quot;</span> <span class="ow">in</span> <span class="n">qual_val</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">new_qual_val_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span>
+                        <span class="n">wikidata_id</span><span class="o">=</span><span class="n">qual_val</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">new_qual_val_id</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">qual_val</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_qual_val_id</span>
+                    <span class="n">qual_val</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;numeric-id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
+                        <span class="n">new_qual_val_id</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                    <span class="p">)</span>
+                <span class="k">elif</span> <span class="n">qual_val</span><span class="p">[</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">excluded_datatypes</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">convert_entity_links</span><span class="p">(</span>
+                        <span class="n">snak</span><span class="o">=</span><span class="n">qual_val</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="n">qual_val</span><span class="p">[</span><span class="s2">&quot;property&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_qual_id</span>
+                <span class="n">new_qual_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">qual_val</span><span class="p">)</span>
+            <span class="n">new_qual_dict</span><span class="p">[</span><span class="n">new_qual_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_qual_list</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">Qualifiers</span><span class="p">()</span>
+        <span class="n">qualifiers</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">json_data</span><span class="o">=</span><span class="n">new_qual_dict</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">qualifiers</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.convert_entity_links">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_entity_links">[docs]</a>
+    <span class="k">def</span> <span class="nf">convert_entity_links</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">snak</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function for in-place conversion of unit for quantity </span>
+<span class="sd">        and globe for globecoordinate to a link to the local entity </span>
+<span class="sd">        instead of a link to the wikidata entity.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            snak: a wikibaseintegrator snak</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;datatype&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">snak</span> <span class="ow">or</span> <span class="s2">&quot;datavalue&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">snak</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;quantity&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;unit&quot;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+                <span class="n">link_string</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                <span class="n">key_string</span> <span class="o">=</span> <span class="s2">&quot;unit&quot;</span>
+        <span class="k">elif</span> <span class="n">snak</span><span class="p">[</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;globe-coordinate&quot;</span><span class="p">:</span>
+            <span class="c1">#if &quot;globe&quot; in data:</span>
+            <span class="c1">#    link_string = data[&quot;globe&quot;]</span>
+            <span class="c1">#    key_string = &quot;globe&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;precision&quot;</span><span class="p">]:</span>
+                <span class="n">data</span><span class="p">[</span><span class="s2">&quot;precision&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="mi">3600</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="s2">&quot;www.wikidata.org/&quot;</span> <span class="ow">in</span> <span class="n">link_string</span><span class="p">:</span>
+            <span class="n">uid</span> <span class="o">=</span> <span class="n">link_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">local_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_claim_entities</span><span class="p">(</span>
+                <span class="n">wikidata_id</span><span class="o">=</span><span class="n">uid</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">key_string</span><span class="p">]</span> <span class="o">=</span> <span class="n">wbi_config</span><span class="p">[</span><span class="s2">&quot;WIKIBASE_URL&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;/entity/&quot;</span> <span class="o">+</span> <span class="n">local_id</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.query">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query">[docs]</a>
+    <span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">wikidata_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query the wb_id_mapping db table for a given parameter.</span>
+
+<span class="sd">        The two important parameters are the local_id and whether the</span>
+<span class="sd">        entity has already been imported with all claims</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter (str): Either local_id or has_all_claims</span>
+<span class="sd">            wikidata_id (str): Wikidata ID</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str or boolean: for local_id returns the local ID if it exists,</span>
+<span class="sd">                otherwise None. For has_all_claims, a boolean is returned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+            <span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">,</span> 
+            <span class="n">metadata</span><span class="p">,</span> 
+            <span class="n">autoload_with</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;local_id&#39;</span><span class="p">,</span> <span class="s1">&#39;has_all_claims&#39;</span><span class="p">]:</span>
+            <span class="n">sql</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">parameter</span><span class="p">])</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wikidata_id</span> <span class="o">==</span> <span class="n">wikidata_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+                <span class="n">db_result</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">db_result</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">db_result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+            
+<div class="viewcode-block" id="MardiIntegrator.query_with_local_id">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query_with_local_id">[docs]</a>
+    <span class="k">def</span> <span class="nf">query_with_local_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">local_id</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Query the wb_id_mapping db table for a given parameter.</span>
+
+<span class="sd">        The two important parameters are the wikidata_id and whether the</span>
+<span class="sd">        entity has already been imported with all claims</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            parameter (str): Either wikidata_id or has_all_claims</span>
+<span class="sd">            local_id (str): local ID</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str or boolean: for wikidata_id returns the wikidata ID if it exists,</span>
+<span class="sd">                otherwise None. For has_all_claims, a boolean is returned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+            <span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">,</span> 
+            <span class="n">metadata</span><span class="p">,</span> 
+            <span class="n">autoload_with</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">parameter</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;wikidata_id&#39;</span><span class="p">,</span> <span class="s1">&#39;has_all_claims&#39;</span><span class="p">]:</span>
+            <span class="n">sql</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">parameter</span><span class="p">])</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">local_id</span> <span class="o">==</span> <span class="n">local_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+                <span class="n">db_result</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">db_result</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">db_result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.get_local_id_by_label">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_local_id_by_label">[docs]</a>
+    <span class="k">def</span> <span class="nf">get_local_id_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entity_str</span><span class="p">,</span> <span class="n">entity_type</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if entity with a given label or wikidata PID/QID </span>
+<span class="sd">        exists in the local wikibase instance. </span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            entity_str (str): It can be a string label or a wikidata ID, </span>
+<span class="sd">                specified with the prefix wdt: for properties and wd:</span>
+<span class="sd">                for items.</span>
+<span class="sd">            entity_type (str): Either &#39;property&#39; or &#39;item&#39; to specify</span>
+<span class="sd">                which type of entity to look for.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">           str: Local ID of the entity, if found.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="s2">&quot;^[PQ]\d+$&quot;</span><span class="p">,</span> <span class="n">entity_str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">entity_str</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">entity_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;wdt:&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">entity_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;wd:&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">entity_type</span> <span class="o">==</span> <span class="s2">&quot;property&quot;</span><span class="p">:</span>
+                <span class="n">new_property</span> <span class="o">=</span> <span class="n">MardiPropertyEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+                <span class="n">new_property</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s1">&#39;en&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">entity_str</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">new_property</span><span class="o">.</span><span class="n">get_PID</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">entity_type</span> <span class="o">==</span> <span class="s2">&quot;item&quot;</span><span class="p">:</span>
+                <span class="n">new_item</span> <span class="o">=</span> <span class="n">MardiItemEntity</span><span class="p">(</span><span class="n">api</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+                <span class="n">new_item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s1">&#39;en&#39;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">entity_str</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">new_item</span><span class="o">.</span><span class="n">get_QID</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">entity_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;wdt:&quot;</span><span class="p">):</span>
+            <span class="n">wikidata_id</span> <span class="o">=</span> <span class="n">entity_str</span><span class="p">[</span><span class="mi">4</span><span class="p">:]</span>
+        <span class="k">elif</span> <span class="n">entity_str</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;wd:&quot;</span><span class="p">):</span>
+            <span class="n">wikidata_id</span> <span class="o">=</span> <span class="n">entity_str</span><span class="p">[</span><span class="mi">3</span><span class="p">:]</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">connection</span><span class="p">:</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">MetaData</span><span class="p">()</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">Table</span><span class="p">(</span>
+                <span class="s2">&quot;wb_id_mapping&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">autoload_with</span><span class="o">=</span><span class="n">connection</span>
+            <span class="p">)</span>
+            <span class="n">sql</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">local_id</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                <span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">wikidata_id</span> <span class="o">==</span> <span class="n">wikidata_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">db_result</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">db_result</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">db_result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="MardiIntegrator.import_from_label">
+<a class="viewcode-back" href="../../../integrator.html#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_from_label">[docs]</a>
+    <span class="k">def</span> <span class="nf">import_from_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Imports an entity from Wikidata just from a label</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            label (str): label to be imported from wikidata</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            local_id (str): local id for the imported entity</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">search_entities</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> 
+                                  <span class="n">dict_result</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                  <span class="n">mediawiki_api_url</span><span class="o">=</span><span class="s1">&#39;https://www.wikidata.org/w/api.php&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">label</span> <span class="o">==</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_entities</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_entities</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;aliases&#39;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;aliases&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">import_entities</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">])</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

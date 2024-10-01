@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.integrator module &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="mardi_importer.polydb module" href="polydb.html" />
+    <link rel="prev" title="mardi_importer.importer module" href="importer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main.html#usage">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tech.html">Importer diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cran.html">CRAN module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="importer.html">mardi_importer.importer module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">mardi_importer.integrator module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.integrator.MardiIntegrator">mardi_importer.integrator.MardiIntegrator module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.config"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.config()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_claim_ids"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.convert_claim_ids()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_entity_links"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.convert_entity_links()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_db_table"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.create_db_table()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_engine"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.create_engine()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_id_list_from_file"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.create_id_list_from_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_local_id_by_label"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.get_local_id_by_label()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_qualifiers"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.get_qualifiers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_references"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.get_references()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_wikidata_information"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.get_wikidata_information()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_claim_entities"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.import_claim_entities()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_entities"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.import_entities()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_from_label"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.import_from_label()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_PID"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.init_wikidata_PID()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_QID"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.init_wikidata_QID()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.insert_id_in_db"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.insert_id_in_db()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.overwrite_entity"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.overwrite_entity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.query()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query_with_local_id"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.query_with_local_id()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.update_has_all_claims"><code class="docutils literal notranslate"><span class="pre">MardiIntegrator.update_has_all_claims()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.integrator.MardiEntities">mardi_importer.integrator.MardiEntities module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity"><code class="docutils literal notranslate"><span class="pre">MardiItemEntity</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity.get"><code class="docutils literal notranslate"><span class="pre">MardiItemEntity.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity.get_QID"><code class="docutils literal notranslate"><span class="pre">MardiItemEntity.get_QID()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity.new"><code class="docutils literal notranslate"><span class="pre">MardiItemEntity.new()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity"><code class="docutils literal notranslate"><span class="pre">MardiPropertyEntity</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get"><code class="docutils literal notranslate"><span class="pre">MardiPropertyEntity.get()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get_PID"><code class="docutils literal notranslate"><span class="pre">MardiPropertyEntity.get_PID()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.new"><code class="docutils literal notranslate"><span class="pre">MardiPropertyEntity.new()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="polydb.html">mardi_importer.polydb module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zbmath.html">mardi_importer.zbmath module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">mardi_importer.integrator module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/integrator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mardi-importer-integrator-module">
+<h1>mardi_importer.integrator module<a class="headerlink" href="#mardi-importer-integrator-module" title="Link to this heading"></a></h1>
+<section id="module-mardi_importer.integrator.MardiIntegrator">
+<span id="mardi-importer-integrator-mardiintegrator-module"></span><h2>mardi_importer.integrator.MardiIntegrator module<a class="headerlink" href="#module-mardi_importer.integrator.MardiIntegrator" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.integrator.MardiIntegrator.</span></span><span class="sig-name descname"><span class="pre">MardiIntegrator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">languages</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['en',</span> <span class="pre">'de']</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">MardiClient</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.config">
+<span class="sig-name descname"><span class="pre">config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.config" title="Link to this definition"></a></dt>
+<dd><p>Sets up initial configuration for the integrator</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Clientlogin object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_claim_ids">
+<span class="sig-name descname"><span class="pre">convert_claim_ids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.convert_claim_ids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_claim_ids" title="Link to this definition"></a></dt>
+<dd><p>Function for in-place conversion of wikidata
+ids found in claims into local ids</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>entity</strong></p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_entity_links">
+<span class="sig-name descname"><span class="pre">convert_entity_links</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">snak</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.convert_entity_links"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.convert_entity_links" title="Link to this definition"></a></dt>
+<dd><p>Function for in-place conversion of unit for quantity
+and globe for globecoordinate to a link to the local entity
+instead of a link to the wikidata entity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>snak</strong> – a wikibaseintegrator snak</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_db_table">
+<span class="sig-name descname"><span class="pre">create_db_table</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.create_db_table"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_db_table" title="Link to this definition"></a></dt>
+<dd><p>Check if db table for id mapping is there; if not, create.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>None</strong></p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_engine">
+<span class="sig-name descname"><span class="pre">create_engine</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.create_engine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_engine" title="Link to this definition"></a></dt>
+<dd><p>Creates SQLalchemy engine</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>SQLalchemy engine</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_id_list_from_file">
+<span class="sig-name descname"><span class="pre">create_id_list_from_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.create_id_list_from_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.create_id_list_from_file" title="Link to this definition"></a></dt>
+<dd><p>Function for creating a list of ids
+from a while where each id is in a new line</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – path to file</p>
+</dd>
+</dl>
+<p>Returns: list of ids</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_local_id_by_label">
+<span class="sig-name descname"><span class="pre">get_local_id_by_label</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity_str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">entity_type</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.get_local_id_by_label"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_local_id_by_label" title="Link to this definition"></a></dt>
+<dd><p>Check if entity with a given label or wikidata PID/QID
+exists in the local wikibase instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_str</strong> (<em>str</em>) – It can be a string label or a wikidata ID,
+specified with the prefix wdt: for properties and wd:
+for items.</p></li>
+<li><p><strong>entity_type</strong> (<em>str</em>) – Either ‘property’ or ‘item’ to specify
+which type of entity to look for.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Local ID of the entity, if found.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_qualifiers">
+<span class="sig-name descname"><span class="pre">get_qualifiers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">claim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.get_qualifiers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_qualifiers" title="Link to this definition"></a></dt>
+<dd><p>Function for creating qualifiers from wikidata qualifiers
+and in place adding them to the claim</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>claim</strong> – a wikibaseintegrator claim</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Qualifiers object, can also be an empty object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_references">
+<span class="sig-name descname"><span class="pre">get_references</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">claim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.get_references"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_references" title="Link to this definition"></a></dt>
+<dd><p>Function for creating references from wikidata references
+and in place adding them to the claim</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>claim</strong> – a wikibaseintegrator claim</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List with references, can also be an empty list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_wikidata_information">
+<span class="sig-name descname"><span class="pre">get_wikidata_information</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wikidata_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recurse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.get_wikidata_information"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.get_wikidata_information" title="Link to this definition"></a></dt>
+<dd><p>Function for pulling wikidata information</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wikidata_id</strong> (<em>str</em>) – wikidata id of the desired entity</p></li>
+<li><p><strong>recurse</strong> (<em>Bool</em>) – if claims should also be imported</p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns: wikibase integrator entity or None, if the entity has no labels</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_claim_entities">
+<span class="sig-name descname"><span class="pre">import_claim_entities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wikidata_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.import_claim_entities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_claim_entities" title="Link to this definition"></a></dt>
+<dd><p>Function for importing entities that are mentioned
+in claims from wikidata to the local wikibase instance</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>wikidata_id</strong> (<em>str</em>) – id of the entity to be imported</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>local id or None, if the entity had no labels</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_entities">
+<span class="sig-name descname"><span class="pre">import_entities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">id_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recurse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.import_entities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_entities" title="Link to this definition"></a></dt>
+<dd><p>Function for importing entities from wikidata
+into the local instance.</p>
+<p>It can accept a single id, a list of ids or a file containing
+a the ids to be imported.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>id_list</strong> – Single string or list of strings of wikidata
+entity ids. Lexemes not supported.</p></li>
+<li><p><strong>filename</strong> – Filename containing list of entities to be
+imported.</p></li>
+<li><p><strong>recurse</strong> – Whether to import claims for the entities in
+id_list</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing the local ids of
+all the imported entities.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Imported entities (Dict)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_from_label">
+<span class="sig-name descname"><span class="pre">import_from_label</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.import_from_label"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.import_from_label" title="Link to this definition"></a></dt>
+<dd><p>Imports an entity from Wikidata just from a label</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>label</strong> (<em>str</em>) – label to be imported from wikidata</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>local id for the imported entity</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>local_id (str)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_PID">
+<span class="sig-name descname"><span class="pre">init_wikidata_PID</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.init_wikidata_PID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_PID" title="Link to this definition"></a></dt>
+<dd><p>Searches the wikidata PID property ID to link
+properties to its ID in wikidata. When not found,
+it creates the property.</p>
+<dl class="simple">
+<dt>Returns</dt><dd><p>wikidata_PID (str): wikidata PID property ID</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_QID">
+<span class="sig-name descname"><span class="pre">init_wikidata_QID</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.init_wikidata_QID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.init_wikidata_QID" title="Link to this definition"></a></dt>
+<dd><p>Searches the wikidata QID property ID to link
+items to its ID in wikidata. When not found,
+it creates the property.</p>
+<dl class="simple">
+<dt>Returns</dt><dd><p>wikidata_QID (str): wikidata QID property ID</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.insert_id_in_db">
+<span class="sig-name descname"><span class="pre">insert_id_in_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wikidata_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_all_claims</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.insert_id_in_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.insert_id_in_db" title="Link to this definition"></a></dt>
+<dd><p>Insert wikidata_id, local_id and has_all_claims into mapping table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wikidata_id</strong> – Wikidata id</p></li>
+<li><p><strong>local_id</strong> – local Wikibase id</p></li>
+<li><p><strong>has_all_claims</strong> – Boolean indicating whether the entity has been
+imported with all claims or no claims (i.e. no recurse)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.overwrite_entity">
+<span class="sig-name descname"><span class="pre">overwrite_entity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wikidata_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.overwrite_entity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.overwrite_entity" title="Link to this definition"></a></dt>
+<dd><p>Function for completing an already existing local entity
+with its statements from wikidata.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>wikidata_id</strong> – Wikidata entity ID to be imported.</p></li>
+<li><p><strong>local_id</strong> – Local id of the existing entity that needs to
+be completed with further statements.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Local entity ID</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>local_id</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query">
+<span class="sig-name descname"><span class="pre">query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wikidata_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query" title="Link to this definition"></a></dt>
+<dd><p>Query the wb_id_mapping db table for a given parameter.</p>
+<p>The two important parameters are the local_id and whether the
+entity has already been imported with all claims</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parameter</strong> (<em>str</em>) – Either local_id or has_all_claims</p></li>
+<li><p><strong>wikidata_id</strong> (<em>str</em>) – Wikidata ID</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>for local_id returns the local ID if it exists,</dt><dd><p>otherwise None. For has_all_claims, a boolean is returned.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str or boolean</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query_with_local_id">
+<span class="sig-name descname"><span class="pre">query_with_local_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.query_with_local_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.query_with_local_id" title="Link to this definition"></a></dt>
+<dd><p>Query the wb_id_mapping db table for a given parameter.</p>
+<p>The two important parameters are the wikidata_id and whether the
+entity has already been imported with all claims</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parameter</strong> (<em>str</em>) – Either wikidata_id or has_all_claims</p></li>
+<li><p><strong>local_id</strong> (<em>str</em>) – local ID</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>for wikidata_id returns the wikidata ID if it exists,</dt><dd><p>otherwise None. For has_all_claims, a boolean is returned.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str or boolean</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiIntegrator.MardiIntegrator.update_has_all_claims">
+<span class="sig-name descname"><span class="pre">update_has_all_claims</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wikidata_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiIntegrator.html#MardiIntegrator.update_has_all_claims"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiIntegrator.MardiIntegrator.update_has_all_claims" title="Link to this definition"></a></dt>
+<dd><p>Set the has_all_claims property in the wb_id_mapping table
+to True for the given wikidata_id.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>wikidata_id</strong> – Wikidata id to be updated.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-mardi_importer.integrator.MardiEntities">
+<span id="mardi-importer-integrator-mardientities-module"></span><h2>mardi_importer.integrator.MardiEntities module<a class="headerlink" href="#module-mardi_importer.integrator.MardiEntities" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiItemEntity">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.integrator.MardiEntities.</span></span><span class="sig-name descname"><span class="pre">MardiItemEntity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Labels</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">descriptions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Descriptions</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aliases</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Aliases</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sitelinks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sitelinks</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiItemEntity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">MardiItem</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiItemEntity.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity_id</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiItemEntity.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity.get" title="Link to this definition"></a></dt>
+<dd><p>Request the MediaWiki API to get data for the entity specified in argument.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>entity_id</strong> – The entity_id of the Item entity you want. Must start with a ‘Q’.</p></li>
+<li><p><strong>kwargs</strong></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>an ItemEntity instance</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiItemEntity.get_QID">
+<span class="sig-name descname"><span class="pre">get_QID</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiItemEntity.get_QID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity.get_QID" title="Link to this definition"></a></dt>
+<dd><p>Creates a list of QID of all items in the local wikibase with the
+same label</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of QID</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>QIDs (list)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiItemEntity.new">
+<span class="sig-name descname"><span class="pre">new</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiItemEntity.new"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiItemEntity.new" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiPropertyEntity">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.integrator.MardiEntities.</span></span><span class="sig-name descname"><span class="pre">MardiPropertyEntity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">datatype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">WikibaseDatatype</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Labels</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">descriptions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Descriptions</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aliases</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Aliases</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiPropertyEntity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">MardiProperty</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">entity_id</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiPropertyEntity.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get_PID">
+<span class="sig-name descname"><span class="pre">get_PID</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiPropertyEntity.get_PID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.get_PID" title="Link to this definition"></a></dt>
+<dd><p>Returns the PID of the property with the same label</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.integrator.MardiEntities.MardiPropertyEntity.new">
+<span class="sig-name descname"><span class="pre">new</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/integrator/MardiEntities.html#MardiPropertyEntity.new"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.integrator.MardiEntities.MardiPropertyEntity.new" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="importer.html" class="btn btn-neutral float-left" title="mardi_importer.importer module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="polydb.html" class="btn btn-neutral float-right" title="mardi_importer.polydb module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

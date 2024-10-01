@@ -1,6 +1,6 @@
 import re
 import sqlalchemy as db
-from sqlalchemy import and_
+from sqlalchemy import and_, case
 
 from mardiclient import MardiItem, MardiProperty
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
@@ -28,6 +28,11 @@ class MardiItemEntity(MardiItem):
         label = ""
         if 'en' in self.labels.values:
             label = self.labels.values['en'].value
+        label = bytes(label, "utf-8")
+        is_truncated = False
+        if len(label) > 250:
+            label = label[:250]
+            is_truncated = True
 
         def query_wikidata_table(field_type):
             # field_type = 1 : Label
@@ -53,7 +58,10 @@ class MardiItemEntity(MardiItem):
                             .join(wbt_term_in_lang, wbt_item_terms.columns.wbit_term_in_lang_id == wbt_term_in_lang.columns.wbtl_id)
                             .join(wbt_text_in_lang, wbt_term_in_lang.columns.wbtl_text_in_lang_id == wbt_text_in_lang.columns.wbxl_id)
                             .join(wbt_text, wbt_text.columns.wbx_id == wbt_text_in_lang.columns.wbxl_text_id)
-                            .where(and_(wbt_text.columns.wbx_text == bytes(label, "utf-8"), 
+                            .where(and_(
+                                        case(
+                                           (is_truncated, wbt_text.columns.wbx_text.like(label + b"%")),
+                                           else_=wbt_text.columns.wbx_text == label), 
                                         wbt_term_in_lang.columns.wbtl_type_id == field_type,
                                         wbt_text_in_lang.columns.wbxl_language == bytes("en", "utf-8"))))
                     results = connection.execute(query).fetchall()

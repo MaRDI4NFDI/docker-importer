@@ -255,7 +255,7 @@ class ZBMathSource(ADataSource):
                     else:
                         record["language"] = None
                     links = []
-                    doi = None
+                    dois = None
                     for d in literal_eval(row["links"]):
                         if "type" not in d:
                             continue
@@ -432,10 +432,10 @@ class ZBMathSource(ADataSource):
                 # if not found:
                 #     if info_dict["de_number"].strip() != "49686":
                 #     #if info_dict["document_title"] != "Unimodular supergravity":
-                #         continue
-                #     else:
-                #         found = True
-                #         continue
+                    #     continue
+                    # else:
+                    #     found = True
+                    #     continue
                 # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
                     if (

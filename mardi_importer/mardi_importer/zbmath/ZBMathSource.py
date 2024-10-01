@@ -293,7 +293,7 @@ class ZBMathSource(ADataSource):
                     if record:
                         for key, value in record.items():
                             if isinstance(value, str):
-                                record[key] = value.replace("\t", "\T").replace("\n", "\N").replace("\r", "\R")
+                                record[key] = value.replace("\t", "\\T").replace("\n", "\\N").replace("\r", "\\R")
                         outfile.write(
                             "\t".join(str(x) for x in record.values()) + "\n"
                         )

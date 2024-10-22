@@ -109,13 +109,11 @@ def get_info_from_doi(doi, key):
     for doi in doi_list:
         try:
             work_info = cr.works(ids=doi)
-            # print("work info")
-            # print(work_info)
+            if not work_info:
+                continue
             if key == "document_title":
                 if "title" not in work_info["message"]:
                     continue
-                # print(work_info["message"])
-                # print(work_info["message"]["title"])
                 title_list = work_info["message"]["title"]
                 if title_list:
                     joint_title = ";".join(title_list).strip()

@@ -5,7 +5,7 @@ import sqlalchemy as db
 from .MardiEntities import MardiItemEntity, MardiPropertyEntity
 from mardiclient import MardiClient
 from wikibaseintegrator import wbi_login
-from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference
+from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.wbi_helpers import search_entities, execute_sparql_query
@@ -300,6 +300,7 @@ class MardiIntegrator(MardiClient):
                         self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
                 else:
                     # Create entity
+                    entity.sitelinks = Sitelinks()
                     local_id = entity.write(login=self.login, as_new=True).id
                     self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)  
 
@@ -418,6 +419,7 @@ class MardiIntegrator(MardiClient):
                 local_id = entity.write(login=self.login).id
             else:
                 entity.add_linker_claim(wikidata_id)
+                entity.sitelinks = Sitelinks()
                 local_id = entity.write(login=self.login, as_new=True).id
 
             self.insert_id_in_db(wikidata_id, local_id, has_all_claims=False)

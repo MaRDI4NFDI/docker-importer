@@ -33,10 +33,8 @@ class ZBMathPublication:
             zbmath de number
         keywords:
             zbmath topic keywords
-        de_number_prop:
-            local property ID of zbmath de number
-        keyword_prop:
-            local property ID of keyword property number
+        label_id_dict:
+            dict mapping labels to ids for frequently searched items and properties
     """
 
     def __init__(
@@ -57,8 +55,7 @@ class ZBMathPublication:
         classifications,
         de_number,
         keywords,
-        de_number_prop,
-        keyword_prop,
+        label_id_dict,
     ):
         self.api = integrator
         self.title = title
@@ -79,8 +76,7 @@ class ZBMathPublication:
         self.classifications = classifications
         self.de_number = de_number
         self.keywords = keywords
-        self.de_number_prop = de_number_prop
-        self.keyword_prop = keyword_prop
+        self.label_id_dict = label_id_dict
         self.item = self.init_item()
 
     def init_item(self):
@@ -130,7 +126,7 @@ class ZBMathPublication:
                 link_claims.append(claim)
             self.item.add_claims(link_claims)
         if self.review_text:
-            prop_nr = self.api.get_local_id_by_label("review text", "property")
+            prop_nr = self.label_id_dict["review_prop"]
             self.item.add_claim(prop_nr, self.review_text)
         if self.reviewer:
             self.item.add_claim("wdt:P4032", self.reviewer)
@@ -141,17 +137,15 @@ class ZBMathPublication:
                 classification_claims.append(claim)
             self.item.add_claims(classification_claims)
         if self.de_number:
-            self.item.add_claim(self.de_number_prop, self.de_number)
+            self.item.add_claim(self.label_id_dict["de_number_prop"], self.de_number)
         if self.keywords:
             kw_claims = []
             for k in self.keywords:
-                claim = self.api.get_claim(self.keyword_prop, k)
+                claim = self.api.get_claim(self.label_id_dict["keyword_prop"], k)
                 kw_claims.append(claim)
             self.item.add_claims(kw_claims)
-        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label(
-            "MaRDI publication profile", "item"
-        )[0]
+        profile_prop = self.label_id_dict["mardi_profile_type_prop"]
+        profile_target = self.label_id_dict["mardi_publication_profile_item"]
         self.item.add_claim(profile_prop, profile_target)
 
     def exists(self):
@@ -168,11 +162,11 @@ class ZBMathPublication:
         # instance of scholarly article
         if self.title:
             self.QID = self.item.is_instance_of_with_property(
-                "wd:Q13442814", self.de_number_prop, self.de_number
+                "wd:Q13442814", self.label_id_dict["de_number_prop"], self.de_number
             )
         else:
             QID_list = self.api.search_entity_by_value(
-                self.de_number_prop, self.de_number
+                self.label_id_dict["de_number_prop"], self.de_number
             )
             # should not be more than one
             self.QID = QID_list[0] if QID_list else None

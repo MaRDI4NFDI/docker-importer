@@ -84,12 +84,21 @@ class ZBMathSource(ADataSource):
         filename = self.filepath + "/wikidata_entities.txt"
         self.integrator.import_entities(filename=filename)
         #self.create_local_entities()
-        self.de_number_prop = self.integrator.get_local_id_by_label(
+        self.label_id_dict = {}
+        self.label_id_dict["de_number_prop"] = self.integrator.get_local_id_by_label( #de_number_prop
             "zbMATH DE Number", "property"
         )
-        self.keyword_prop = self.integrator.get_local_id_by_label(
+        self.label_id_dict["keyword_prop"] = self.integrator.get_local_id_by_label( #keyword_prop
             "zbMATH Keywords", "property"
         )
+        self.label_id_dict["review_prop"] = self.api.get_local_id_by_label("review text", "property")
+        self.label_id_dict["mardi_profile_type_prop"] = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        self.label_id_dict["mardi_publication_profile_item"] = self.api.get_local_id_by_label(
+            "MaRDI publication profile", "item"
+        )[0]
+        self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("MaRDI person profile", "item")[0]
+
+
 
     def create_local_entities(self):
         filename = self.filepath + "/new_entities.json"
@@ -626,6 +635,7 @@ class ZBMathSource(ADataSource):
                                         integrator=self.integrator,
                                         name=reviewer_name,
                                         zbmath_author_id=reviewer_id,
+                                        label_id_dict = self.label_id_dict,
                                     )
                                     reviewer = reviewer_object.create()
                                 except Exception as e:
@@ -687,8 +697,7 @@ class ZBMathSource(ADataSource):
                             classifications=classifications,
                             de_number=de_number,
                             keywords=keywords,
-                            de_number_prop=self.de_number_prop,
-                            keyword_prop=self.keyword_prop,
+                            label_id_dict = self.label_id_dict,
                         )
                         if publication.exists():
                             print(f"Publication {document_title} exists")

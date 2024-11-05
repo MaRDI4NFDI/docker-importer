@@ -12,9 +12,11 @@ class ZBMathAuthor:
             Author name
         zbmath_author_id:
             zbmath author id
+        label_id_dict:
+            dict mapping labels to ids for frequently searched items and properties
     """
 
-    def __init__(self, integrator, name, zbmath_author_id):
+    def __init__(self, integrator, name, zbmath_author_id, label_id_dict,):
         self.api = integrator
         if name:
             name_parts = name.strip().split(",")
@@ -24,14 +26,15 @@ class ZBMathAuthor:
         self.QID = None
         self.zbmath_author_id = zbmath_author_id.strip()
         self.item = self.init_item()
+        self.label_id_dict = label_id_dict
 
     def init_item(self):
         item = self.api.item.new()
         item.labels.set(language="en", value=self.name)
         # instance of: human
         item.add_claim("wdt:P31", "wd:Q5")
-        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label("MaRDI person profile", "item")[0]
+        profile_prop = self.label_id_dict["mardi_profile_type_prop"]
+        profile_target = self.label_id_dict["mardi_person_profile_item"]
         item.add_claim(profile_prop, profile_target)
         if self.zbmath_author_id:
             # if self.name:

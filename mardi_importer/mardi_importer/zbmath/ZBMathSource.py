@@ -91,12 +91,12 @@ class ZBMathSource(ADataSource):
         self.label_id_dict["keyword_prop"] = self.integrator.get_local_id_by_label( #keyword_prop
             "zbMATH Keywords", "property"
         )
-        self.label_id_dict["review_prop"] = self.api.get_local_id_by_label("review text", "property")
-        self.label_id_dict["mardi_profile_type_prop"] = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        self.label_id_dict["mardi_publication_profile_item"] = self.api.get_local_id_by_label(
+        self.label_id_dict["review_prop"] = self.integrator.get_local_id_by_label("review text", "property")
+        self.label_id_dict["mardi_profile_type_prop"] = self.integrator.get_local_id_by_label("MaRDI profile type", "property")
+        self.label_id_dict["mardi_publication_profile_item"] = self.integrator.get_local_id_by_label(
             "MaRDI publication profile", "item"
         )[0]
-        self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("MaRDI person profile", "item")[0]
+        self.label_id_dict["mardi_person_profile_item"] = self.integrator.get_local_id_by_label("MaRDI person profile", "item")[0]
 
 
 
@@ -498,6 +498,7 @@ class ZBMathSource(ADataSource):
                                         integrator=self.integrator,
                                         name=a,
                                         zbmath_author_id=a_id,
+                                        label_id_dict=self.label_id_dict,
                                     )
                                     local_author_id = author.create()
                                 except Exception as e:

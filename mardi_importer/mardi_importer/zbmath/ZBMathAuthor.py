@@ -25,8 +25,8 @@ class ZBMathAuthor:
             self.name = None
         self.QID = None
         self.zbmath_author_id = zbmath_author_id.strip()
-        self.item = self.init_item()
         self.label_id_dict = label_id_dict
+        self.item = self.init_item()
 
     def init_item(self):
         item = self.api.item.new()

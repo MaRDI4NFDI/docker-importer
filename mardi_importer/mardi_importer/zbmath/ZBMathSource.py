@@ -498,6 +498,7 @@ class ZBMathSource(ADataSource):
                                         integrator=self.integrator,
                                         name=a,
                                         zbmath_author_id=a_id,
+                                        label_id_dict=self.label_id_dict,
                                     )
                                     local_author_id = author.create()
                                 except Exception as e:

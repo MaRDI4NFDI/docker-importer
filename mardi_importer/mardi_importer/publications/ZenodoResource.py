@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List
 
 log = logging.getLogger('CRANlogger')
+CLEANR = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});') # used to parse out html tags
 
 @dataclass
 class ZenodoResource():
@@ -162,20 +163,7 @@ class ZenodoResource():
             new_item.add_claim("wdt:P275", "wd:Q334661")
 
         return new_item.write()  
-
-    def update2(self):
-
-        self.item = self.api.item.get(entity_id=self.QID)
-
-        self.insert_claims()
-        self.item.write()
-
-        if self.QID:
-            print(f"zenodo item with ID {self.QID} has been updated.")
-            return self.QID
-        else:
-            print(f"zenodo item could not be updated.")
-            return None      
+   
 
     def create(self, update = False):
 
@@ -190,18 +178,20 @@ class ZenodoResource():
         if self.title:
             item.labels.set(language="en", value=self.title)
 
-        # Add description and instance information
+
         if self.resource_type and self.resource_type != "wd:Q37866906":
-            item.descriptions.set(
-                language="en", 
-                value=f"{self.metadata['resource_type']['title']} published at Zenodo repository"
-            )
+            desc = f"{self.metadata['resource_type']['title']} published at Zenodo repository. "
             item.add_claim('wdt:P31',self.resource_type)
         else:
-            item.descriptions.set(
-                language="en", 
-                value="Resource published at Zenodo repository"
-            )
+            desc = "Resource published at Zenodo repository. "
+
+        if "description" in self.metadata.keys():
+            desc = desc + self.metadata["description"]
+
+        desc = re.sub(CLEANR, '', desc)
+        desc = (desc[:1998] + '..') if len(desc) > 2000 else desc
+
+        item.descriptions.set(language="en", value=desc)
    
         # Publication date
         if self.publication_date:

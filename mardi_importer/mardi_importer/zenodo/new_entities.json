@@ -14,6 +14,11 @@
             "label": "Internal Project ID",
             "description": "An identifier for a project, e.g. from a community such as MATH+ or SFB1234",
             "datatype": "wikibase-item"
+        },
+        {
+            "label": "description",
+            "description": "long description of an item",
+            "datatype": "string"
         }
     ],
     "items": [

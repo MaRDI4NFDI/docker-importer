@@ -16,6 +16,7 @@ class ZenodoResource():
     api: MardiIntegrator
     zenodo_id: str
     title: str = None
+    _description: str = None
     _publication_date: str = None
     _authors: List[Author] = field(default_factory=list)
     _resource_type: str = None
@@ -58,6 +59,19 @@ class ZenodoResource():
                                 _QID=QID)
                 self._authors.append(author)
             return self.QID
+
+    @property
+    def description(self):
+        desc_long = ""
+        if "description" in self.metadata.keys():
+            desc_long = self.metadata["description"]
+            desc_long = re.sub(CLEANR, '', desc_long) # parse out html tags from the description
+            desc_long = re.sub(r'\n|\\N|\t|\\T', ' ', desc_long) # parse out tabs and new lines
+            desc_long = re.sub(r'^\s+|\s+$', '', desc_long) # parse out leading and trailing white space
+        if re.match("\w+", desc_long):
+            self._description = desc_long
+        return self._description
+
 
     @property
     def publication_date(self):
@@ -185,13 +199,12 @@ class ZenodoResource():
         else:
             desc = "Resource published at Zenodo repository. "
 
-        if "description" in self.metadata.keys():
-            desc = desc + self.metadata["description"]
-
-        desc = re.sub(CLEANR, '', desc)
-        desc = (desc[:1998] + '..') if len(desc) > 2000 else desc
-
         item.descriptions.set(language="en", value=desc)
+
+        if self.description:
+            prop_nr = self.api.get_local_id_by_label("description", "property")
+            item.add_claim(prop_nr, self.description)
+
    
         # Publication date
         if self.publication_date:

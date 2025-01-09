@@ -12,3 +12,4 @@ _template
 config/import_config.config
 mardi_importer/mardi_importer/scripts/CRAN.log
 bot_scripts/.ipynb_checkpoints/
+mardi_importer/mardi_importer/zbmath/.ipynb_checkpoints/

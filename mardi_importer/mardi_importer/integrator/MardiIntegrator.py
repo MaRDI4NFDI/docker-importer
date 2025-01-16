@@ -69,8 +69,10 @@ class MardiIntegrator(MardiClient):
             db_name = os.environ["DB_NAME"]
             db_host = os.environ["DB_HOST"]
             return db.create_engine(
-                f"mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}"
-            )
+                url="mariadb+mariadbconnector://{0}:{1}@{2}/{3}".format(
+                    db_user, db_pass, db_host, db_name
+                )
+            )            
 
     def create_id_list_from_file(self, file):
         """Function for creating a list of ids

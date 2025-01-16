@@ -13,12 +13,14 @@ ENV IMPORT_DEFAULT_GID="9001" \
 
 # install cron and utilities
 RUN apt-get update && apt-get install --yes --no-install-recommends \
+		gcc \
         cron \
 		bash \
 		gzip \
 		tzdata \
 		nano \
 		git \
+		libmariadb-dev \
 	&& rm -rf /var/cache/apk/*
 
 # Set up non-root user.

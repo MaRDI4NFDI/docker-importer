@@ -23,6 +23,7 @@ setuptools.setup(
         "feedparser",
         "habanero",
         "lxml",
+        "mariadb",
         "mysql-connector-python",
         "nameparser",
         "openml",

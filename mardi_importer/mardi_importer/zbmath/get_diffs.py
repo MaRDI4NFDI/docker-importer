@@ -102,10 +102,13 @@ def compare_large_dfs(
         # Then for each of those columns, create a <col>_new with the df2 value
         # if different, else empty.
 
+
         df1_cols = [c for c in merged_chunk.columns if c.endswith("_df1")]
         df2_cols = [c for c in merged_chunk.columns if c.endswith("_df2")]
 
         out_chunk = pd.DataFrame()
+
+        out_chunk[de_col] = merged_chunk[de_col]
 
         # Bring over the df1 columns, renamed
         for c in df1_cols:
@@ -162,15 +165,17 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--old_data_file')
 parser.add_argument('--new_data_file')
 parser.add_argument('--old_hash_file')
-parser.add_argument('--new_data_file')
+parser.add_argument('--new_hash_file')
+
+args = parser.parse_args()
 
 old_name = args.old_hash_file.split('/')[-1].split('-')[0]
 new_name = args.new_hash_file.split('/')[-1].split('-')[0]
 
-args = parser.parse_args()
+
 compare_large_dfs(
         data_file_1=args.old_data_file,
-        data_file_2=args.new_data_file',
+        data_file_2=args.new_data_file,
         hash_file_1=args.old_hash_file,
         hash_file_2=args.new_hash_file,
         de_col="de_number",

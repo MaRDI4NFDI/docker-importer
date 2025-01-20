@@ -4,7 +4,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--old_hash_file')
-parser.add_argument('--new_hash_file')
+parser.add_argument('--old_hash_file')
 parser.add_argument('--new_data_file')
 
 args = parser.parse_args()

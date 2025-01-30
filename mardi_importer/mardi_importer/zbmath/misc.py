@@ -1,5 +1,40 @@
 from habanero import Crossref
 from requests.exceptions import HTTPError
+import requests
+
+
+def search_item_by_property(property_id,value):
+    """
+    Search for pages in namespace 120 that have the statement:
+        haswbstatement:P<property_id>=<value>
+    
+    :param value: e.g. "6369674"
+    :return: JSON response from the API
+    """
+    base_url = "https://portal.mardi4nfdi.de/w/api.php"
+    # Create the search query with the property_id and value
+    srsearch_query = f"haswbstatement:{property_id}={value}"
+    
+    # Set up the parameters for the API request
+    params = {
+        "action": "query",
+        "list": "search",
+        "srsearch": srsearch_query,
+        "srnamespace": "120",  # Adjust if needed
+        "format": "json"
+    }
+    
+    response = requests.get(base_url, params=params)
+    # Raise an exception if the request was unsuccessful
+    response.raise_for_status()
+    
+    # Parse the response as JSON
+    data = response.json()
+    if data['query']['search']:
+        qid = data['query']['search'][0]['title'].split(':')[-1]
+    else:
+        qid = None
+    return qid
 
 
 def get_tag(tag_name, namespace):

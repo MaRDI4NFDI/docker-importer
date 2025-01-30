@@ -8,7 +8,8 @@ import xml.etree.ElementTree as ET
 
 from datetime import datetime
 from habanero import Crossref  # , RequestError
-from requests.exceptions import HTTPError, ContentDecodingError
+from requests.exceptions import HTTPError, ContentDecodingError, ChunkedEncodingError
+from urllib3.exceptions import IncompleteRead, ProtocolError
 from sickle import Sickle
 import pandas as pd
 import requests
@@ -124,11 +125,11 @@ class ZBMathSource(ADataSource):
                 item.write()
 
     def pull(self):
-        # self.write_data_dump()
+        #self.write_data_dump()
         self.process_data()
 
 
-    def get_line(values):
+    def get_line(self, values):
         new_values = []
         for x in values:
             x = str(x)
@@ -155,30 +156,43 @@ class ZBMathSource(ADataSource):
                 results = []
                 params = {"start_after": start_after,
                             "results_per_request": 500}
-                response = requests.get(url, params=params)
-                if response.status_code == 200:
-                    retries = 0
-                    data=response.json()
-                    if not data["result"]:
-                        break
-                    results.extend(data["result"])
-                    start_after = data["status"]["last_id"]
-                    for r in results:
-                        if list(r.keys()) != headers:
-                            print(f"wrong headers in {r}")
+                try:
+                    response = requests.get(url, params=params)
+                    if response.status_code == 200:
+                        retries = 0
+                        data=response.json()
+                        if not data["result"]:
                             break
-                        f.write(get_line(r.values()))
-                    f.flush()
-                    os.fsync(f)
-                elif response.status_code == 502 and retries < max_retries:
-                    print("Encountered 502 error, retrying...")
-                    retries += 1
-                    sleep(5)
-                    continue
-                else:
-                    print(f"Failed to retrieve data: {response.status_code}")
+                        results.extend(data["result"])
+                        start_after = data["status"]["last_id"]
+                        for r in results:
+                            if list(r.keys()) != headers:
+                                print(f"wrong headers in {r}")
+                                break
+                            f.write(self.get_line(r.values()))
+                        f.flush()
+                        os.fsync(f)
+                    elif response.status_code == 502 and retries < max_retries:
+                        print("Encountered 502 error, retrying...")
+                        retries += 1
+                        sleep(5)
+                        continue
+                    else:
+                        print(f"Failed to retrieve data: {response.status_code}")
+                        break
+                except (IncompleteRead, ChunkedEncodingError, ProtocolError) as e:
+                    print(f"Exception occurred: {e}")
+                    if retries < max_retries:
+                        retries += 1
+                        sleep(30)
+                        continue
+                    else:
+                        print("Max retries reached for Exception.")
+                        break
+                except Exception as e:
+                    print(f"An unexpected error occurred: {e}")
                     break
-    
+        
     
     def old_write_data_dump(self):
         """
@@ -245,7 +259,10 @@ class ZBMathSource(ADataSource):
                     authors = []
                     author_ids = []
                     for d in literal_eval(row["contributors"])["authors"]:
-                        authors.append(d['name'])
+                        if d['name'] != None:
+                            authors.append(d['name'])
+                        else:
+                            authors.append("None")
                         if d["codes"]:
                             author_ids.append(d["codes"][0])
                         else:

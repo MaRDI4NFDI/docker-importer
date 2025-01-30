@@ -1,3 +1,6 @@
+from .misc import search_item_by_property
+
+
 class ZBMathPublication:
     """Class to manage zbMath publication items in the local Wikibase instance.
     Attributes:
@@ -160,16 +163,7 @@ class ZBMathPublication:
         if self.QID:
             return self.QID
         # instance of scholarly article
-        if self.title:
-            self.QID = self.item.is_instance_of_with_property(
-                "wd:Q13442814", self.label_id_dict["de_number_prop"], self.de_number
-            )
-        else:
-            QID_list = self.api.search_entity_by_value(
-                self.label_id_dict["de_number_prop"], self.de_number
-            )
-            # should not be more than one
-            self.QID = QID_list[0] if QID_list else None
+        self.QID = search_item_by_property(property_id = self.label_id_dict["de_number_prop"], value=self.de_number)
         if not self.QID:
             if self.arxiv_id:
                 QID_list = self.api.search_entity_by_value("wdt:P818", self.arxiv_id)

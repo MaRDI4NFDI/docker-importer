@@ -693,7 +693,7 @@ class ZBMathSource(ADataSource):
                     and info_dict["keywords"].strip() != ""
                 ):
                     keywords = info_dict["keywords"].strip().split(";")
-                    keywords = [x.strip() for x in keywords]
+                    keywords = [x.strip() for x in keywords if x.strip()]
                 else:
                     keywords = None
                 for attempt in range(5):

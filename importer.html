@@ -1,0 +1,213 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.importer module &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="mardi_importer.integrator module" href="integrator.html" />
+    <link rel="prev" title="CRAN module" href="cran.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="main.html#usage">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tech.html">Importer diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cran.html">CRAN module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">mardi_importer.importer module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.importer.Importer">mardi_importer.importer.Importer module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.importer.Importer.AConfigParser"><code class="docutils literal notranslate"><span class="pre">AConfigParser</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.importer.Importer.AConfigParser.parse_config"><code class="docutils literal notranslate"><span class="pre">AConfigParser.parse_config()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.importer.Importer.ADataSource"><code class="docutils literal notranslate"><span class="pre">ADataSource</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.importer.Importer.ADataSource.process_data"><code class="docutils literal notranslate"><span class="pre">ADataSource.process_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.importer.Importer.ADataSource.pull"><code class="docutils literal notranslate"><span class="pre">ADataSource.pull()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.importer.Importer.ADataSource.push"><code class="docutils literal notranslate"><span class="pre">ADataSource.push()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.importer.Importer.ADataSource.write_data_dump"><code class="docutils literal notranslate"><span class="pre">ADataSource.write_data_dump()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.importer.Importer.Importer"><code class="docutils literal notranslate"><span class="pre">Importer</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.importer.Importer.Importer.import_all"><code class="docutils literal notranslate"><span class="pre">Importer.import_all()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.importer.Importer.ImporterException"><code class="docutils literal notranslate"><span class="pre">ImporterException</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="integrator.html">mardi_importer.integrator module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polydb.html">mardi_importer.polydb module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zbmath.html">mardi_importer.zbmath module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">mardi_importer.importer module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/importer.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mardi-importer-importer-module">
+<h1>mardi_importer.importer module<a class="headerlink" href="#mardi-importer-importer-module" title="Link to this heading"></a></h1>
+<section id="module-mardi_importer.importer.Importer">
+<span id="mardi-importer-importer-importer-module"></span><h2>mardi_importer.importer.Importer module<a class="headerlink" href="#module-mardi_importer.importer.Importer" title="Link to this heading"></a></h2>
+<p>Created on Thu Feb 17 18:53:53 2022</p>
+<p>&#64;author: alvaro</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.AConfigParser">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.importer.Importer.</span></span><span class="sig-name descname"><span class="pre">AConfigParser</span></span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#AConfigParser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.AConfigParser" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Abstract base class for parsing config files</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.AConfigParser.parse_config">
+<span class="sig-name descname"><span class="pre">parse_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#AConfigParser.parse_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.AConfigParser.parse_config" title="Link to this definition"></a></dt>
+<dd><p>Parse config file.
+:returns: Dictionary containing config values
+:rtype: Dictionary</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.ADataSource">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.importer.Importer.</span></span><span class="sig-name descname"><span class="pre">ADataSource</span></span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#ADataSource"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.ADataSource" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Abstract base class for reading data from external sources.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.ADataSource.process_data">
+<span class="sig-name descname"><span class="pre">process_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#ADataSource.process_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.ADataSource.process_data" title="Link to this definition"></a></dt>
+<dd><p>Process data dump.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.ADataSource.pull">
+<span class="sig-name descname"><span class="pre">pull</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#ADataSource.pull"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.ADataSource.pull" title="Link to this definition"></a></dt>
+<dd><p>Pull data from DataSource</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.ADataSource.push">
+<span class="sig-name descname"><span class="pre">push</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#ADataSource.push"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.ADataSource.push" title="Link to this definition"></a></dt>
+<dd><p>Push data into the MaRDI knowledge graph.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.ADataSource.write_data_dump">
+<span class="sig-name descname"><span class="pre">write_data_dump</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#ADataSource.write_data_dump"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.ADataSource.write_data_dump" title="Link to this definition"></a></dt>
+<dd><p>Write data dump from API.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.Importer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.importer.Importer.</span></span><span class="sig-name descname"><span class="pre">Importer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataSource</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#Importer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.Importer" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Controller class for importing data from an external source to the local Wikibase.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.Importer.import_all">
+<span class="sig-name descname"><span class="pre">import_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pull</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">push</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#Importer.import_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.Importer.import_all" title="Link to this definition"></a></dt>
+<dd><p>Manages the import process.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="mardi_importer.importer.Importer.ImporterException">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mardi_importer.importer.Importer.</span></span><span class="sig-name descname"><span class="pre">ImporterException</span></span><a class="reference internal" href="_modules/mardi_importer/importer/Importer.html#ImporterException"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.importer.Importer.ImporterException" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>Failed importer operation.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cran.html" class="btn btn-neutral float-left" title="CRAN module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="integrator.html" class="btn btn-neutral float-right" title="mardi_importer.integrator module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

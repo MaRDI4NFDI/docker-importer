@@ -21,7 +21,7 @@ def get_parser():
     parser.add_argument("--wikidata_id_file_path", required=False)
     return parser
 
-def main(**args):
+def main(**args): 
     # logging.config.fileConfig("logging_config.ini", disable_existing_loggers=False)
     # Parse command-line arguments
 
@@ -32,7 +32,7 @@ def main(**args):
         conf_parser = ZBMathConfigParser(args["conf_path"])
         conf = conf_parser.parse_config()
 
-        data_source = ZBMathSource(
+        data_source = ZBMathSource( 
             out_dir=conf["out_dir"],
             tags=conf["tags"],
             from_date=conf["from_date"],
@@ -66,7 +66,7 @@ def main(**args):
         importer.import_all()
 
     elif args["mode"] == "zenodo":
-        data_source = ZenodoSource()
+        data_source = ZenodoSource(resourceTypes = ["dataset"], orcid_id_file = "/mardi_importer/mardi_importer/zenodo/orcids-all.csv")
         importer = Importer(data_source)
         importer.import_all()
 

@@ -83,7 +83,7 @@ class ZenodoResource():
     
     @property
     def license(self):
-        if not self._license:
+        if not self._license and ('license' in self.metadata.keys()):
             self._license = self.metadata['license']
         return self._license            
 
@@ -131,12 +131,13 @@ class ZenodoResource():
 
     @property
     def communities(self):
-        if not self._communities:
-            for communityCur in self.metadata["communities"]:
-                community_id = communityCur.get("id")
-                if community_id == "mathplus":
-                    community = Community(api = self.api, community_id = community_id)
-                    self._communities.append(community)
+        if not self._communities and "communities" in self.metadata.keys():
+            #if "communities" in self.metadata.keys():
+                for communityCur in self.metadata["communities"]:
+                    community_id = communityCur.get("id")
+                    if community_id == "mathplus":
+                        community = Community(api = self.api, community_id = community_id)
+                        self._communities.append(community)
         return self._communities
     
     @property
@@ -166,7 +167,7 @@ class ZenodoResource():
 
         zenodo_id = zenodo_item.is_instance_of_with_property("wd:Q1172284", "wdt:P4901", self.zenodo_id)
         new_item = self.api.item.get(entity_id=zenodo_id)
-
+        
         if self.license['id'] == "cc-by-4.0":
             new_item.add_claim("wdt:P275", "wd:Q20007257")
         elif self.license['id'] == "cc-by-sa-4.0":
@@ -186,20 +187,21 @@ class ZenodoResource():
                 return self.QID
 
             item = self.api.item.new()
+
         else:
             item = self.api.item.get(entity_id=self.QID)
-        # Add title
+    
+        
         if self.title:
             item.labels.set(language="en", value=self.title)
 
-
         if self.resource_type and self.resource_type != "wd:Q37866906":
-            desc = f"{self.metadata['resource_type']['title']} published at Zenodo repository. "
-            item.add_claim('wdt:P31',self.resource_type)
+                desc = f"{self.metadata['resource_type']['title']} published at Zenodo repository. "
+                item.add_claim('wdt:P31',self.resource_type)
         else:
             desc = "Resource published at Zenodo repository. "
-
         item.descriptions.set(language="en", value=desc)
+
 
         if self.description:
             prop_nr = self.api.get_local_id_by_label("description", "property")
@@ -224,14 +226,15 @@ class ZenodoResource():
             item.add_claim('wdt:P356', doi)
 
         # License
-        if self.license['id'] == "cc-by-4.0":
-            item.add_claim("wdt:P275", "wd:Q20007257")
-        elif self.license['id'] == "cc-by-sa-4.0":
-            item.add_claim("wdt:P275", "wd:Q18199165")
-        elif self.license['id'] == "cc-by-nc-sa-4.0":
-            item.add_claim("wdt:P275", "wd:Q42553662")
-        elif self.license['id'] == "mit-license":
-            item.add_claim("wdt:P275", "wd:Q334661")
+        if self.license:
+            if self.license['id'] == "cc-by-4.0":
+                item.add_claim("wdt:P275", "wd:Q20007257")
+            elif self.license['id'] == "cc-by-sa-4.0":
+                item.add_claim("wdt:P275", "wd:Q18199165")
+            elif self.license['id'] == "cc-by-nc-sa-4.0":
+                item.add_claim("wdt:P275", "wd:Q42553662")
+            elif self.license['id'] == "mit-license":
+                item.add_claim("wdt:P275", "wd:Q334661")
 
         # Communities
         if self.communities:
@@ -248,6 +251,9 @@ class ZenodoResource():
 
         if self._mardi_type:
             item.add_claim('MaRDI profile type', self._mardi_type)
+
+
+        #print(item.claims.get_json())
         
         self.QID = item.write().id
 

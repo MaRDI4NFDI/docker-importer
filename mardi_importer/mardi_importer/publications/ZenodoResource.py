@@ -249,7 +249,7 @@ class ZenodoResource():
                     prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
                     item.add_claim(prop_nr, self.version)
                 elif self.resource_type == "wd:Q7397": #software:
-                    item.add_claim("wdt:P275", self.version)
+                    item.add_claim("wdt:P348", self.version)
     
 
 

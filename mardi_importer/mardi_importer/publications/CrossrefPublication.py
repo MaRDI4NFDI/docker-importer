@@ -4,7 +4,7 @@ import re
 
 from dataclasses import dataclass, field
 from habanero import Crossref
-from requests.exceptions import HTTPError
+from httpx import HTTPStatusError
 from typing import List
 
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -75,7 +75,7 @@ class CrossrefPublication:
             try:
                 cr = Crossref()
                 response = cr.works(ids=self.doi)
-            except HTTPError as e:
+            except HTTPStatusError as e:
                 log.warning(f"Publication with doi: {self.doi} not found in Crossref: {str(e)}")
                 return None
             else:

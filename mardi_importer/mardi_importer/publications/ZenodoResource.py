@@ -22,6 +22,7 @@ class ZenodoResource():
     _resource_type: str = None
     _mardi_type: str = None
     _license: str = None
+    _version: str = None
     _communities: List[Community] = field(default_factory=list)
     _projects: List[Project] = field(default_factory = list)
     metadata: Dict[str, object] = field(default_factory=dict)
@@ -85,7 +86,13 @@ class ZenodoResource():
     def license(self):
         if not self._license and ('license' in self.metadata.keys()):
             self._license = self.metadata['license']
-        return self._license            
+        return self._license 
+
+    @property
+    def version(self):
+        if not self._version and ('version' in self.metadata.keys()):
+            self._version = self.metadata['version']
+        return self._version
 
     @property
     def authors(self):
@@ -235,6 +242,16 @@ class ZenodoResource():
                 item.add_claim("wdt:P275", "wd:Q42553662")
             elif self.license['id'] == "mit-license":
                 item.add_claim("wdt:P275", "wd:Q334661")
+
+        if self.version:
+            if self.resource_type:
+                if self.resource_type == "wd:Q1172284": #dataset
+                    prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
+                    item.add_claim(prop_nr, self.version)
+                elif self.resource_type == "wd:Q7397": #software:
+                    item.add_claim("wdt:P348", self.version)
+    
+
 
         # Communities
         if self.communities:

@@ -151,6 +151,13 @@ class ZBMathPublication:
         profile_target = self.label_id_dict["mardi_publication_profile_item"]
         self.item.add_claim(profile_prop, profile_target)
 
+    def is_arxiv(self):
+        if self.zbl_id:
+            if "arXiv" in self.zbl_id:
+                return True
+        return False
+
+
     def exists(self):
         """Checks if a WB item corresponding to the publication already exists.
         Searches for a WB item with the package label in the SQL Wikibase

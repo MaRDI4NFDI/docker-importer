@@ -717,12 +717,43 @@ class ZBMathSource(ADataSource):
                             keywords=keywords,
                             label_id_dict = self.label_id_dict,
                         )
-                        if publication.exists():
-                            print(f"Publication {document_title} exists")
-                            publication.update()
+                        if publication.is_arxiv():
+                            print(f"Publication {document_title} is arXiv article")
+                            arxiv_id = publication.zbl_id.split(":")[-1]
+                            arxiv_item = self.arxiv_exists(arxiv_id)
+                            if arxiv_item:
+                                print(f"arXiv Publication {document_title} already exists")
+                                changed = False
+                                label = str(item.labels.get('en'))
+                                if not label:
+                                    if publication.title:
+                                        arxiv_item.labels.set(language='en', value=publication.title)
+                                        changed = True
+                                #add msc if they are not already there
+                                if 'P226' in item.claims.get_json().keys()
+                                    existing_msc = item.claims.get('P226')
+                                    if not existing_msc:
+                                        if publication.classfications:
+                                            classification_claims = []
+                                            for c in publication.classifications:
+                                                claim = self.integrator.get_claim("P226", c)
+                                                classification_claims.append(claim)
+                                            arxiv_item.add_claims(classification_claims)
+                                            changed = True
+                                if changed:
+                                    arxiv_item.write()
+                            else:
+                                print(f"arXiv Publication {document_title} is new")
+                                #if no arxiv item with that id exists yet
+                                new_arxiv_item = self.create_arxiv_item(publication, info_dict)
+                                new_arxiv_item.write()
                         else:
-                            print(f"Creating publication {document_title}")
-                            publication.create()
+                            if publication.exists():
+                                print(f"Publication {document_title} exists")
+                                publication.update()
+                            else:
+                                print(f"Creating publication {document_title}")
+                                publication.create()
                     except Exception as e:
                         print(f"Exception: {e}, sleeping")
                         print(traceback.format_exc())
@@ -731,6 +762,39 @@ class ZBMathSource(ADataSource):
                         break
                 else:
                     sys.exit("Uploading publication did not work after retries!")
+                print(a)
+
+
+    def create_arxiv_item(self, publication, info_dict):
+        item = self.api.item.new()
+        item.labels.set(language="en", value=publication.title)
+        item.descriptions.set(
+            language="en",
+            value=f"scientific article from arXiv",
+        )
+        if info_dict['source']:
+            arxiv_classification = re.search(r'\[(.*?)\]', info_dict['source']).group(1)
+            item.add_claim('P22', arxiv_classification)
+        if publication.time:
+            claim = self.api.get_claim("P28", self.time)
+            item.add_claims([claim])
+        arxiv_id = publication.zbl_id.split(":")[-1]
+        item.add_claim('P21', arxiv_id)
+        if publication.authors:
+            author_claims = []
+            for author in self.authors:
+                claim = self.api.get_claim("wdt:P50", author)
+                author_claims.append(claim)
+            item.add_claims(author_claims)
+        return(item)
+
+
+    def arxiv_exists(self, arxiv_id):
+        arxiv_qid = self.integrator.search_entity_by_value("P21", arxiv_id)[0]
+        if not arxiv_qid:
+            return None
+        arxiv_item = self.integrator.item.get(entity_id=arxiv_qid)
+        return arxiv_item
 
     def get_de_number(self, xml_record):
         """

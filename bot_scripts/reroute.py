@@ -35,7 +35,7 @@ for str_qid in new_ids:
             f"SELECT ?item ?itemLabel WHERE "
             f" {{ VALUES ?excludedProperty {{owl:sameAs}}  "
             f"?item ?property wd:{q} . " 
-            f" FILTER( ?p != ?excludedProperty ) }}")
+            f" FILTER( ?property != ?excludedProperty ) }}")
         results = execute_sparql_query(query= query, endpoint="http://query.portal.mardi4nfdi.de/proxy/wdqs/bigdata/namespace/wdq/sparql")
         results = results["results"]["bindings"]
         #print(f"cases where old id is referenced: {results}")

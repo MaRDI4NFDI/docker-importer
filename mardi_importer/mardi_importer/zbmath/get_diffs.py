@@ -20,6 +20,11 @@ def compare_large_dfs(
     if it differs from df1, or empty otherwise.
     """
     conflict_string = "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
+    def are_different(val1, val2):
+        # If both are NaN, return False (they are *not* different)
+        if pd.isna(val1) and pd.isna(val2):
+            return False
+        return val1 != val2
 
     # -------------------------------------------------------------------------
     # 1. READ HASH FILES (SMALL ENOUGH TO FIT INTO MEMORY)
@@ -139,7 +144,7 @@ def compare_large_dfs(
                 # Fill with df2 value if different, else empty
                 out_chunk[new_colname] = (
                     merged_chunk.apply(
-                        lambda row: row[c_df2] if (row[c_df1] != row[c_df2]) and no_conflict(row[c_df2], conflict_string) else "",
+                        lambda row: row[c_df2] if are_different(row[c_df1], row[c_df2]) and no_conflict(row[c_df2], conflict_string) else "",
                         axis=1
                     )
                 )

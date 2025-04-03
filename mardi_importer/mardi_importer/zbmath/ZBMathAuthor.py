@@ -33,9 +33,20 @@ class ZBMathAuthor:
         item.labels.set(language="en", value=self.name)
         # instance of: human
         item.add_claim("wdt:P31", "wd:Q5")
+        return item
+
+
+    def create(self):
+        print(f"Creating author {self.name}")
         profile_prop = self.label_id_dict["mardi_profile_type_prop"]
         profile_target = self.label_id_dict["mardi_person_profile_item"]
         item.add_claim(profile_prop, profile_target)
+        if self.zbmath_author_id:
+            item.add_claim("wdt:P1556", self.zbmath_author_id)
+        author_id = self.item.write().id
+        return author_id
+
+    def exists(self):
         if self.zbmath_author_id:
             # if self.name:
             #     # is there a human with zbmath author ID = zbmath_author_id
@@ -47,24 +58,15 @@ class ZBMathAuthor:
                 "wdt:P1556", self.zbmath_author_id
             )
             if not QID_list:
+                print(f"Author {self.name} does not exist")
                 self.QID = None
             else:
                 # should not be more than one
                 self.QID = QID_list[0]
-                print(f"Id for empty author found, QID {self.QID}")
-            if self.QID:
-                return item
-            else:
-                item.add_claim("wdt:P1556", self.zbmath_author_id)
-        return item
-
-    def create(self):
-        if self.QID:
-            print(f"Author {self.name} exists")
-            return self.QID
-        print(f"Creating author {self.name}")
-        author_id = self.item.write().id
-        return author_id
+                print(f"Author found with QID {self.QID}")
+        else:
+            self.QID = None
+        return self.QID
 
     def update(self):
         # author does not have an update function,

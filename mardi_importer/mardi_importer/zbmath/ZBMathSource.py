@@ -500,7 +500,10 @@ class ZBMathSource(ADataSource):
                                         zbmath_author_id=a_id,
                                         label_id_dict=self.label_id_dict,
                                     )
-                                    local_author_id = author.create()
+                                    if author.exists():
+                                        local_author_id = author.QID
+                                    else:
+                                        local_author_id = author.create()
                                 except Exception as e:
                                     print(f"Exception: {e}, sleeping")
                                     print(traceback.format_exc())
@@ -638,7 +641,10 @@ class ZBMathSource(ADataSource):
                                         zbmath_author_id=reviewer_id,
                                         label_id_dict = self.label_id_dict,
                                     )
-                                    reviewer = reviewer_object.create()
+                                    if reviewer_object.exists():
+                                        reviewer = reviewer_object.QID
+                                    else:
+                                        reviewer = reviewer_object.create()
                                 except Exception as e:
                                     print(f"Exception: {e}, sleeping")
                                     print(traceback.format_exc())

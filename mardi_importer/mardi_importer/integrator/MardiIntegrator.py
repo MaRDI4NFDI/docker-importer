@@ -20,6 +20,7 @@ class MardiIntegrator(MardiClient):
         self.setup = True
         self.login = self.config()        
         self.engine = self.create_engine()
+        self.mw_engine = self.create_engine(mediawiki=True)
         self.create_db_table()
 
         # local id of properties for linking to wikidata PID/QID
@@ -56,7 +57,7 @@ class MardiIntegrator(MardiClient):
         else:
             self.setup = False
 
-    def create_engine(self):
+    def create_engine(self, mediawiki=False):
         """
         Creates SQLalchemy engine
 
@@ -67,7 +68,10 @@ class MardiIntegrator(MardiClient):
             db_user = os.environ["DB_USER"]
             db_pass = os.environ["DB_PASS"]
             db_name = os.environ["DB_NAME"]
+            if mediawiki:
+                db_name = 'my_wiki'
             db_host = os.environ["DB_HOST"]
+
             return db.create_engine(
                 url="mariadb+mariadbconnector://{0}:{1}@{2}/{3}".format(
                     db_user, db_pass, db_host, db_name
@@ -102,16 +106,24 @@ class MardiIntegrator(MardiClient):
         if self.engine:
             with self.engine.connect() as connection:
                 metadata = db.MetaData()
-                if not db.inspect(self.engine).has_table("wb_id_mapping"):
-                    mapping_table = db.Table(
-                        "wb_id_mapping",
+                if not db.inspect(self.engine).has_table("items"):
+                    items_table = db.Table(
+                        "items",
                         metadata,
-                        db.Column("id", db.Integer, primary_key=True),
-                        db.Column("wikidata_id", db.String(24), nullable=False),
-                        db.Column("local_id", db.String(24), nullable=False),
-                        db.Column("has_all_claims", db.Boolean(), nullable=False),  
-                        db.UniqueConstraint("wikidata_id"),
-                        db.UniqueConstraint("local_id"),
+                        db.Column("id", db.Integer, primary_key=True, autoincrement=True),
+                        db.Column("wikidata_id", db.Integer, nullable=False, index=True),
+                        db.Column("local_id", db.Integer, nullable=False, index=True),
+                        db.Column("has_all_claims", db.Boolean(), nullable=False),
+                    )
+                    metadata.create_all(self.engine)
+                if not db.inspect(self.engine).has_table("properties"):
+                    properties_table = db.Table(
+                        "properties",
+                        metadata,
+                        db.Column("id", db.Integer, primary_key=True, autoincrement=True),
+                        db.Column("wikidata_id", db.Integer, nullable=False, index=True),
+                        db.Column("local_id", db.Integer, nullable=False, index=True),
+                        db.Column("has_all_claims", db.Boolean(), nullable=False),
                     )
                     metadata.create_all(self.engine)
     
@@ -129,15 +141,20 @@ class MardiIntegrator(MardiClient):
             None
         """
         metadata = db.MetaData()
+
+        table_name = "items"
+        if wikidata_id.startswith('P'):
+            table_name = "properties"
+
         table = db.Table(
-            "wb_id_mapping", 
+            table_name, 
             metadata,
             autoload_with=self.engine
         )
 
         ins = table.insert().values(
-            wikidata_id=wikidata_id,
-            local_id=local_id,
+            wikidata_id=wikidata_id[1:],
+            local_id=local_id[1:],
             has_all_claims=has_all_claims
         )
 
@@ -157,15 +174,20 @@ class MardiIntegrator(MardiClient):
             None
         """
         metadata = db.MetaData()
+
+        table_name = "items"
+        if wikidata_id.startswith('P'):
+            table_name = "properties"
+
         table = db.Table(
-            "wb_id_mapping", 
+            table_name, 
             metadata,
             autoload_with=self.engine
         )
 
         ins = table.update().values(
             has_all_claims=True
-        ).where(table.c.wikidata_id == wikidata_id)
+        ).where(table.c.wikidata_id == wikidata_id[1:])
 
         with self.engine.connect() as connection:
             connection.execute(ins)
@@ -752,18 +774,29 @@ class MardiIntegrator(MardiClient):
                 otherwise None. For has_all_claims, a boolean is returned.
         """
         metadata = db.MetaData()
+
+        table_name = "items"
+        if wikidata_id.startswith('P'):
+            table_name = "properties"
+
         table = db.Table(
-            "wb_id_mapping", 
-            metadata, 
+            table_name, 
+            metadata,
             autoload_with=self.engine
         )
+
         if parameter in ['local_id', 'has_all_claims']:
             sql = db.select(table.columns[parameter]).where(
-                table.columns.wikidata_id == wikidata_id,
+                table.columns.wikidata_id == wikidata_id[1:],
             )
             with self.engine.connect() as connection:
                 db_result = connection.execute(sql).fetchone()
             if db_result:
+                if parameter == 'local_id':
+                    if wikidata_id.startswith('Q'):
+                        return f"Q{db_result[0]}"
+                    else:
+                        return f"P{db_result[0]}"
                 return db_result[0]
             
     def query_with_local_id(self, parameter, local_id):
@@ -780,18 +813,29 @@ class MardiIntegrator(MardiClient):
                 otherwise None. For has_all_claims, a boolean is returned.
         """
         metadata = db.MetaData()
+
+        table_name = "items"
+        if local_id.startswith('P'):
+            table_name = "properties"
+
         table = db.Table(
-            "wb_id_mapping", 
-            metadata, 
+            table_name, 
+            metadata,
             autoload_with=self.engine
         )
+
         if parameter in ['wikidata_id', 'has_all_claims']:
             sql = db.select(table.columns[parameter]).where(
-                table.columns.local_id == local_id,
+                table.columns.local_id == local_id[1:],
             )
             with self.engine.connect() as connection:
                 db_result = connection.execute(sql).fetchone()
             if db_result:
+                if parameter == 'wikidata_id':
+                    if local_id.startswith('Q'):
+                        return f"Q{db_result[0]}"
+                    else:
+                        return f"P{db_result[0]}"
                 return db_result[0]
 
     def get_local_id_by_label(self, entity_str, entity_type):
@@ -826,15 +870,23 @@ class MardiIntegrator(MardiClient):
 
         with self.engine.connect() as connection:
             metadata = db.MetaData()
+            table_name = "items"
+            if wikidata_id.startswith('P'):
+                table_name = "properties"
             table = db.Table(
-                "wb_id_mapping", metadata, autoload_with=connection
+                table_name, 
+                metadata,
+                autoload_with=self.engine
             )
             sql = db.select(table.columns.local_id).where(
-                table.columns.wikidata_id == wikidata_id,
+                table.columns.wikidata_id == wikidata_id[1:],
             )
             db_result = connection.execute(sql).fetchone()
             if db_result:
-                return db_result[0]
+                if wikidata_id.startswith('Q'):
+                    return f"Q{db_result[0]}"
+                else:
+                    return f"P{db_result[0]}"
 
     def import_from_label(self, label):
         """

@@ -39,7 +39,7 @@ class MardiItemEntity(MardiItem):
             # field_type = 2 : Alias
             # see: https://doc.wikimedia.org/Wikibase/REL1_41/php/docs_sql_wbt_type.html
             entity_id = []
-            with self.api.engine.connect() as connection:
+            with self.api.mw_engine.connect() as connection:
                 metadata = db.MetaData()
                 try:
                     wbt_item_terms = db.Table(
@@ -100,7 +100,7 @@ class MardiPropertyEntity(MardiProperty):
         if 'en' in self.labels.values:
             label = self.labels.values['en'].value
 
-        with self.api.engine.connect() as connection:
+        with self.api.mw_engine.connect() as connection:
             metadata = db.MetaData()
             try:
                 wbt_property_terms = db.Table(

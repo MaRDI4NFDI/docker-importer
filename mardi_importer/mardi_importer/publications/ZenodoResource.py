@@ -2,6 +2,7 @@ from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.publications.Author import Author
 from mardi_importer.zenodo.Community import Community
 from mardi_importer.zenodo.Project import Project
+from wikibaseintegrator.wbi_enums import ActionIfExists
 
 import logging
 import urllib.request, json, re
@@ -39,6 +40,9 @@ class ZenodoResource():
 
         QID_results = self.api.search_entity_by_value(zenodo_id, self.zenodo_id)
         if QID_results: self.QID = QID_results[0]
+
+        if (self.zenodo_id == '8058964'):
+            self.QID = 'Q490'
 
         if self.QID:
             # Get authors.
@@ -194,9 +198,12 @@ class ZenodoResource():
                 return self.QID
 
             item = self.api.item.new()
+            update_claim = "append_or_replace"
 
         else:
             item = self.api.item.get(entity_id=self.QID)
+            claims = item.claims.get('P31533')
+            update_claim = "replace_all"
     
         
         if self.title:
@@ -204,7 +211,7 @@ class ZenodoResource():
 
         if self.resource_type and self.resource_type != "wd:Q37866906":
                 desc = f"{self.metadata['resource_type']['title']} published at Zenodo repository. "
-                item.add_claim('wdt:P31',self.resource_type)
+                item.add_claim('wdt:P31', self.resource_type, action = update_claim)
         else:
             desc = "Resource published at Zenodo repository. "
         item.descriptions.set(language="en", value=desc)
@@ -212,44 +219,76 @@ class ZenodoResource():
 
         if self.description:
             prop_nr = self.api.get_local_id_by_label("description", "property")
-            item.add_claim(prop_nr, self.description)
+            item.add_claim(prop_nr, self.description, action = update_claim)
 
    
         # Publication date
         if self.publication_date:
-            item.add_claim('wdt:P577', self.publication_date)
+            item.add_claim('wdt:P577', self.publication_date, action = update_claim)
         
         # Authors
-        author_QID = self.__preprocess_authors()
-        claims = []
-        for author in author_QID:
-            claims.append(self.api.get_claim("wdt:P50", author))
-        item.add_claims(claims)
+        if update:
+            author_prop_nr = self.api.get_local_id_by_label("wdt:P50", "property")
+            original_claims = item.claims.get(author_prop_nr)
+
+            new_authors = []
+            for creator in self.metadata['creators']:
+                name = creator.get('name')
+                orcid = creator.get('orcid')
+                affiliation = creator.get('affiliation')
+                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
+                new_authors.append(author)
+
+            author_QID = self.__preprocess_authors()
+            new_authors_QID = []
+            authors_to_remove_QID = []
+            for autor in self.authors:
+                if autor in new_authors:
+                    new_authors_QID.append(autor.QID)
+                else:
+                    authors_to_remove_QID.append(autor.QID)
+
+            claims = []
+            for author in new_authors_QID:
+                claims.append(self.api.get_claim("wdt:P50", author))
+            item.add_claims(claims)
+
+            for author in authors_to_remove_QID:
+                for claim in original_claims:
+                    if claim.mainsnak.datavalue['value']['id'] == author:
+                        claim.remove()
+
+        else:
+            author_QID = self.__preprocess_authors()
+            claims = []
+            for author in author_QID:
+                claims.append(self.api.get_claim("wdt:P50", author))
+            item.add_claims(claims)
 
         # Zenodo ID & DOI
         if self.zenodo_id:
-            item.add_claim('wdt:P4901', self.zenodo_id)
+            item.add_claim('wdt:P4901', self.zenodo_id, action = update_claim)
             doi = f"10.5281/zenodo.{self.zenodo_id}"
-            item.add_claim('wdt:P356', doi)
+            item.add_claim('wdt:P356', doi, action = update_claim)
 
         # License
         if self.license:
             if self.license['id'] == "cc-by-4.0":
-                item.add_claim("wdt:P275", "wd:Q20007257")
+                item.add_claim("wdt:P275", "wd:Q20007257", action = update_claim)
             elif self.license['id'] == "cc-by-sa-4.0":
-                item.add_claim("wdt:P275", "wd:Q18199165")
+                item.add_claim("wdt:P275", "wd:Q18199165", action = update_claim)
             elif self.license['id'] == "cc-by-nc-sa-4.0":
-                item.add_claim("wdt:P275", "wd:Q42553662")
+                item.add_claim("wdt:P275", "wd:Q42553662", action = update_claim)
             elif self.license['id'] == "mit-license":
-                item.add_claim("wdt:P275", "wd:Q334661")
+                item.add_claim("wdt:P275", "wd:Q334661", action = update_claim)
 
         if self.version:
             if self.resource_type:
                 if self.resource_type == "wd:Q1172284": #dataset
                     prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
-                    item.add_claim(prop_nr, self.version)
+                    item.add_claim(prop_nr, self.version, action = update_claim)
                 elif self.resource_type == "wd:Q7397": #software:
-                    item.add_claim("wdt:P348", self.version)
+                    item.add_claim("wdt:P348", self.version, action = update_claim)
     
 
 
@@ -257,20 +296,17 @@ class ZenodoResource():
         if self.communities:
             for community in self.communities:
                 prop_nr = self.api.get_local_id_by_label("community", "property")
-                item.add_claim(prop_nr, community.QID)
+                item.add_claim(prop_nr, community.QID, action = update_claim)
 
         # Projects
         if self.projects:
             for project in self.projects:
                 project.create()
                 prop_nr = self.api.get_local_id_by_label("Internal Project ID", "property")
-                item.add_claim(prop_nr, project.QID)
+                item.add_claim(prop_nr, project.QID, action = update_claim)
 
         if self._mardi_type:
-            item.add_claim('MaRDI profile type', self._mardi_type)
-
-
-        #print(item.claims.get_json())
+            item.add_claim('MaRDI profile type', self._mardi_type, action = update_claim)
         
         self.QID = item.write().id
 

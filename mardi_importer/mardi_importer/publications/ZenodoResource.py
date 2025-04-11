@@ -196,7 +196,6 @@ class ZenodoResource():
             update_claim = "append_or_replace"
         else:
             item = self.api.item.get(entity_id=self.QID)
-            claims = item.claims.get('P31533')
             update_claim = "replace_all"    
         
         if self.title:

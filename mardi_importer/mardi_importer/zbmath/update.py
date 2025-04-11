@@ -33,7 +33,7 @@ label_id_dict["mardi_person_profile_item"] = mc.get_local_id_by_label("Person", 
 property_dict = {"document_title":"P159","classifications":"P226","keywords":"P1450","publication_year":"P28","serial":"P200","links":"P205",
      "doi":"P27","author":"P16","reviewers":"P1447","review_text":"P1448", "arxiv_id":"P21","source":"P22","preprint":"P1676"}
 
-df = pd.read_csv('differences_zbmath_data_dump20231221_TO_zbmath_data_dump20240912.csv', sep='\t')
+df = pd.read_csv('/scratch/visual/lpusch/mardi/differences_zbmath_data_dump20231221_TO_zbmath_data_dump20240912.csv', sep='\t')
 
 def is_empty(val):
     if isinstance(val,str):
@@ -68,19 +68,22 @@ def generate_authors(author_strings,author_ids):
                     label_id_dict=label_id_dict,
                 )
                 if author.exists():
-                    # print(f"Author {a} exists!")
+                    print(f"Author {a} exists!")
                     author_id = author.QID
                     #potentially, the name is wrong, then it needs to be fixed
                     author_item = mc.item.get(entity_id=author_id)
-                    label = author_item.labels.values['en'].value
                     if a:
                         name_parts = a.strip().split(",")
                         name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
+                        try:
+                            label = author_item.labels.values['en'].value
+                        except:
+                            label = ""
                         if label != name:
                             author_item.labels.set(language="en", value=name)
                             author_item.write()
                 else:
-                    # print(f"Creating author {a}")
+                    print(f"Creating author {a}")
                     author_id = author.create()
             except Exception as e:
                 print(f"Exception: {e}, sleeping")
@@ -103,7 +106,7 @@ for _, row in df.iterrows():
                 old_cols = ["document_title", "classifications","author","author_ids","publication_year","source"]
             
     if not found:
-        if row["de_number"] == 1566142:
+        if row["de_number"] == 1566567:
             found= True
         continue
     authors_done = False
@@ -139,10 +142,10 @@ for _, row in df.iterrows():
                                     integrator=mc, name=new_val
                                 )
                                 if journal_item.exists():
-                                    # print(f"Journal {new_val} exists!")
+                                    print(f"Journal {new_val} exists!")
                                     journal = journal_item.QID
                                 else:
-                                    # print(f"Creating journal {new_val}")
+                                    print(f"Creating journal {new_val}")
                                     journal = journal_item.create()
                             except Exception as e:
                                 print(f"Exception: {e}, sleeping")
@@ -169,7 +172,8 @@ for _, row in df.iterrows():
                         links.remove(l)
                         change_dict["arxiv_id"] = arxiv_id
                         break
-                change_dict[col] = links
+                if links:
+                    change_dict[col] = links
             elif col == "doi":
                 new_val = new_val.strip()
                 if is_empty(row["document_title"]) and is_empty(row["document_title_new"]):
@@ -189,10 +193,10 @@ for _, row in df.iterrows():
                                     integrator=mc, name=journal_string
                                 )
                                 if journal_item.exists():
-                                    # print(f"Journal {journal_string} exists!")
+                                    print(f"Journal {journal_string} exists!")
                                     journal = journal_item.QID
                                 else:
-                                    # print(f"Creating journal {journal_string}")
+                                    print(f"Creating journal {journal_string}")
                                     journal = journal_item.create()
                             except Exception as e:
                                 print(f"Exception: {e}, sleeping")
@@ -269,7 +273,7 @@ for _, row in df.iterrows():
         claim_list = []
         stop_switch = False
         for key, val in change_dict.items():
-            if key in ['creation_date', 'source', 'classifications', 'links', 'keywords', 'doi', 'publication_year', "arxiv_id"]:
+            if key in ['creation_date','links', 'source', 'classifications', 'keywords', 'doi', 'publication_year', "arxiv_id"]:
                 stop_switch = True
                     
             if key == "document_title":

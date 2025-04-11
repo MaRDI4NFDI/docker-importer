@@ -40,9 +40,9 @@ class ZBMathAuthor:
         print(f"Creating author {self.name}")
         profile_prop = self.label_id_dict["mardi_profile_type_prop"]
         profile_target = self.label_id_dict["mardi_person_profile_item"]
-        item.add_claim(profile_prop, profile_target)
+        self.item.add_claim(profile_prop, profile_target)
         if self.zbmath_author_id:
-            item.add_claim("wdt:P1556", self.zbmath_author_id)
+            self.item.add_claim("wdt:P1556", self.zbmath_author_id)
         author_id = self.item.write().id
         return author_id
 

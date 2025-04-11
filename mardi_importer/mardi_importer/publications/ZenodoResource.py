@@ -2,7 +2,6 @@ from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
 from mardi_importer.publications.Author import Author
 from mardi_importer.zenodo.Community import Community
 from mardi_importer.zenodo.Project import Project
-from wikibaseintegrator.wbi_enums import ActionIfExists
 
 import logging
 import urllib.request, json, re
@@ -40,9 +39,6 @@ class ZenodoResource():
 
         QID_results = self.api.search_entity_by_value(zenodo_id, self.zenodo_id)
         if QID_results: self.QID = QID_results[0]
-
-        if (self.zenodo_id == '8058964'):
-            self.QID = 'Q490'
 
         if self.QID:
             # Get authors.
@@ -196,15 +192,12 @@ class ZenodoResource():
         if not update:
             if self.QID:
                 return self.QID
-
             item = self.api.item.new()
             update_claim = "append_or_replace"
-
         else:
             item = self.api.item.get(entity_id=self.QID)
             claims = item.claims.get('P31533')
-            update_claim = "replace_all"
-    
+            update_claim = "replace_all"    
         
         if self.title:
             item.labels.set(language="en", value=self.title)
@@ -216,11 +209,9 @@ class ZenodoResource():
             desc = "Resource published at Zenodo repository. "
         item.descriptions.set(language="en", value=desc)
 
-
         if self.description:
             prop_nr = self.api.get_local_id_by_label("description", "property")
             item.add_claim(prop_nr, self.description, action = update_claim)
-
    
         # Publication date
         if self.publication_date:
@@ -228,6 +219,7 @@ class ZenodoResource():
         
         # Authors
         if update:
+            # Delete all authors and keep just the new
             author_prop_nr = self.api.get_local_id_by_label("wdt:P50", "property")
             original_claims = item.claims.get(author_prop_nr)
 
@@ -289,8 +281,6 @@ class ZenodoResource():
                     item.add_claim(prop_nr, self.version, action = update_claim)
                 elif self.resource_type == "wd:Q7397": #software:
                     item.add_claim("wdt:P348", self.version, action = update_claim)
-    
-
 
         # Communities
         if self.communities:

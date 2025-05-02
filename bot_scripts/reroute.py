@@ -3,12 +3,11 @@ from mardiclient import MardiClient
 from wikibaseintegrator.wbi_helpers import execute_sparql_query, remove_claims
 from wikibaseintegrator.models.qualifiers import Qualifiers
 from wikibaseintegrator import wbi_login
+from wikibaseintegrator.models.references import References
 import sys
 
 
-
-
-mc = MardiClient(user='RedirectionBot', password='password', login_with_bot=True)
+mc = MardiClient(user='RedirectionBot', password='password')
 df = pd.read_csv("redirection.csv")
 new_ids = df["sa"].unique()
 old_new_mapping = dict(zip(df["o"],df["sa"]))
@@ -17,10 +16,10 @@ instance_property_mapping = {'Q57083':'P19'}
 #found = False
 for str_qid in new_ids:
     qid = str_qid.split("/")[-1]
-    # if qid == "Q1770742":
-    #     found = True
-    #     continue
-    # if not found: continue
+    #if qid == "Q6649939":
+    #    found = True
+    #    continue
+    #if not found: continue
     print(f"new id string: {str_qid}")
     print(f"new qid: {qid}")
 
@@ -36,7 +35,7 @@ for str_qid in new_ids:
             f" {{ VALUES ?excludedProperty {{owl:sameAs}}  "
             f"?item ?property wd:{q} . " 
             f" FILTER( ?property != ?excludedProperty ) }}")
-        results = execute_sparql_query(query= query, endpoint="http://query.portal.mardi4nfdi.de/proxy/wdqs/bigdata/namespace/wdq/sparql")
+        results = execute_sparql_query(query= query, endpoint="https://query.portal.mardi4nfdi.de/proxy/wdqs/bigdata/namespace/wdq/sparql")
         results = results["results"]["bindings"]
         #print(f"cases where old id is referenced: {results}")
         for r_dict in results:
@@ -62,6 +61,8 @@ for str_qid in new_ids:
             #test = False
             for k in claims:
                 for kk in claims[k]:
+                    if not "datavalue" in kk["mainsnak"]:
+                        continue
                     if 'entity-type' in kk['mainsnak']['datavalue']['value']:                        
                         try:
                             search_id = kk['mainsnak']['datavalue']['value']['id']
@@ -85,10 +86,14 @@ for str_qid in new_ids:
                                     found_id = old_new_mapping[found_id]
                                 else:
                                     breaker = True
-                        
-                            if "references" in kk:
-                                print(f"found references for id {outdated_item}")
                             temp_instance = {"c_id":kk["id"], "pid": k, "correct_id": found_id}
+                            if "references" in kk:
+                                for single_ref in kk["references"]:
+                                    single_ref["hash"] = None
+                                r = References()
+                                temp_instance["references"] = r.from_json(json_data=kk["references"])
+                            else:
+                                temp_instance["references"] = None
                             if "qualifiers" in kk:
                                 q = Qualifiers()
                                 temp_instance["qualifiers"] = q.from_json(json_data=kk["qualifiers"])
@@ -105,7 +110,8 @@ for str_qid in new_ids:
                 print(f"current found instances dict {d}")
                 claims_to_remove.append(d["c_id"])
                 if (d["pid"] + d["correct_id"]) not in new_id_tracker:
-                    new_claims.append({"pid": d["pid"], "qid": d["correct_id"], "qualifiers": d["qualifiers"]})
+                    new_claims.append({"pid": d["pid"], "qid": d["correct_id"], "qualifiers": d["qualifiers"],
+                                      "references":d["references"]})
                     new_id_tracker.append(d["pid"] + d["correct_id"])
             print(f"new_id_tracker: {new_id_tracker}")
             print(f"claims to remove: {claims_to_remove}")
@@ -116,7 +122,7 @@ for str_qid in new_ids:
             outdated_item = mc.item.get(entity_id=outdated_qid)
             print(f"new claims: {new_claims}")
             for d in new_claims:
-                outdated_item.add_claim(d["pid"], d["qid"], qualifiers=d["qualifiers"])
+                outdated_item.add_claim(d["pid"], d["qid"], qualifiers=d["qualifiers"], references=d["references"])
             outdated_item.write()
             print(f"write for outdated item {outdated_qid}")
             #print(a)

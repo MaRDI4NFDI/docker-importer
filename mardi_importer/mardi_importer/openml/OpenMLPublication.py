@@ -53,7 +53,7 @@ class OpenMLPublication:
         elif self.identifier_type == "arxiv":
             self.item.add_claim("wdt:P356", self.identifier)
         profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label("MaRDI publication profile", "item")[0]
+        profile_target = self.api.get_local_id_by_label("Publication", "item")[0]
         self.item.add_claim(profile_prop, profile_target)
         self.item.descriptions.set(language="en", value=f"scientific article about an OpenML dataset")
         publication_id = self.item.write().id

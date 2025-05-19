@@ -229,8 +229,8 @@ class OpenMLDataset:
                 self.item.add_claim("wdt:P2701", qid)
             else:
                 sys.exit(f"Invalid file format {self.format}")
-        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")
-        profile_target = self.api.get_local_id_by_label("MaRDI dataset profile", "item")[0]
+        profile_prop = self.api.get_local_id_by_label("MaRDI profile type", "property")[0]
+        profile_target = self.api.get_local_id_by_label("Dataset", "item")[0]
         self.item.add_claim(profile_prop, profile_target)
 
     def exists(self):

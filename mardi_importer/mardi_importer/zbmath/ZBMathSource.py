@@ -95,9 +95,9 @@ class ZBMathSource(ADataSource):
         self.label_id_dict["review_prop"] = self.integrator.get_local_id_by_label("review text", "property")
         self.label_id_dict["mardi_profile_type_prop"] = self.integrator.get_local_id_by_label("MaRDI profile type", "property")
         self.label_id_dict["mardi_publication_profile_item"] = self.integrator.get_local_id_by_label(
-            "MaRDI publication profile", "item"
+            "Publication", "item"
         )[0]
-        self.label_id_dict["mardi_person_profile_item"] = self.integrator.get_local_id_by_label("MaRDI person profile", "item")[0]
+        self.label_id_dict["mardi_person_profile_item"] = self.integrator.get_local_id_by_label("Person", "item")[0]
 
 
 

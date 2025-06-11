@@ -185,7 +185,7 @@ class Collection():
             if ref_type == "arxiv":
                 self.arxiv.append(ArxivPublication(self.api, ref))
             elif ref_type == "doi":
-                self.crossref.append(CrossrefPublication(self.api, ref))
+                self.crossref.append(CrossrefPublication(self.api, ref.upper()))
             elif ref_type == "reference":
                 self.generic_references.append(ref)
             elif ref_type in ["url", "github"]:

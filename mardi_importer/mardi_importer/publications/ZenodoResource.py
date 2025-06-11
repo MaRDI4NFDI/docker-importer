@@ -260,7 +260,7 @@ class ZenodoResource():
         if self.zenodo_id:
             item.add_claim('wdt:P4901', self.zenodo_id, action = update_claim)
             doi = f"10.5281/zenodo.{self.zenodo_id}"
-            item.add_claim('wdt:P356', doi, action = update_claim)
+            item.add_claim('wdt:P356', doi.upper(), action = update_claim)
 
         # License
         if self.license:

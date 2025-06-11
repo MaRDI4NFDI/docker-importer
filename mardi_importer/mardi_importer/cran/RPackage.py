@@ -443,7 +443,7 @@ class RPackage:
                 crossref_references.append(doi)
 
         for doi in crossref_references:
-            publication = CrossrefPublication(self.api, doi)
+            publication = CrossrefPublication(self.api, doi.upper())
             self.author_pool += publication.authors
             self.crossref_publications.append(publication)
 

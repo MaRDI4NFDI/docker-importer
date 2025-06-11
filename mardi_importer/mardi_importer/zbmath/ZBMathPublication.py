@@ -68,7 +68,7 @@ class ZBMathPublication:
         self.language = language
         self.doi = doi
         if self.doi:
-            self.doi = self.doi.lower()
+            self.doi = self.doi.upper()
         self.authors = authors
         self.journal = journal
         self.time = time

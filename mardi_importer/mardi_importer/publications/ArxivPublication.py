@@ -296,7 +296,7 @@ class ArxivPublication():
 
             # DOI
             doi = '10.48550/arXiv.' + self.arxiv_id
-            item.add_claim('wdt:P356', doi)
+            item.add_claim('wdt:P356', doi.upper())
                         
             self.QID = item.write().id
 

@@ -430,7 +430,7 @@ class RPackage:
         crossref_references = []
 
         for doi in doi_references:
-            doi = doi.strip().lower()
+            doi = doi.strip().upper()
             if re.search('10.48550/', doi):
                 arxiv_id = doi.replace(":",".")
                 arxiv_id = arxiv_id.replace('10.48550/arxiv.', '')
@@ -443,7 +443,7 @@ class RPackage:
                 crossref_references.append(doi)
 
         for doi in crossref_references:
-            publication = CrossrefPublication(self.api, doi)
+            publication = CrossrefPublication(self.api, doi.upper())
             self.author_pool += publication.authors
             self.crossref_publications.append(publication)
 

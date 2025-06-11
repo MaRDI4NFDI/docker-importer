@@ -317,41 +317,41 @@ class OpenMLDataset:
         elif "http" not in self.paper_url:
             return(None,None)
         elif "dl.acm.org" in self.paper_url:
-            return("/".join(self.paper_url.split("/")[-2:]).lower(), "doi")
+            return("/".join(self.paper_url.split("/")[-2:]).upper(), "doi")
         elif "doi=" in self.paper_url:
             doi = self.paper_url.split("doi=")[-1]
             if "&" in doi:
                 doi = doi.split("&")[0]
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         elif "link.springer" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
             if "%" in doi: 
                 return(None, None)
             else:
-                return(doi.lower(), "doi")
+                return(doi.upper(), "doi")
         elif "wiley" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
             if "?" in doi:
                 doi = doi.split("?")[0]
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         elif "biomedcentral" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         elif "tandfonline" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         elif "arxiv" in self.paper_url:
             arxiv_id = self.paper_url.split("/")[-1]
             return(arxiv_id, "arxiv")
         elif "royalsociety" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         elif "sagepub" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         elif "science.org" in self.paper_url:
             doi = "/".join(self.paper_url.split("/")[-2:])
-            return(doi.lower(), "doi")
+            return(doi.upper(), "doi")
         else:
             return(None, None)
     

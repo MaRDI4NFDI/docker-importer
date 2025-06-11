@@ -430,7 +430,7 @@ class RPackage:
         crossref_references = []
 
         for doi in doi_references:
-            doi = doi.strip().lower()
+            doi = doi.strip().upper()
             if re.search('10.48550/', doi):
                 arxiv_id = doi.replace(":",".")
                 arxiv_id = arxiv_id.replace('10.48550/arxiv.', '')

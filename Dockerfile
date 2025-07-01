@@ -6,10 +6,7 @@ FROM python:3.11-slim
 
 # cron defaults
 ENV IMPORT_DEFAULT_GID="9001" \
-	IMPORT_DEFAULT_UID="9001" \
-	TIMEZONE="CET" \
-	DEFAULT_SCHEDULE="00 01 * * *" \
-	CRONTAB="/var/spool/cron/crontabs/import"
+	IMPORT_DEFAULT_UID="9001" 
 
 # install cron and utilities
 RUN apt-get update && apt-get install --yes --no-install-recommends \
@@ -33,11 +30,6 @@ RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
 
 # Copy cron files.
 RUN mkdir /app
-COPY import.sh /app/
-COPY start.sh /app/
-
-# Make sure scripts are executable
-RUN chown import:import /app/*.sh && chmod 774 /app/*.sh
 
 ##############################
 # Setup Python packages      #
@@ -68,6 +60,6 @@ RUN echo "from .contentmath import ContentMath" \
 # Copy configurations to the image
 COPY config /config
 
-# entry point start cronjob
+# entry point
 WORKDIR /app
-ENTRYPOINT ["/bin/bash","/app/start.sh"]
+ENTRYPOINT ["sleep","infinity"]

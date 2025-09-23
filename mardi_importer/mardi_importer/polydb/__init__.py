@@ -1,4 +1,3 @@
-__version__ = "0.0.1"
 from .PolyDBSource import PolyDBSource
 from .Author import Author
 from .ArxivPublication import ArxivPublication

@@ -887,25 +887,3 @@ class MardiIntegrator(MardiClient):
                     return f"Q{db_result[0]}"
                 else:
                     return f"P{db_result[0]}"
-
-    def import_from_label(self, label):
-        """
-        Imports an entity from Wikidata just from a label
-
-        Args:
-            label (str): label to be imported from wikidata
-
-        Returns:
-            local_id (str): local id for the imported entity
-        """
-        results = search_entities(label, 
-                                  dict_result=True,
-                                  mediawiki_api_url='https://www.wikidata.org/w/api.php')
-        for result in results:
-            if label == result['label']:
-                return self.import_entities(result['id'])
-            if label.lower() == result['label'].lower():
-                return self.import_entities(result['id'])
-            if result['aliases']:
-                if label.lower() == result['aliases'][0].lower():
-                    return self.import_entities(result['id'])

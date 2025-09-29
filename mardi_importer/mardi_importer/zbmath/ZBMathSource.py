@@ -17,7 +17,7 @@ from time import sleep
 from ast import literal_eval
 
 from mardi_importer.integrator import MardiIntegrator
-from mardi_importer.importer import ADataSource
+from mardi_importer.base import ADataSource
 from .ZBMathPublication import ZBMathPublication
 from .ZBMathAuthor import ZBMathAuthor
 from .ZBMathJournal import ZBMathJournal

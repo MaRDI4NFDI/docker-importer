@@ -1,7 +1,7 @@
 import os, json, time
 
 from mardi_importer.integrator import MardiIntegrator
-from mardi_importer.importer import ADataSource, ImporterException
+from mardi_importer.base import ADataSource
 from .Collection import Collection
 from .Author import Author
 

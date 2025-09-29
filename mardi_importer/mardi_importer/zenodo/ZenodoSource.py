@@ -4,7 +4,7 @@ import os
 import sys
 import pandas as pd
 
-from mardi_importer.importer import ADataSource
+from mardi_importer.base import ADataSource
 from mardi_importer.integrator import MardiIntegrator
 from mardi_importer.publications import ZenodoResource
 from typing import List

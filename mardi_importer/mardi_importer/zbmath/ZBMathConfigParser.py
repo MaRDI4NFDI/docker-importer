@@ -1,9 +1,8 @@
 import sys
 from configparser import ConfigParser, NoOptionError
-from mardi_importer.importer import AConfigParser
 
 
-class ZBMathConfigParser(AConfigParser):
+class ZBMathConfigParser():
     """Config parser for ZBMath data"""
 
     def __init__(self, config_path):

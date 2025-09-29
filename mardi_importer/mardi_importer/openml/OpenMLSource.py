@@ -1,4 +1,4 @@
-from mardi_importer.importer import ADataSource
+from mardi_importer.base import ADataSource
 import openml
 from mardi_importer.integrator import MardiIntegrator
 from .OpenMLDataset import OpenMLDataset

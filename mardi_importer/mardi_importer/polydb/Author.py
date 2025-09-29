@@ -194,10 +194,6 @@ class Author:
             if not local_qid:
                 local_qid = self.api.import_entities(affiliation_qid)
             self._item.add_claim("wdt:P108", local_qid)
-        elif len(self.affiliation) > 8:
-            affiliation = self.api.import_from_label(self.affiliation)
-            if affiliation:
-                self._item.add_claim("wdt:P108", affiliation)
 
     def sync_with_wikidata(self, name=None):
 

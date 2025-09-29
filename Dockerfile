@@ -11,7 +11,7 @@ ENV IMPORT_DEFAULT_GID="9001" \
 # install cron and utilities
 RUN apt-get update && apt-get install --yes --no-install-recommends \
 		gcc \
-        cron \
+    cron \
 		bash \
 		gzip \
 		tzdata \
@@ -53,9 +53,6 @@ RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/
 RUN echo "from .contentmath import ContentMath" \
     >> /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/__init__.py
-
-# Copy the unit tests to the image
-# COPY tests /tests
 
 # Copy configurations to the image
 COPY config /config

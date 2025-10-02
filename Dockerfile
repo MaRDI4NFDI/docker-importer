@@ -37,6 +37,10 @@ RUN mkdir /app
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
+# flask app
+COPY flask_app /app/flask_app
+RUN pip install --no-cache-dir -r /app/flask_app/requirements.txt
+
 # Install wikibaseintegrator from source
 RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \
     && pip install ./WikibaseIntegrator
@@ -62,4 +66,4 @@ COPY config /config
 
 # entry point
 WORKDIR /app
-ENTRYPOINT ["sleep","infinity"]
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8000", "flask_app.app:app"]

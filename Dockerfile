@@ -6,23 +6,23 @@ FROM python:3.11-slim
 
 # cron defaults
 ENV IMPORT_DEFAULT_GID="9001" \
-	IMPORT_DEFAULT_UID="9001" 
+  IMPORT_DEFAULT_UID="9001" 
 
 # install cron and utilities
 RUN apt-get update && apt-get install --yes --no-install-recommends \
-		gcc \
+    gcc \
     cron \
-		bash \
-		gzip \
-		tzdata \
-		nano \
-		git \
-		libmariadb-dev \
-	&& rm -rf /var/cache/apk/*
+    bash \
+    gzip \
+    tzdata \
+    nano \
+    git \
+    libmariadb-dev \
+  && rm -rf /var/cache/apk/*
 
 # Set up non-root user.
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
-	&& adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
+  && adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
 
 ##############################
 # Setup import script        #

@@ -48,11 +48,11 @@ class ADataSource(ABC):
             wikibase_url=os.environ.get("WIKIBASE_URL"),
             importer_api_url="http://importer-api"
         )
+        self.wdi = WikidataImporter()
 
     def import_wikidata_entities(self, filename: str):
         filename = self.filepath + filename
-        wi = WikidataImporter()
-        wi.import_entities(filename=filename)
+        self.wdi.import_entities(filename=filename)
 
     def create_local_entities(self, filename: str):
         filename = self.filepath + filename

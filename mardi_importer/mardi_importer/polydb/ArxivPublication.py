@@ -201,7 +201,7 @@ class Arxiv():
 
 @dataclass
 class ArxivPublication():
-    api: MardiCient
+    api: MardiClient
     wdi: WikidataImporter
     arxiv_id: str
     metadata: Arxiv = None

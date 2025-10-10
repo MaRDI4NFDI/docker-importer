@@ -2,15 +2,15 @@ class ZBMathJournal:
     """Class to manage zbMath journal items in the local Wikibase instance.
 
     Attributes:
-        integrator:
-            MardiIntegrator instance
+        api:
+            MardiClient instance
         name:
             journal name
 
     """
 
-    def __init__(self, integrator, name):
-        self.api = integrator
+    def __init__(self, api, name):
+        self.api = api
         self.name = name.strip()
         self.QID = None
         self.item = self.init_item()

@@ -1,20 +1,18 @@
-from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
-from mardi_importer.integrator.MardiEntities import MardiItemEntity
-
+from mardiclient import MardiClient, MardiItem
 
 from dataclasses import dataclass, field
 from typing import List
 
 @dataclass
 class Community:
-    api: MardiIntegrator
+    api: MardiClient
     community_id : str
     community_title: str = None
     community_str : str = None
     description : str = None
     url : str = None
     QID: str = None
-    _item: MardiItemEntity = None
+    _item: MardiItem = None
 
     def __post_init__(self):
         zenodo_community_id = "wdt:P9934"

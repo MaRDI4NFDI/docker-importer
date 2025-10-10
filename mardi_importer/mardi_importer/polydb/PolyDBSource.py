@@ -1,6 +1,7 @@
 import os, json, time
 
-from mardi_importer.integrator import MardiIntegrator
+from mardiclient import MardiClient
+from mardi_importer.wikidata import WikidataImporter
 from mardi_importer.base import ADataSource
 from .Collection import Collection
 from .Author import Author
@@ -10,14 +11,12 @@ class PolyDBSource(ADataSource):
     """Processes collection data from polyDB.org.
 
     Attributes:
-        integrator (MardiIntegrator):
-            API to wikibase
         collections (List[str]):
             List of current collections
     """
     def __init__(self):
+        super().__init__(user, password)
         self.update = False
-        self.integrator = MardiIntegrator()
         self.collection_list = []
         self.polydb_authors = []
         self.collections = []
@@ -44,31 +43,13 @@ class PolyDBSource(ADataSource):
                                 "Tropical.TOM"]
 
     def setup(self):
-        """Create all necessary properties for polyDB
+        """Create all necessary properties and entities for polyDB
         """
-        filepath = os.path.realpath(os.path.dirname(__file__)) 
-
-        filename = filepath + "/wikidata_entities.txt"
-        self.integrator.import_entities(filename=filename)
+        # Import entities from Wikidata
+        self.import_wikidata_entities("/wikidata_entities.txt")
         
-        filename = filepath + "/new_entities.json"
-        f = open(filename)
-        entities = json.load(f)
-
-        for prop_element in entities['properties']:
-            prop = self.integrator.property.new()
-            prop.labels.set(language='en', value=prop_element['label'])
-            prop.descriptions.set(language='en', value=prop_element['description'])
-            prop.datatype = prop_element['datatype']
-            if not prop.exists(): prop.write()
-
-        for item_element in entities['items']:
-            item = self.integrator.item.new()
-            item.labels.set(language='en', value=item_element['label'])
-            item.descriptions.set(language='en', value=item_element['description'])
-            for key, value in item_element['claims'].items():
-                item.add_claim(key,value=value)
-            if not item.exists(): item.write()
+        # Create new required local entities
+        self.create_local_entities("/new_entities.json")
 
         # author_tuple = (name, orcid, arxiv_id, affiliation_qid, wikidata_qid)
         author_tuples = [('Frank Lutz', '', '', 'wd:Q51985', 'wd:Q102201447'),
@@ -101,10 +82,10 @@ class PolyDBSource(ADataSource):
                          ('Silke Horn', '', '', 'wd:Q310695', 'wd:Q102398539')]
 
         for name, orcid, arxiv_id, affiliation, QID in author_tuples:
-            author = Author(self.integrator, name, orcid, arxiv_id, affiliation)
+            author = Author(self.api, self.wdi, name, orcid, arxiv_id, affiliation)
             if QID:
                 QID = QID.split(':')[1]
-                author.QID = self.integrator.import_entities(QID)
+                author.QID = self.import_entities(QID)
             self.polydb_authors.append(author)
 
     def get_collection_list(self):
@@ -116,7 +97,7 @@ class PolyDBSource(ADataSource):
             self.get_collection_list()
         for name in self.collection_list:
             print(name)
-            self.collections.append(Collection(name))
+            self.collections.append(Collection(self.api, self.wdi, name))
             time.sleep(3)
 
     def push(self):

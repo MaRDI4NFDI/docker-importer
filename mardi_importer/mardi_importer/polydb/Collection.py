@@ -1,14 +1,14 @@
 import urllib.request, json, re
 
-from mardi_importer.integrator import MardiIntegrator
 from .Author import Author
 from .ArxivPublication import ArxivPublication
 from .CrossrefPublication import CrossrefPublication
 
 
 class GenericReference():
-    def __init__(self, api, title="", authors=[], attributes=""):
-        self.api = MardiIntegrator()
+    def __init__(self, api, wdi, title="", authors=[], attributes=""):
+        self.api = api
+        self.wdi = wdi
         self.title = title
         self.authors = authors
         self.attributes = attributes
@@ -32,7 +32,7 @@ class GenericReference():
 
         conference = None
         if self.attributes == "KyotoCGGT2007, 2007/6/11-15":
-            conference = self.api.import_entities('Q106338712')            
+            conference = self.wdi.import_entities('Q106338712')            
         elif self.attributes == "Kyoto RIMS Workshop on Computational Geometry and Discrete Mathematics, RIMS, Kyoto University, 2008/10/16":
             conf_item = self.api.item.new()
             conf_item.labels.set(language="en", value="Kyoto RIMS Workshop on Computational Geometry and Discrete Mathematics")
@@ -74,9 +74,10 @@ class GenericReference():
 
 
 class Collection():
-    def __init__(self, label=""):
+    def __init__(self, api, wdi, label=""):
         self.label = label
-        self.api = MardiIntegrator()
+        self.api = api
+        self.wdi = wdi
         self.authors = []
         self.author_pool = []
         self.maintainer = []
@@ -163,6 +164,7 @@ class Collection():
         result = []
         for el in elements:
             person = Author(self.api, 
+                            self.wdi,
                             name=el.get('name'),
                             orcid="",
                             arxiv_id="", 
@@ -183,9 +185,9 @@ class Collection():
 
         for ref_type, ref in list_references:
             if ref_type == "arxiv":
-                self.arxiv.append(ArxivPublication(self.api, ref))
+                self.arxiv.append(ArxivPublication(self.api, self.wdi, ref))
             elif ref_type == "doi":
-                self.crossref.append(CrossrefPublication(self.api, ref.upper()))
+                self.crossref.append(CrossrefPublication(self.api, self.wdi, ref.upper()))
             elif ref_type == "reference":
                 self.generic_references.append(ref)
             elif ref_type in ["url", "github"]:
@@ -250,7 +252,7 @@ class Collection():
             return ('arxiv', '2112.04447')
         else:
             authors = ref['authors'].split(', ')
-            authors = [Author(self.api, name=author) for author in authors]
+            authors = [Author(self.api, self.wdi, name=author) for author in authors]
             attributes = ref['bib']
             reference = GenericReference(self.api, title, authors, attributes)
             return ('reference', reference)

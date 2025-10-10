@@ -1,7 +1,5 @@
-from wikibaseintegrator.wbi_enums import ActionIfExists
-from wikibaseintegrator.wbi_helpers import search_entities, merge_items
-from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
-from mardi_importer.integrator.MardiEntities import MardiItemEntity
+from mardiclient import MardiClient, MardiItem
+from mardi_importer.wikidata import WikidataImporter
 
 from dataclasses import dataclass, field
 from typing import List
@@ -12,14 +10,15 @@ CONSTANTS.titles.remove('Bodhisattva')
 
 @dataclass
 class Author:
-    api: MardiIntegrator
+    api: MardiClient
+    wdi: WikidataImporter
     name: str
     orcid: str = None
     arxiv_id: str = None
     affiliation: str = None
     _aliases: List[str] = field(default_factory=list)
     _QID: str = None
-    _item: MardiItemEntity = None
+    _item: MardiItem = None
 
     def __post_init__(self):
         self.name = self.parse_name(self.name)
@@ -166,7 +165,7 @@ class Author:
                  'microsoft corporation': 'Q2283'}
         
         if self.name.lower() in teams.keys():
-            self._QID = self.api.query('local_id', teams[self.name.lower()])
+            self._QID = self.wdi.query('local_id', teams[self.name.lower()])
             return self.QID
         
         self._item = self.api.item.new()
@@ -180,8 +179,6 @@ class Author:
         # Orcid ID
         if self.orcid:
             self._item.add_claim('ORCID iD', self.orcid)
-            # Deactivate import from Wikidata
-            # self.sync_with_wikidata()
 
         if self.QID:
             self._item = self.api.item.get(self.QID)
@@ -192,57 +189,3 @@ class Author:
 
         self._QID = self._item.write().id
         return self.QID
-
-    def sync_with_wikidata(self, name=None):
-
-        def get_orcid(item) -> str:
-            """Inner function to extract ORCID iD value
-            """
-            orcid_claims = []
-            if 'P496' in item.claims.get_json().keys():
-                orcid_claims = item.claims.get('P496')
-
-            for claim in orcid_claims:
-                claim = claim.get_json()
-                if claim['mainsnak']['datatype'] == "external-id":
-                    return claim['mainsnak']['datavalue']['value']
-
-        if name: 
-            search_string = name
-        else:
-            search_string = self.name
-
-        results = search_entities(
-            search_string=search_string,
-            mediawiki_api_url='https://www.wikidata.org/w/api.php'
-            )
-
-        for result in results:
-            item = self.api.item.get(
-                entity_id=result,
-                mediawiki_api_url='https://www.wikidata.org/w/api.php'
-                )
-
-            if get_orcid(item) == self.orcid:
-                if self.QID:
-                    local_id = self.api.query('local_id', item.id)
-                    if local_id and local_id != self.QID:
-                        self.api.overwrite_entity(result, local_id)
-                        merge_items(self.QID, local_id, login=self.api.login, is_bot=True)
-                        self._QID = local_id
-                    else:
-                        self._QID = self.api.overwrite_entity(result, self.QID)
-                else:
-                    self._QID = self.api.import_entities(result)
-                return self.QID
-
-        if not name:
-            words = (self.name).split(" ")
-            if len(words) == 3 and len(words[1]) <= 2:
-                shortened_name = " ".join([words[0], words[2]])
-                if self.sync_with_wikidata(shortened_name):
-                    item = self.api.item.get(entity_id=self.QID)
-                    item.aliases.set(language='en', values=self.name)
-                    item.write()
-                    return self.QID
-

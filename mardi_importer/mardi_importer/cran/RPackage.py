@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-from mardi_importer.integrator import MardiIntegrator, MardiItemEntity
+from mardiclient import MardiClient, MardiItem
+from mardi_importer.wikidata import WikidataImporter
 from mardi_importer.publications import (ArxivPublication, 
                                          CrossrefPublication,
                                          ZenodoResource, 
@@ -52,13 +50,12 @@ class RPackage:
           Software maintainer
         _QID:
           Package QID
-        integrator:
-          API to MaRDI integrator
     """
     date: str
     label: str
     description: str
-    api: MardiIntegrator
+    api: MardiClient
+    wdi: WikidataImporter
     long_description: str = ""
     url: str = ""
     version: str = ""
@@ -73,7 +70,7 @@ class RPackage:
     arxiv_publications: List[ArxivPublication] = field(default_factory=list)
     zenodo_resources: List[ZenodoResource] = field(default_factory=list)
     _QID: str = ""
-    _item: MardiItemEntity = None
+    _item: MardiItem = None
 
     @property
     def QID(self) -> str:
@@ -89,13 +86,13 @@ class RPackage:
         return self._QID
 
     @property
-    def item(self) -> MardiItemEntity:
-        """Return the integrator Item representing the R package.
+    def item(self) -> MardiItem:
+        """Return the Item representing the R package.
 
         Adds also the label and description of the package.
 
         Returns:
-            MardiItemEntity: Integrator item
+            MardiItem: MardiClient item
         """
         if not self._item:
             self._item = self.api.item.new()
@@ -301,7 +298,7 @@ class RPackage:
             for author_qid in current_authors:
                 author_item = self.api.item.get(entity_id=author_qid)
                 author_label = str(author_item.labels.get('en'))
-                current_author = Author(self.api, name=author_label)
+                current_author = Author(self.api, self.wdi, name=author_label)
                 current_author._QID = author_qid
                 self.author_pool += [current_author]
                 
@@ -443,20 +440,20 @@ class RPackage:
                 crossref_references.append(doi)
 
         for doi in crossref_references:
-            publication = CrossrefPublication(self.api, doi.upper())
+            publication = CrossrefPublication(self.api, self.wdi, doi.upper())
             self.author_pool += publication.authors
             self.crossref_publications.append(publication)
 
         for arxiv_id in arxiv_references:
             arxiv_id = arxiv_id.replace(":",".")
-            publication = ArxivPublication(self.api, arxiv_id)
+            publication = ArxivPublication(self.api, self.wdi, arxiv_id)
             if publication.title != "Error":
                 self.author_pool += publication.authors
                 self.arxiv_publications.append(publication)
 
         for zenodo_id in zenodo_references:
             zenodo_id = zenodo_id.replace(":",".")
-            publication = ZenodoResource(self.api, zenodo_id)
+            publication = ZenodoResource(self.api, self.wdi, zenodo_id)
             self.author_pool += publication.authors
             self.zenodo_resources.append(publication)
 
@@ -531,7 +528,7 @@ class RPackage:
             # Instance of R package
             if software_name == "R":
                 # Software = R
-                software_QID = self.api.query("local_id", "Q206904")
+                software_QID = self.wdi.query("local_id", "Q206904")
             else:
                 item = self.api.item.new()
                 item.labels.set(language="en", value=software_name)
@@ -704,7 +701,7 @@ class RPackage:
                         multiple_words = author.split(" ")
                         if len(multiple_words) > 1:
                             if author:
-                                authors.append(Author(self.api, author, orcid))
+                                authors.append(Author(self.api, self.wdi, author, orcid))
         else:
             authors_comma = x.split(", ")
             authors_and = x.split(" and ")
@@ -721,7 +718,7 @@ class RPackage:
             if len(author.split(" ")) > 5 or re.findall(r"[@\(\)\[\]&]", author):
                 author = ""
             if author:
-                authors.append(Author(self.api, author))
+                authors.append(Author(self.api, self.wdi, author))
         self.author_pool += authors
         return authors
 
@@ -745,7 +742,7 @@ class RPackage:
         name = re.sub(r"\(.*?\)", "", name)
         name = name.strip()
         name = name.split(',')
-        maintainer = Author(self.api, name=name[0])
+        maintainer = Author(self.api, self.wdi, name=name[0])
         self.author_pool += [maintainer]
         return maintainer
 

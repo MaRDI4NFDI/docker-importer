@@ -89,18 +89,18 @@ class ZBMathSource(ADataSource):
         # self.create_local_entities("/new_entities.json")
 
         self.label_id_dict = {}
-        self.label_id_dict["de_number_prop"] = self.integrator.get_local_id_by_label( #de_number_prop
+        self.label_id_dict["de_number_prop"] = self.api.get_local_id_by_label( #de_number_prop
             "zbMATH DE Number", "property"
         )
-        self.label_id_dict["keyword_prop"] = self.integrator.get_local_id_by_label( #keyword_prop
+        self.label_id_dict["keyword_prop"] = self.api.get_local_id_by_label( #keyword_prop
             "zbMATH Keywords", "property"
         )
-        self.label_id_dict["review_prop"] = self.integrator.get_local_id_by_label("review text", "property")
-        self.label_id_dict["mardi_profile_type_prop"] = self.integrator.get_local_id_by_label("MaRDI profile type", "property")
-        self.label_id_dict["mardi_publication_profile_item"] = self.integrator.get_local_id_by_label(
+        self.label_id_dict["review_prop"] = self.api.get_local_id_by_label("review text", "property")
+        self.label_id_dict["mardi_profile_type_prop"] = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        self.label_id_dict["mardi_publication_profile_item"] = self.api.get_local_id_by_label(
             "Publication", "item"
         )[0]
-        self.label_id_dict["mardi_person_profile_item"] = self.integrator.get_local_id_by_label("Person", "item")[0]
+        self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("Person", "item")[0]
 
     def pull(self):
         #self.write_data_dump()

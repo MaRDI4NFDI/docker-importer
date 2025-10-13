@@ -85,7 +85,8 @@ class Author:
             item.aliases.set(language="en", values=aliases)
             item.write()
 
-        return Author(self.api, 
+        return Author(self.api,
+                      self.wdi,
                       name=long_name, 
                       orcid=orcid, 
                       arxiv_id=arxiv_id,

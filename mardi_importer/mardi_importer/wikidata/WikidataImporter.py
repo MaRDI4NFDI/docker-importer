@@ -2,7 +2,6 @@ import os
 import re
 import sqlalchemy as db
 
-from mardi_importer.search import get_local_id_by_label
 from mardiclient import MardiClient
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
 from wikibaseintegrator.wbi_config import config as wbi_config
@@ -187,18 +186,16 @@ class WikidataImporter():
         Returns
             wikidata_PID (str): wikidata PID property ID
         """
-        label = "Wikidata PID"
-        wikidata_PID = get_local_id_by_label(label, "property")
-        if not wikidata_PID:
-            prop = self.api.property.new()
-            prop.labels.set(language="en", value=label)
-            prop.descriptions.set(
-                language="en", 
-                value="Identifier in Wikidata of the corresponding properties"
-            )
-            prop.datatype = "external-id"
-            wikidata_PID = prop.write(login=self.api.login, as_new=True).id
-        return wikidata_PID
+        prop = self.api.property.new()
+        prop.labels.set(language="en", value="Wikidata PID")
+        prop.descriptions.set(
+            language="en", 
+            value="Identifier in Wikidata of the corresponding properties"
+        )        
+        prop.datatype = "external-id"
+
+        wikidata_PID = prop.exists()
+        return wikidata_PID or prop.write(login=self.api.login, as_new=True).id
 
     def _init_wikidata_QID(self):
         """
@@ -209,18 +206,15 @@ class WikidataImporter():
         Returns
             wikidata_QID (str): wikidata QID property ID
         """
-        label = "Wikidata QID"
-        wikidata_QID = get_local_id_by_label(label, "property")
-        if not wikidata_QID:
-            prop = self.api.property.new()
-            prop.labels.set(language="en", value=label)
-            prop.descriptions.set(
-                language="en", 
-                value="Corresponding QID in Wikidata"
-            )
-            prop.datatype = "external-id"
-            wikidata_QID = prop.write(login=self.api.login, as_new=True).id
-        return wikidata_QID
+        prop = self.api.property.new()
+        prop.labels.set(language="en", value="Wikidata QID")
+        prop.descriptions.set(
+            language="en", 
+            value="Corresponding QID in Wikidata"
+        )        
+        prop.datatype = "external-id"
+        wikidata_QID = prop.exists()
+        return wikidata_QID or prop.write(login=self.api.login, as_new=True).id
 
     def import_entities(self, id_list=None, filename="", recurse=True):
         """Function for importing entities from wikidata

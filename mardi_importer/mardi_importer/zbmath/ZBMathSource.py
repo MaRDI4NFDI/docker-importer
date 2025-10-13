@@ -491,7 +491,7 @@ class ZBMathSource(ADataSource):
                             for attempt in range(5):
                                 try:
                                     author = ZBMathAuthor(
-                                        integrator=self.api,
+                                        api=self.api,
                                         name=a,
                                         zbmath_author_id=a_id,
                                         label_id_dict=self.label_id_dict,

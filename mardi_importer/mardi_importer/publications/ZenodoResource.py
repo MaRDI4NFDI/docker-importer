@@ -146,7 +146,7 @@ class ZenodoResource():
                 for communityCur in self.metadata["communities"]:
                     community_id = communityCur.get("id")
                     if community_id == "mathplus":
-                        community = Community(api = self.api, community_id = community_id)
+                        community = Community(api = self.api, wdi=self.wdi, community_id = community_id)
                         self._communities.append(community)
         return self._communities
     

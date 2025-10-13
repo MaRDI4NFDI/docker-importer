@@ -1,4 +1,5 @@
 from mardiclient import MardiClient, MardiItem
+from mardi_importer.wikidata import WikidataImporter
 
 from dataclasses import dataclass, field
 from typing import List
@@ -6,6 +7,7 @@ from typing import List
 @dataclass
 class Community:
     api: MardiClient
+    wdi: WikidataImporter
     community_id : str
     community_title: str = None
     community_str : str = None
@@ -23,6 +25,7 @@ class Community:
         if self.community_id == "mathplus":
             self.community_title = "MATH+"
             self.community_str = "The Berlin Mathematics Research Center MATH+ is a cross-institutional and interdisciplinary Cluster of Excellence."
+            self.QID = self.wdi.query('local_id', 'Q77087740')
 
     def exists(self):
 

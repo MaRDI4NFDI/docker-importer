@@ -28,6 +28,8 @@ class ZBMathSource(ADataSource):
 
     def __init__(
         self,
+        user,
+        password,
         out_dir,
         tags,
         from_date=None,

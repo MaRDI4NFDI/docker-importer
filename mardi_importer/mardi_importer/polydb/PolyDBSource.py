@@ -14,7 +14,7 @@ class PolyDBSource(ADataSource):
         collections (List[str]):
             List of current collections
     """
-    def __init__(self):
+    def __init__(self, user: str, password: str):
         super().__init__(user, password)
         self.update = False
         self.collection_list = []

@@ -13,6 +13,8 @@ class ZenodoSource(ADataSource):
 
     def __init__(
         self,
+        user: str,
+        password: str,
         communities: List[str] = None,
         resourceTypes: List[str] = None,
         orcid_id_file: str = None,

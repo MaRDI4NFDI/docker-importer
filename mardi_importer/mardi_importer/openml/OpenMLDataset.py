@@ -39,7 +39,7 @@ semantic_tags = [
 class OpenMLDataset:
     def __init__(
             self,
-            integrator, 
+            api, 
             name,
             dataset_id,
             description,
@@ -66,7 +66,7 @@ class OpenMLDataset:
             num_symbolic_features,
             format
             ):
-        self.api = integrator
+        self.api = api
         self.name = name #done
         self.dataset_id = str(dataset_id) #done
         self.description=description
@@ -185,7 +185,7 @@ class OpenMLDataset:
             #create item for this
             identifier, identifier_type = self.get_identifier()
             if identifier:
-                publication = OpenMLPublication(integrator=self.api, identifier=identifier, 
+                publication = OpenMLPublication(api=self.api, identifier=identifier, 
                     identifier_type=identifier_type)
                 paper_qid = publication.exists()
                 if not paper_qid:

@@ -1,4 +1,6 @@
-from mardi_importer.integrator import MardiIntegrator
+from mardi_importer.wikidata import WikidataImporter
 
-mc = MardiIntegrator()
+wi = WikidataImporter()
 
+test = wi.import_entities('Q4917')
+print(test)

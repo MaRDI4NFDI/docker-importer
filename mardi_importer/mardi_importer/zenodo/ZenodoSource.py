@@ -4,8 +4,7 @@ import os
 import sys
 import pandas as pd
 
-from mardi_importer.importer import ADataSource
-from mardi_importer.integrator import MardiIntegrator
+from mardi_importer.base import ADataSource
 from mardi_importer.publications import ZenodoResource
 from typing import List
 
@@ -14,13 +13,15 @@ class ZenodoSource(ADataSource):
 
     def __init__(
         self,
+        user: str,
+        password: str,
         communities: List[str] = None,
         resourceTypes: List[str] = None,
         orcid_id_file: str = None,
         customQ: str = None
 
     ):    
-        self.integrator = MardiIntegrator()
+        super().__init__(user, password)
         self.zenodo_ids = []    
         self.filepath = os.path.realpath(os.path.dirname(__file__))
 
@@ -37,11 +38,13 @@ class ZenodoSource(ADataSource):
 
 
     def setup(self):
-        """Create all necessary properties and entities for zenodo"""
-        
-        filename = self.filepath + "/wikidata_entities.txt"
-        self.integrator.import_entities(filename=filename)
-        self.create_local_entities() 
+        """Create all necessary properties and entities for Zenodo
+        """
+        # Import entities from Wikidata
+        self.import_wikidata_entities("/wikidata_entities.txt")
+
+        # Create new required local entities
+        self.create_local_entities("/new_entities.json")
 
     @staticmethod
     def parse_orcids(file):
@@ -57,29 +60,6 @@ class ZenodoSource(ADataSource):
         orcid_df.drop_duplicates()
         orcids_all = orcid_df['orcid'].tolist()
         return orcids_all
-
-    def create_local_entities(self):
-        filename = self.filepath + "/new_entities.json"
-        f = open(filename)
-        entities = json.load(f)
-
-        for prop_element in entities["properties"]:
-            prop = self.integrator.property.new()
-            prop.labels.set(language="en", value=prop_element["label"])
-            prop.descriptions.set(language="en", value=prop_element["description"])
-            prop.datatype = prop_element["datatype"]
-            if not prop.exists():
-                prop.write()
-
-        for item_element in entities["items"]:
-            item = self.integrator.item.new()
-            item.labels.set(language="en", value=item_element["label"])
-            item.descriptions.set(language="en", value=item_element["description"])
-            if "claims" in item_element:
-                for key, value in item_element["claims"].items():
-                    item.add_claim(key, value=value)
-            if not item.exists():
-                item.write()
 
     def pull(self):
         """
@@ -167,7 +147,8 @@ class ZenodoSource(ADataSource):
     def push(self):
         for id in self.zenodo_ids:   
             entry = ZenodoResource.ZenodoResource(
-                self.integrator,
+                self.api,
+                self.wdi,
                 zenodo_id = id
             )
 

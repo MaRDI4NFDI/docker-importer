@@ -6,23 +6,23 @@ FROM python:3.11-slim
 
 # cron defaults
 ENV IMPORT_DEFAULT_GID="9001" \
-	IMPORT_DEFAULT_UID="9001" 
+  IMPORT_DEFAULT_UID="9001" 
 
 # install cron and utilities
 RUN apt-get update && apt-get install --yes --no-install-recommends \
-		gcc \
-        cron \
-		bash \
-		gzip \
-		tzdata \
-		nano \
-		git \
-		libmariadb-dev \
-	&& rm -rf /var/cache/apk/*
+    gcc \
+    cron \
+    bash \
+    gzip \
+    tzdata \
+    nano \
+    git \
+    libmariadb-dev \
+  && rm -rf /var/cache/apk/*
 
 # Set up non-root user.
 RUN addgroup --gid "$IMPORT_DEFAULT_GID" import \
-	&& adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
+  && adduser --no-create-home --disabled-password --disabled-login --ingroup import --shell /bin/bash --uid $IMPORT_DEFAULT_UID --gecos "" import
 
 ##############################
 # Setup import script        #
@@ -53,9 +53,6 @@ RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/
 RUN echo "from .contentmath import ContentMath" \
     >> /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/__init__.py
-
-# Copy the unit tests to the image
-# COPY tests /tests
 
 # Copy configurations to the image
 COPY config /config

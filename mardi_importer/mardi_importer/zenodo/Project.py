@@ -1,4 +1,4 @@
-from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
+from mardiclient import MardiClient
 from mardi_importer.zenodo.Community import Community
 
 from dataclasses import dataclass, field

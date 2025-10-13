@@ -6,8 +6,8 @@ class ZBMathAuthor:
     Class to merge zbMath author items in the local wikibase instance.
 
     Attributes:
-        integrator:
-            MardiIntegrator instance
+        api:
+            MardiClient instance
         name:
             Author name
         zbmath_author_id:
@@ -16,8 +16,8 @@ class ZBMathAuthor:
             dict mapping labels to ids for frequently searched items and properties
     """
 
-    def __init__(self, integrator, name, zbmath_author_id, label_id_dict,):
-        self.api = integrator
+    def __init__(self, api, name, zbmath_author_id, label_id_dict,):
+        self.api = api
         if name:
             name_parts = name.strip().split(",")
             self.name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()

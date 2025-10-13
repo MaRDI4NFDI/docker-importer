@@ -2,33 +2,36 @@ import os
 import re
 import sqlalchemy as db
 
-from .MardiEntities import MardiItemEntity, MardiPropertyEntity
 from mardiclient import MardiClient
-from wikibaseintegrator import wbi_login
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
-from wikibaseintegrator.wbi_helpers import search_entities, execute_sparql_query
 from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
                                           Sense, String, TabularData, Time)
 
-class MardiIntegrator(MardiClient):
+class WikidataImporter():
     def __init__(self, languages=["en", "de"]) -> None:
-        super().__init__()
         self.languages = languages
-
-        self.setup = True
-        self.login = self.config()        
-        self.engine = self.create_engine()
-        self.mw_engine = self.create_engine(mediawiki=True)
+        self.api = MardiClient(
+            user=os.environ.get("WIKIDATA_USER"), 
+            password=os.environ.get("WIKIDATA_PASS"),
+            mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
+            sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
+            wikibase_url=os.environ.get("WIKIBASE_URL"),
+            importer_api_url="http://importer-api",
+            user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
+        )
+        self.setup()
+    
+    def setup(self) -> None:
+        """Initialize database connections and Wikidata-specific configurations."""
+        self.engine = self._create_engine()
+        self.mw_engine = self._create_engine(mediawiki=True)
         self.create_db_table()
 
         # local id of properties for linking to wikidata PID/QID
-        self.wikidata_PID = self.init_wikidata_PID() if self.setup else None
-        self.wikidata_QID = self.init_wikidata_QID() if self.setup else None
-
-        self.item = MardiItemEntity(api=self)
-        self.property = MardiPropertyEntity(api=self)
+        self.wikidata_PID = self._init_wikidata_PID()
+        self.wikidata_QID = self._init_wikidata_QID()
 
         self.excluded_properties = ['P1151', 'P1855', 'P2139', 'P2302', \
                                     'P2559', 'P2875', 'P3254', 'P3709', \
@@ -38,26 +41,7 @@ class MardiIntegrator(MardiClient):
         self.excluded_datatypes = ['wikibase-lexeme', 'wikibase-sense', \
                                    'wikibase-form', 'entity-schema']
 
-    def config(self):
-        """
-        Sets up initial configuration for the integrator
-
-        Returns:
-            Clientlogin object
-        """
-        if os.environ.get("IMPORTER_USER") and os.environ.get("IMPORTER_PASS"): 
-            wbi_config["USER_AGENT"] = os.environ.get("IMPORTER_AGENT")
-            wbi_config["MEDIAWIKI_API_URL"] = os.environ.get("MEDIAWIKI_API_URL")
-            wbi_config["SPARQL_ENDPOINT_URL"] = os.environ.get("SPARQL_ENDPOINT_URL")
-            wbi_config["WIKIBASE_URL"] = os.environ.get("WIKIBASE_URL")
-            return wbi_login.Clientlogin(
-                user=os.environ.get("IMPORTER_USER"),
-                password=os.environ.get("IMPORTER_PASS"),
-            )
-        else:
-            self.setup = False
-
-    def create_engine(self, mediawiki=False):
+    def _create_engine(self, mediawiki=False):
         """
         Creates SQLalchemy engine
 
@@ -193,7 +177,7 @@ class MardiIntegrator(MardiClient):
             connection.execute(ins)
             connection.commit()
 
-    def init_wikidata_PID(self):
+    def _init_wikidata_PID(self):
         """
         Searches the wikidata PID property ID to link
         properties to its ID in wikidata. When not found,
@@ -202,20 +186,18 @@ class MardiIntegrator(MardiClient):
         Returns
             wikidata_PID (str): wikidata PID property ID
         """
-        label = "Wikidata PID"
-        wikidata_PID = self.get_local_id_by_label(label, "property")
-        if not wikidata_PID:
-            prop = self.property.new()
-            prop.labels.set(language="en", value=label)
-            prop.descriptions.set(
-                language="en", 
-                value="Identifier in Wikidata of the corresponding properties"
-            )
-            prop.datatype = "external-id"
-            wikidata_PID = prop.write(login=self.login, as_new=True).id
-        return wikidata_PID
+        prop = self.api.property.new()
+        prop.labels.set(language="en", value="Wikidata PID")
+        prop.descriptions.set(
+            language="en", 
+            value="Identifier in Wikidata of the corresponding properties"
+        )        
+        prop.datatype = "external-id"
 
-    def init_wikidata_QID(self):
+        wikidata_PID = prop.exists()
+        return wikidata_PID or prop.write(login=self.api.login, as_new=True).id
+
+    def _init_wikidata_QID(self):
         """
         Searches the wikidata QID property ID to link
         items to its ID in wikidata. When not found,
@@ -224,18 +206,15 @@ class MardiIntegrator(MardiClient):
         Returns
             wikidata_QID (str): wikidata QID property ID
         """
-        label = "Wikidata QID"
-        wikidata_QID = self.get_local_id_by_label(label, "property")
-        if not wikidata_QID:
-            prop = self.property.new()
-            prop.labels.set(language="en", value=label)
-            prop.descriptions.set(
-                language="en", 
-                value="Corresponding QID in Wikidata"
-            )
-            prop.datatype = "external-id"
-            wikidata_QID = prop.write(login=self.login, as_new=True).id
-        return wikidata_QID
+        prop = self.api.property.new()
+        prop.labels.set(language="en", value="Wikidata QID")
+        prop.descriptions.set(
+            language="en", 
+            value="Corresponding QID in Wikidata"
+        )        
+        prop.datatype = "external-id"
+        wikidata_QID = prop.exists()
+        return wikidata_QID or prop.write(login=self.api.login, as_new=True).id
 
     def import_entities(self, id_list=None, filename="", recurse=True):
         """Function for importing entities from wikidata
@@ -273,7 +252,7 @@ class MardiIntegrator(MardiClient):
             has_all_claims = self.query('has_all_claims', wikidata_id)
             if not has_all_claims:
                 # API call
-                entity = self.get_wikidata_information(
+                entity = self._get_wikidata_information(
                     wikidata_id, 
                     recurse
                 )
@@ -296,9 +275,9 @@ class MardiIntegrator(MardiClient):
                         continue
 
                 if recurse:
-                    self.convert_claim_ids(entity)
+                    self._convert_claim_ids(entity)
 
-                entity.add_linker_claim(wikidata_id)
+                entity = self._add_wikidata_ID_claim(entity, wikidata_id)
                 
                 local_id = entity.exists()
                 if not local_id:
@@ -307,9 +286,9 @@ class MardiIntegrator(MardiClient):
                 if local_id:
                     # Update existing entity
                     if entity.type == "item":
-                        local_entity = self.item.get(entity_id=local_id)
+                        local_entity = self.api.item.get(entity_id=local_id)
                     elif entity.type == "property":
-                        local_entity = self.property.get(entity_id=local_id)
+                        local_entity = self.api.property.get(entity_id=local_id)
                     # replace descriptions
                     local_entity.descriptions = entity.descriptions
                     # add new claims if they are different from old claims
@@ -317,14 +296,14 @@ class MardiIntegrator(MardiClient):
                         entity.claims,
                         ActionIfExists.APPEND_OR_REPLACE,
                     )
-                    local_entity.write(login=self.login)
+                    local_entity.write(login=self.api.login)
                     if self.query('local_id', wikidata_id) and recurse:
                         self.update_has_all_claims(wikidata_id)
                     else:
                         self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
                 else:
                     # Create entity
-                    local_id = entity.write(login=self.login, as_new=True).id
+                    local_id = entity.write(login=self.api.login, as_new=True).id
                     self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)  
 
             if has_all_claims:
@@ -360,7 +339,7 @@ class MardiIntegrator(MardiClient):
             return self.query('local_id', wikidata_id)
         else:
             # API call
-            entity = self.get_wikidata_information(
+            entity = self._get_wikidata_information(
                 wikidata_id, 
                 recurse=True
             )
@@ -374,14 +353,14 @@ class MardiIntegrator(MardiClient):
                     if has_all_claims:
                         return self.query('local_id', wikidata_id)
 
-                self.convert_claim_ids(entity)
-                entity.add_linker_claim(wikidata_id)
+                self._convert_claim_ids(entity)
+                entity = self._add_wikidata_ID_claim(entity, wikidata_id)
                 
                 # Retrieve existing entity
                 if entity.type == "item":
-                    local_entity = self.item.get(entity_id=local_id)
+                    local_entity = self.api.item.get(entity_id=local_id)
                 elif entity.type == "property":
-                    local_entity = self.property.get(entity_id=local_id)
+                    local_entity = self.api.property.get(entity_id=local_id)
                 # replace descriptions
                 local_entity.descriptions = entity.descriptions
                 # add new claims if they are different from old claims
@@ -389,7 +368,7 @@ class MardiIntegrator(MardiClient):
                     entity.claims,
                     ActionIfExists.APPEND_OR_REPLACE,
                 )
-                local_entity.write(login=self.login)
+                local_entity.write(login=self.api.login)
                 if self.query('local_id', wikidata_id):
                     self.update_has_all_claims(wikidata_id)
                 else:
@@ -413,7 +392,7 @@ class MardiIntegrator(MardiClient):
 
             print(f"Updating entity {wikidata_id}")
 
-            entity = self.get_wikidata_information(wikidata_id, True)
+            entity = self._get_wikidata_information(wikidata_id, True)
 
             if not entity:
                 print(f"No labels for entity with id {wikidata_id}, skipping")
@@ -426,8 +405,8 @@ class MardiIntegrator(MardiClient):
 
             mardi_id = entity.exists()
             if mardi_id:
-                mardi_item = self.item.get(entity_id=mardi_id)
-                entity = self.convert_claim_ids(entity)
+                mardi_item = self.api.item.get(entity_id=mardi_id)
+                entity = self._convert_claim_ids(entity)
                 mardi_item.add_claims(entity.claims)
                 mardi_item = mardi_item.write()
                 self.update_has_all_claims(wikidata_id)
@@ -438,10 +417,9 @@ class MardiIntegrator(MardiClient):
 
         if len(updated_entities) == 1:
             return list(updated_entities.values())[0]
-        return updated_entities
-        
+        return updated_entities        
 
-    def import_claim_entities(self, wikidata_id):
+    def _import_claim_entities(self, wikidata_id):
         """Function for importing entities that are mentioned
         in claims from wikidata to the local wikibase instance
 
@@ -455,7 +433,7 @@ class MardiIntegrator(MardiClient):
         if local_id: 
             return local_id
     
-        entity = self.get_wikidata_information(wikidata_id)
+        entity = self._get_wikidata_information(wikidata_id)
 
         if not entity:
             return None
@@ -480,20 +458,20 @@ class MardiIntegrator(MardiClient):
 
         local_id = entity.exists()
         if local_id:
-            new_entity = (self.item if local_id.startswith('Q') else self.property).get(entity_id=local_id)
+            new_entity = (self.api.item if local_id.startswith('Q') else self.api.property).get(entity_id=local_id)
             new_entity.descriptions = entity.descriptions
             entity = new_entity
-            entity.add_linker_claim(wikidata_id)
-            local_id = entity.write(login=self.login).id
+            entity = self._add_wikidata_ID_claim(entity, wikidata_id)
+            local_id = entity.write(login=self.api.login).id
             as_new = False
         else:
-            entity.add_linker_claim(wikidata_id)
-            local_id = entity.write(login=self.login, as_new=True).id
+            entity = self._add_wikidata_ID_claim(entity, wikidata_id)
+            local_id = entity.write(login=self.api.login, as_new=True).id
 
         self.insert_id_in_db(wikidata_id, local_id, has_all_claims=False)
         return local_id
 
-    def get_wikidata_information(self, wikidata_id, recurse=False):
+    def _get_wikidata_information(self, wikidata_id, recurse=False):
         """Retrieves Wikidata information for a given entity ID.
 
         Args:
@@ -519,7 +497,7 @@ class MardiIntegrator(MardiClient):
             'entity_id': wikidata_id,
             'mediawiki_api_url': WIKIDATA_API_URL
         }
-        entity = (self.item if prefix == 'Q' else self.property).get(**params)
+        entity = (self.api.item if prefix == 'Q' else self.api.property).get(**params)
 
         if self.languages != "all":
             # Filter labels for desired languages
@@ -555,7 +533,7 @@ class MardiIntegrator(MardiClient):
 
         return entity
 
-    def convert_claim_ids(self, entity):
+    def _convert_claim_ids(self, entity):
         """Function for in-place conversion of wikidata
         ids found in claims into local ids
 
@@ -576,7 +554,7 @@ class MardiIntegrator(MardiClient):
         for prop_id, claim_list in claims.items():
             local_claim_list = []
             if prop_id not in self.excluded_properties:
-                local_prop_id = self.import_claim_entities(wikidata_id=prop_id)
+                local_prop_id = self._import_claim_entities(wikidata_id=prop_id)
                 if not local_prop_id:
                     print("Warning: local id skipped")
                     continue
@@ -584,7 +562,7 @@ class MardiIntegrator(MardiClient):
                     c_dict = c.get_json()
                     if c_dict["mainsnak"]["datatype"] in entity_names:
                         if "datavalue" in c_dict["mainsnak"]:
-                            local_mainsnak_id = self.import_claim_entities(
+                            local_mainsnak_id = self._import_claim_entities(
                                 wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
                             )
                             if not local_mainsnak_id:
@@ -606,23 +584,23 @@ class MardiIntegrator(MardiClient):
                     elif c_dict["mainsnak"]["datatype"] in self.excluded_datatypes:
                         continue
                     else:
-                        self.convert_entity_links(snak=c_dict["mainsnak"])
+                        self._convert_entity_links(snak=c_dict["mainsnak"])
                         new_c = c
                         new_c.mainsnak.property_number = local_prop_id
                         new_c.id = None
                     # get reference details
-                    new_references = self.get_references(c)
+                    new_references = self._get_references(c)
                     if new_references:
                         new_c.references.references = new_references
                     # get qualifier details
-                    new_qualifiers = self.get_qualifiers(c)
+                    new_qualifiers = self._get_qualifiers(c)
                     new_c.qualifiers = new_qualifiers
                     local_claim_list.append(new_c)
                 new_claims[local_prop_id] = local_claim_list
         entity.claims.claims = new_claims
         return entity
 
-    def get_references(self, claim):
+    def _get_references(self, claim):
         """Function for creating references from wikidata references
         and in place adding them to the claim
 
@@ -646,7 +624,7 @@ class MardiIntegrator(MardiClient):
             snak_dict = ref.get_json()
             for prop_id, snak_list in snak_dict["snaks"].items():
                 new_snak_list = []
-                new_prop_id = self.import_claim_entities(
+                new_prop_id = self._import_claim_entities(
                     wikidata_id=prop_id,
                 )
                 if not new_prop_id:
@@ -655,7 +633,7 @@ class MardiIntegrator(MardiClient):
                     if snak["datatype"] in entity_names:
                         if not "datavalue" in snak:
                             continue
-                        new_snak_id = self.import_claim_entities(
+                        new_snak_id = self._import_claim_entities(
                             wikidata_id=snak["datavalue"]["value"]["id"],
                         )
                         if not new_snak_id:
@@ -665,7 +643,7 @@ class MardiIntegrator(MardiClient):
                     elif snak["datatype"] in self.excluded_datatypes:
                         continue
                     else:
-                        self.convert_entity_links(
+                        self._convert_entity_links(
                             snak=snak,
                         )
                     snak["property"] = new_prop_id
@@ -679,7 +657,7 @@ class MardiIntegrator(MardiClient):
             new_ref_list.append(r.from_json(json_data=complete_new_snak_dict))
         return new_ref_list
 
-    def get_qualifiers(self, claim):
+    def _get_qualifiers(self, claim):
         """Function for creating qualifiers from wikidata qualifiers
         and in place adding them to the claim
 
@@ -696,7 +674,7 @@ class MardiIntegrator(MardiClient):
         qual_dict = claim.qualifiers.get_json()
         new_qual_dict = {}
         for qual_id, qual_list in qual_dict.items():
-            new_qual_id = self.import_claim_entities(wikidata_id=qual_id)
+            new_qual_id = self._import_claim_entities(wikidata_id=qual_id)
             if not new_qual_id:
                 continue
             new_qual_list = []
@@ -704,7 +682,7 @@ class MardiIntegrator(MardiClient):
                 if qual_val["datatype"] in entity_names:
                     if not "datavalue" in qual_val:
                         continue
-                    new_qual_val_id = self.import_claim_entities(
+                    new_qual_val_id = self._import_claim_entities(
                         wikidata_id=qual_val["datavalue"]["value"]["id"],
                     )
                     if not new_qual_val_id:
@@ -716,7 +694,7 @@ class MardiIntegrator(MardiClient):
                 elif qual_val["datatype"] in self.excluded_datatypes:
                     continue
                 else:
-                    self.convert_entity_links(
+                    self._convert_entity_links(
                         snak=qual_val,
                     )
                 qual_val["property"] = new_qual_id
@@ -726,7 +704,7 @@ class MardiIntegrator(MardiClient):
         qualifiers = q.from_json(json_data=new_qual_dict)
         return qualifiers
 
-    def convert_entity_links(self, snak):
+    def _convert_entity_links(self, snak):
         """Function for in-place conversion of unit for quantity 
         and globe for globecoordinate to a link to the local entity 
         instead of a link to the wikidata entity.
@@ -755,10 +733,32 @@ class MardiIntegrator(MardiClient):
             return
         if "www.wikidata.org/" in link_string:
             uid = link_string.split("/")[-1]
-            local_id = self.import_claim_entities(
+            local_id = self._import_claim_entities(
                 wikidata_id=uid,
             )
             data[key_string] = wbi_config["WIKIBASE_URL"] + "/entity/" + local_id
+
+    def _add_wikidata_ID_claim(self, entity, wikidata_id):
+        """Function for in-place addition of a claim with the
+        property that points to the wikidata id
+        to the local entity
+
+        Args:
+            entity: WikibaseIntegrator entity whose claims
+                    this should be added to
+            wikidata_id: wikidata id of the wikidata item
+        """
+        if wikidata_id.startswith('Q'):
+            claim = ExternalID(
+                value=wikidata_id,
+                prop_nr=self.wikidata_QID,
+            )
+        elif wikidata_id.startswith('P'):
+            claim = ExternalID(
+                value=wikidata_id,
+                prop_nr=self.wikidata_PID,
+            )
+        return entity.add_claims(claim)
 
     def query(self, parameter, wikidata_id):
         """Query the wb_id_mapping db table for a given parameter.
@@ -798,114 +798,3 @@ class MardiIntegrator(MardiClient):
                     else:
                         return f"P{db_result[0]}"
                 return db_result[0]
-            
-    def query_with_local_id(self, parameter, local_id):
-        """Query the wb_id_mapping db table for a given parameter.
-
-        The two important parameters are the wikidata_id and whether the
-        entity has already been imported with all claims
-
-        Args:
-            parameter (str): Either wikidata_id or has_all_claims
-            local_id (str): local ID
-        Returns:
-            str or boolean: for wikidata_id returns the wikidata ID if it exists,
-                otherwise None. For has_all_claims, a boolean is returned.
-        """
-        metadata = db.MetaData()
-
-        table_name = "items"
-        if local_id.startswith('P'):
-            table_name = "properties"
-
-        table = db.Table(
-            table_name, 
-            metadata,
-            autoload_with=self.engine
-        )
-
-        if parameter in ['wikidata_id', 'has_all_claims']:
-            sql = db.select(table.columns[parameter]).where(
-                table.columns.local_id == local_id[1:],
-            )
-            with self.engine.connect() as connection:
-                db_result = connection.execute(sql).fetchone()
-            if db_result:
-                if parameter == 'wikidata_id':
-                    if local_id.startswith('Q'):
-                        return f"Q{db_result[0]}"
-                    else:
-                        return f"P{db_result[0]}"
-                return db_result[0]
-
-    def get_local_id_by_label(self, entity_str, entity_type):
-        """Check if entity with a given label or wikidata PID/QID 
-        exists in the local wikibase instance. 
-
-        Args:
-            entity_str (str): It can be a string label or a wikidata ID, 
-                specified with the prefix wdt: for properties and wd:
-                for items.
-            entity_type (str): Either 'property' or 'item' to specify
-                which type of entity to look for.
-
-        Returns:
-           str: Local ID of the entity, if found.
-        """
-        if re.match("^[PQ]\d+$", entity_str):
-            return entity_str
-        elif not entity_str.startswith("wdt:") and not entity_str.startswith("wd:"):
-            if entity_type == "property":
-                new_property = MardiPropertyEntity(api=self).new()
-                new_property.labels.set(language='en', value=entity_str)
-                return new_property.get_PID()
-            elif entity_type == "item":
-                new_item = MardiItemEntity(api=self).new()
-                new_item.labels.set(language='en', value=entity_str)
-                return new_item.get_QID()
-        elif entity_str.startswith("wdt:"):
-            wikidata_id = entity_str[4:]
-        elif entity_str.startswith("wd:"):
-            wikidata_id = entity_str[3:]
-
-        with self.engine.connect() as connection:
-            metadata = db.MetaData()
-            table_name = "items"
-            if wikidata_id.startswith('P'):
-                table_name = "properties"
-            table = db.Table(
-                table_name, 
-                metadata,
-                autoload_with=self.engine
-            )
-            sql = db.select(table.columns.local_id).where(
-                table.columns.wikidata_id == wikidata_id[1:],
-            )
-            db_result = connection.execute(sql).fetchone()
-            if db_result:
-                if wikidata_id.startswith('Q'):
-                    return f"Q{db_result[0]}"
-                else:
-                    return f"P{db_result[0]}"
-
-    def import_from_label(self, label):
-        """
-        Imports an entity from Wikidata just from a label
-
-        Args:
-            label (str): label to be imported from wikidata
-
-        Returns:
-            local_id (str): local id for the imported entity
-        """
-        results = search_entities(label, 
-                                  dict_result=True,
-                                  mediawiki_api_url='https://www.wikidata.org/w/api.php')
-        for result in results:
-            if label == result['label']:
-                return self.import_entities(result['id'])
-            if label.lower() == result['label'].lower():
-                return self.import_entities(result['id'])
-            if result['aliases']:
-                if label.lower() == result['aliases'][0].lower():
-                    return self.import_entities(result['id'])

@@ -16,8 +16,7 @@ import requests
 from time import sleep
 from ast import literal_eval
 
-from mardi_importer.integrator import MardiIntegrator
-from mardi_importer.importer import ADataSource
+from mardi_importer.base import ADataSource
 from .ZBMathPublication import ZBMathPublication
 from .ZBMathAuthor import ZBMathAuthor
 from .ZBMathJournal import ZBMathJournal
@@ -29,6 +28,8 @@ class ZBMathSource(ADataSource):
 
     def __init__(
         self,
+        user,
+        password,
         out_dir,
         tags,
         from_date=None,
@@ -50,6 +51,8 @@ class ZBMathSource(ADataSource):
         # load the list of swMath software
         # software_df = pd.read_csv(path)
         # self.software_list = software_df['Software'].tolist()
+        super().__init__(user, password)
+
         if out_dir[-1] != "/":
             out_dir = out_dir + "/"
         self.out_dir = out_dir
@@ -61,7 +64,6 @@ class ZBMathSource(ADataSource):
         self.from_date = from_date
         self.until_date = until_date
         self.tags = tags
-        self.integrator = MardiIntegrator()
         self.conflict_string = (
             "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
         )
@@ -81,53 +83,30 @@ class ZBMathSource(ADataSource):
 
     def setup(self):
         """Create all necessary properties and entities for zbMath"""
+
         # Import entities from Wikidata
-        filename = self.filepath + "/wikidata_entities.txt"
-        self.integrator.import_entities(filename=filename)
-        #self.create_local_entities()
+        self.import_wikidata_entities("/wikidata_entities.txt")
+
+        # Create new required local entities
+        # self.create_local_entities("/new_entities.json")
+
         self.label_id_dict = {}
-        self.label_id_dict["de_number_prop"] = self.integrator.get_local_id_by_label( #de_number_prop
+        self.label_id_dict["de_number_prop"] = self.api.get_local_id_by_label( #de_number_prop
             "zbMATH DE Number", "property"
         )
-        self.label_id_dict["keyword_prop"] = self.integrator.get_local_id_by_label( #keyword_prop
+        self.label_id_dict["keyword_prop"] = self.api.get_local_id_by_label( #keyword_prop
             "zbMATH Keywords", "property"
         )
-        self.label_id_dict["review_prop"] = self.integrator.get_local_id_by_label("review text", "property")
-        self.label_id_dict["mardi_profile_type_prop"] = self.integrator.get_local_id_by_label("MaRDI profile type", "property")
-        self.label_id_dict["mardi_publication_profile_item"] = self.integrator.get_local_id_by_label(
+        self.label_id_dict["review_prop"] = self.api.get_local_id_by_label("review text", "property")
+        self.label_id_dict["mardi_profile_type_prop"] = self.api.get_local_id_by_label("MaRDI profile type", "property")
+        self.label_id_dict["mardi_publication_profile_item"] = self.api.get_local_id_by_label(
             "Publication", "item"
         )[0]
-        self.label_id_dict["mardi_person_profile_item"] = self.integrator.get_local_id_by_label("Person", "item")[0]
-
-
-
-    def create_local_entities(self):
-        filename = self.filepath + "/new_entities.json"
-        f = open(filename)
-        entities = json.load(f)
-
-        for prop_element in entities["properties"]:
-            prop = self.integrator.property.new()
-            prop.labels.set(language="en", value=prop_element["label"])
-            prop.descriptions.set(language="en", value=prop_element["description"])
-            prop.datatype = prop_element["datatype"]
-            if not prop.exists():
-                prop.write()
-
-        for item_element in entities["items"]:
-            item = self.integrator.item.new()
-            item.labels.set(language="en", value=item_element["label"])
-            item.descriptions.set(language="en", value=item_element["description"])
-            if "claims" in item_element:
-                for key, value in item_element["claims"].items():
-                    item.add_claim(key, value=value)
-            if not item.exists():
-                item.write()
+        self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("Person", "item")[0]
 
     def pull(self):
         #self.write_data_dump()
         self.process_data()
-
 
     def get_line(self, values):
         new_values = []
@@ -512,7 +491,7 @@ class ZBMathSource(ADataSource):
                             for attempt in range(5):
                                 try:
                                     author = ZBMathAuthor(
-                                        integrator=self.integrator,
+                                        api=self.api,
                                         name=a,
                                         zbmath_author_id=a_id,
                                         label_id_dict=self.label_id_dict,
@@ -556,7 +535,7 @@ class ZBMathSource(ADataSource):
                         for attempt in range(5):
                             try:
                                 journal_item = ZBMathJournal(
-                                    integrator=self.integrator, name=journal_string
+                                    api=self.api, name=journal_string
                                 )
                                 if journal_item.exists():
                                     print(f"Journal {journal_string} exists!")
@@ -650,7 +629,7 @@ class ZBMathSource(ADataSource):
                             for attempt in range(5):
                                 try:
                                     reviewer_object = ZBMathAuthor(
-                                        integrator=self.integrator,
+                                        api=self.api,
                                         name=reviewer_name,
                                         zbmath_author_id=reviewer_id,
                                         label_id_dict = self.label_id_dict,
@@ -699,7 +678,7 @@ class ZBMathSource(ADataSource):
                 for attempt in range(5):
                     try:
                         publication = ZBMathPublication(
-                            integrator=self.integrator,
+                            api=self.api,
                             title=document_title,
                             doi=doi,
                             authors=authors,
@@ -734,7 +713,7 @@ class ZBMathSource(ADataSource):
                                     if publication.classfications:
                                         classification_claims = []
                                         for c in publication.classifications:
-                                            claim = self.integrator.get_claim("P226", c)
+                                            claim = self.api.get_claim("P226", c)
                                             classification_claims.append(claim)
                                         arxiv_item.add_claims(classification_claims)
                                         changed = True
@@ -742,7 +721,7 @@ class ZBMathSource(ADataSource):
                                     if publication.authors:
                                         author_claims = []
                                         for author in publication.authors:
-                                            claim = self.integrator.get_claim("wdt:P50", author)
+                                            claim = self.api.get_claim("wdt:P50", author)
                                             author_claims.append(claim)
                                         arxiv_item.add_claims(author_claims)
                                         changed=True
@@ -771,7 +750,7 @@ class ZBMathSource(ADataSource):
 
 
     def create_arxiv_item(self, publication, info_dict):
-        item = self.integrator.item.new()
+        item = self.api.item.new()
         item.labels.set(language="en", value=publication.title)
         item.descriptions.set(
             language="en",
@@ -781,25 +760,25 @@ class ZBMathSource(ADataSource):
             arxiv_classification = re.search(r'\[(.*?)\]', info_dict['source']).group(1)
             item.add_claim('P22', arxiv_classification)
         if publication.time:
-            claim = self.integrator.get_claim("P28", publication.time)
+            claim = self.api.get_claim("P28", publication.time)
             item.add_claims([claim])
         arxiv_id = publication.zbl_id.split(":")[-1]
         item.add_claim('P21', arxiv_id)
         if publication.authors:
             author_claims = []
             for author in publication.authors:
-                claim = self.integrator.get_claim("wdt:P50", author)
+                claim = self.api.get_claim("wdt:P50", author)
                 author_claims.append(claim)
             item.add_claims(author_claims)
         return(item)
 
 
     def arxiv_exists(self, arxiv_id):
-        arxiv_qid = self.integrator.search_entity_by_value("P21", arxiv_id)
+        arxiv_qid = self.api.search_entity_by_value("P21", arxiv_id)
         if not arxiv_qid:
             return None
         arxiv_qid = arxiv_qid[0]
-        arxiv_item = self.integrator.item.get(entity_id=arxiv_qid)
+        arxiv_item = self.api.item.get(entity_id=arxiv_qid)
         return arxiv_item
 
     def get_de_number(self, xml_record):

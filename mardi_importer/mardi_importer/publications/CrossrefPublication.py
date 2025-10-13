@@ -7,15 +7,16 @@ from habanero import Crossref
 from httpx import HTTPStatusError
 from typing import List
 
-from wikibaseintegrator.wbi_enums import ActionIfExists
-from mardi_importer.integrator import MardiIntegrator
+from mardiclient import MardiClient
+from mardi_importer.wikidata import WikidataImporter
 from .Author import Author
 
 log = logging.getLogger('CRANlogger')
 
 @dataclass
 class CrossrefPublication:
-    api: MardiIntegrator
+    api: MardiClient
+    wdi: WikidataImporter
     doi: str
     authors: List[Author] = field(default_factory=list)
     title: str = ""
@@ -65,7 +66,8 @@ class CrossrefPublication:
                 if author_item.aliases.get('en'):
                     for alias in author_item.aliases.get('en'):
                         aliases.append(str(alias))
-                author = Author(self.api, 
+                author = Author(self.api,
+                                self.wdi,
                                 name=name,
                                 orcid=orcid,
                                 _aliases=aliases,
@@ -223,9 +225,9 @@ class CrossrefPublication:
                             author_label = f"{author['given'].title()} {author['family'].title()}"
                             if 'ORCID' in author.keys():
                                 orcid_id = re.findall("\d{4}-\d{4}-\d{4}-.{4}", author['ORCID'])[0]
-                                self.authors.append(Author(self.api, name=author_label, orcid=orcid_id))
+                                self.authors.append(Author(self.api, self.wdi, name=author_label, orcid=orcid_id))
                             else:
-                                self.authors.append(Author(self.api, name=author_label))
+                                self.authors.append(Author(self.api, self.wdi, name=author_label))
 
                 if 'relation' in metadata.keys():
                     if 'is-preprint-of' in metadata['relation'].keys():

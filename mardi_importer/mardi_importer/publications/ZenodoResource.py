@@ -1,4 +1,5 @@
-from mardi_importer.integrator.MardiIntegrator import MardiIntegrator
+from mardiclient import MardiClient
+from mardi_importer.wikidata import WikidataImporter
 from mardi_importer.publications.Author import Author
 from mardi_importer.zenodo.Community import Community
 from mardi_importer.zenodo.Project import Project
@@ -13,7 +14,8 @@ CLEANR = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});') # used to
 
 @dataclass
 class ZenodoResource():
-    api: MardiIntegrator
+    api: MardiClient
+    wdi: WikidataImporter
     zenodo_id: str
     title: str = None
     _description: str = None
@@ -53,7 +55,8 @@ class ZenodoResource():
                 if author_item.aliases.get('en'):
                     for alias in author_item.aliases.get('en'):
                         aliases.append(str(alias))
-                author = Author(self.api, 
+                author = Author(self.api,
+                                self.wdi, 
                                 name=name,
                                 orcid=orcid,
                                 _aliases=aliases,
@@ -101,7 +104,7 @@ class ZenodoResource():
                 name = creator.get('name')
                 orcid = creator.get('orcid')
                 affiliation = creator.get('affiliation')
-                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
+                author = Author(self.api, self.wdi, name=name, orcid=orcid, affiliation=affiliation)
                 self._authors.append(author)
         return self._authors
 
@@ -143,7 +146,7 @@ class ZenodoResource():
                 for communityCur in self.metadata["communities"]:
                     community_id = communityCur.get("id")
                     if community_id == "mathplus":
-                        community = Community(api = self.api, community_id = community_id)
+                        community = Community(api = self.api, wdi=self.wdi, community_id = community_id)
                         self._communities.append(community)
         return self._communities
     
@@ -227,7 +230,7 @@ class ZenodoResource():
                 name = creator.get('name')
                 orcid = creator.get('orcid')
                 affiliation = creator.get('affiliation')
-                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
+                author = Author(self.api, self.wdi, name=name, orcid=orcid, affiliation=affiliation)
                 new_authors.append(author)
 
             author_QID = self.__preprocess_authors()

@@ -4,8 +4,8 @@ class OpenMLPublication:
     """ Class to manage OpenML publications in the local Wikibase instance.
     If there is already an item with this doi or arxiv id, it gets fetched.
     Attributes:
-        integrator:
-            MardiIntegrator instance
+        api:
+            MardiClient instance
         identifier:
             arxiv id or doi
         identifier_type:
@@ -14,11 +14,11 @@ class OpenMLPublication:
 
     def __init__(
         self,
-        integrator,
+        api,
         identifier,
         identifier_type,
     ):
-        self.api = integrator
+        self.api = api
         self.identifier = identifier
         self.identifier_type = identifier_type
         self.item = self.api.item.new()

@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from feedparser.util import FeedParserDict
 from typing import List
 
-from mardi_importer.integrator import MardiIntegrator
+from mardiclient import MardiClient
+from mardi_importer.wikidata import WikidataImporter
 from mardi_importer.polydb.Author import Author
-from wikibaseintegrator.wbi_enums import ActionIfExists
 
 log = logging.getLogger('CRANlogger')
 
@@ -50,7 +50,8 @@ taxonomy = ["cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", \
 
 @dataclass
 class Arxiv():
-    api: MardiIntegrator
+    api: MardiClient
+    wdi: WikidataImporter
     arxiv_id: str
     _title: str = None
     _abstract: str = None
@@ -176,10 +177,11 @@ class Arxiv():
                             finish = True
                             orcid = self.get_orcid(soup)
                             return Author(self.api,
+                                          self.wdi,
                                           name=name,
                                           orcid=orcid, 
                                           arxiv_id=arxiv_author_id)
-        return Author(self.api, name=name)
+        return Author(self.api, self.wdi, name=name)
 
     @staticmethod
     def arxiv_api(arxiv_id: str) -> FeedParserDict:
@@ -199,7 +201,8 @@ class Arxiv():
 
 @dataclass
 class ArxivPublication():
-    api: MardiIntegrator
+    api: MardiClient
+    wdi: WikidataImporter
     arxiv_id: str
     metadata: Arxiv = None
     title: str = None
@@ -227,7 +230,8 @@ class ArxivPublication():
                 arxiv_author_id = author_item.get_value('wdt:P4594')
                 arxiv_author_id = arxiv_author_id[0] if arxiv_author_id else None
                 aliases = author_item.aliases.get('en')
-                author = Author(self.api, 
+                author = Author(self.api,
+                                self.wdi,
                                 name=name,
                                 orcid=orcid,
                                 arxiv_id=arxiv_author_id,

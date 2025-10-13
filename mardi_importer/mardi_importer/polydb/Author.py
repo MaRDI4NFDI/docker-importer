@@ -4,8 +4,9 @@ from wikibaseintegrator.wbi_helpers import search_entities, merge_items
 from nameparser import HumanName
 
 class Author:
-    def __init__(self, api, name="", orcid=None, arxiv_id=None, affiliation=None, aliases=[], QID=None):
+    def __init__(self, api, wdi, name="", orcid=None, arxiv_id=None, affiliation=None, aliases=[], QID=None):
         self.api = api
+        self.wdi = wdi
         self.name = self.parse_name(name)
         self.orcid = orcid
         self.arxiv_id = arxiv_id
@@ -81,7 +82,8 @@ class Author:
             item.aliases.set(language="en", values=aliases)
             item.write()
 
-        return Author(self.api, 
+        return Author(self.api,
+                      self.wdi,
                       name=long_name, 
                       orcid=orcid, 
                       arxiv_id=arxiv_id,
@@ -160,7 +162,6 @@ class Author:
         # Orcid ID
         if self.orcid:
             self._item.add_claim('ORCID iD', self.orcid)
-            self.sync_with_wikidata()
 
         if self.QID:
             self._item = self.api.item.get(self.QID)
@@ -190,64 +191,7 @@ class Author:
     def add_affiliation(self):
         if self.affiliation.startswith('wd:'):
             affiliation_qid = self.affiliation.split(':')[1]
-            local_qid = self.api.query('local_id', affiliation_qid)
+            local_qid = self.wdi.query('local_id', affiliation_qid)
             if not local_qid:
-                local_qid = self.api.import_entities(affiliation_qid)
+                local_qid = self.wdi.import_entities(affiliation_qid)
             self._item.add_claim("wdt:P108", local_qid)
-        elif len(self.affiliation) > 8:
-            affiliation = self.api.import_from_label(self.affiliation)
-            if affiliation:
-                self._item.add_claim("wdt:P108", affiliation)
-
-    def sync_with_wikidata(self, name=None):
-
-        def get_orcid(item) -> str:
-            """Inner function to extract ORCID iD value
-            """
-            orcid_claims = []
-            if 'P496' in item.claims.get_json().keys():
-                orcid_claims = item.claims.get('P496')
-
-            for claim in orcid_claims:
-                claim = claim.get_json()
-                if claim['mainsnak']['datatype'] == "external-id":
-                    return claim['mainsnak']['datavalue']['value']
-
-        if name: 
-            search_string = name
-        else:
-            search_string = self.name
-
-        results = search_entities(
-            search_string=search_string,
-            mediawiki_api_url='https://www.wikidata.org/w/api.php'
-            )
-
-        for result in results:
-            item = self.api.item.get(
-                entity_id=result,
-                mediawiki_api_url='https://www.wikidata.org/w/api.php'
-                )
-
-            if get_orcid(item) == self.orcid:
-                if self.QID:
-                    local_id = self.api.query('local_id', item.id)
-                    if local_id and local_id != self.QID:
-                        self.api.overwrite_entity(result, local_id)
-                        merge_items(self.QID, local_id, login=self.api.login, is_bot=True)
-                        self._QID = local_id
-                    else:
-                        self._QID = self.api.overwrite_entity(result, self.QID)
-                else:
-                    self._QID = self.api.import_entities(result)
-                return self.QID
-
-        if not name:
-            words = (self.name).split(" ")
-            if len(words) == 3 and len(words[1]) <= 2:
-                shortened_name = " ".join([words[0], words[2]])
-                if self.sync_with_wikidata(shortened_name):
-                    item = self.api.item.get(entity_id=self.QID)
-                    item.aliases.set(language='en', values=self.name)
-                    item.write()
-                    return self.QID

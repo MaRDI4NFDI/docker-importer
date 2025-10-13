@@ -1,8 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-from mardi_importer.importer.Importer import ADataSource, ImporterException
-from mardi_importer.integrator import MardiIntegrator
+from mardi_importer.base import ADataSource
 from .RPackage import RPackage
 
 import pandas as pd
@@ -25,40 +21,18 @@ class CRANSource(ADataSource):
           each package in CRAN.
     """
 
-    def __init__(self):
-        self.integrator = MardiIntegrator()
-        self.filepath = os.path.realpath(os.path.dirname(__file__)) 
+    def __init__(self, user: str, password: str):
+        super().__init__(user, password)
         self.packages = ""
 
     def setup(self):
         """Create all necessary properties and entities for CRAN
         """
         # Import entities from Wikidata
-        filename = self.filepath + "/wikidata_entities.txt"
-        self.integrator.import_entities(filename=filename)
+        self.import_wikidata_entities("/wikidata_entities.txt")
 
         # Create new required local entities
-        self.create_local_entities()
-
-    def create_local_entities(self):
-        filename = self.filepath + "/new_entities.json"
-        f = open(filename)
-        entities = json.load(f)
-
-        for prop_element in entities['properties']:
-            prop = self.integrator.property.new()
-            prop.labels.set(language='en', value=prop_element['label'])
-            prop.descriptions.set(language='en', value=prop_element['description'])
-            prop.datatype = prop_element['datatype']
-            if not prop.exists(): prop.write()
-
-        for item_element in entities['items']:
-            item = self.integrator.item.new()
-            item.labels.set(language='en', value=item_element['label'])
-            item.descriptions.set(language='en', value=item_element['description'])
-            for key, value in item_element['claims'].items():
-                item.add_claim(key,value=value)
-            if not item.exists(): item.write()
+        self.create_local_entities("/new_entities.json")
 
     def pull(self):
         """Reads **date**, **package name** and **title** from the CRAN Repository URL.
@@ -67,21 +41,12 @@ class CRANSource(ADataSource):
 
         Returns:
             Pandas dataframe: Attribute ``packages``
-
-        Raises:
-            ImporterException: If table at the CRAN url cannot be accessed or read.
         """
         url = r"https://cran.r-project.org/web/packages/available_packages_by_date.html"
 
-        try:
-            tables = pd.read_html(url)  # Returns list of all tables on page
-        except Exception as e:
-            raise ImporterException(
-                "Error attempting to read table from CRAN url\n{}".format(e)
-            )
-        else:
-            self.packages = tables[0]
-            return self.packages
+        tables = pd.read_html(url)
+        self.packages = tables[0]
+        return self.packages
 
     def push(self):
         """Updates the MaRDI Wikibase entities corresponding to R packages.
@@ -110,7 +75,7 @@ class CRANSource(ADataSource):
             #flag = True
             #if package_label == "GeoModels":
 
-            package = RPackage(package_date, package_label, package_title, self.integrator)
+            package = RPackage(package_date, package_label, package_title, self.api, self.wdi)
             if package.exists():
                 if not package.is_updated():
                     print(f"Package {package_label} found: Not up to date. Attempting update...")

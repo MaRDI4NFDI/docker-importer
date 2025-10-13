@@ -70,7 +70,7 @@ class ADataSource(ABC):
             item = self.api.item.new()
             item.labels.set(language='en', value=item_element['label'])
             item.descriptions.set(language='en', value=item_element['description'])
-            for key, value in item_element['claims'].items():
+            for key, value in item_element.get('claims', {}).items():
                 item.add_claim(key,value=value)
             if not item.exists(): item.write()
 

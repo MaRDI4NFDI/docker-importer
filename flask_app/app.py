@@ -1,36 +1,80 @@
 from flask import Flask, request, jsonify 
-from mardi_importer.integrator import MardiIntegrator
+from mardi_importer.wikidata import WikidataImporter
+from mardi_importer.polydb import CrossrefPublication
+from mardiclient import MardiClient
+import os
+import re
+
+import logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
 app = Flask(__name__)
 
-@app.get("/test")
-def test():
-    return{"status": "ok"}
+def as_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    if isinstance(value, str):
+        return [v.strip() for v in re.split(r'[,\s]+', value) if v.strip()]
+    return [str(value).strip()]
 
 @app.post("/import/wikidata")
 def import_wikidata():
-    data = request.get_json()
-    qid = data.get("qid")
-    if not qid:
-        return jsonify(error="missing qid"), 400
-    integrator = MardiIntegrator()
-    integrator.import_entities(id_list = qid)
-    result = {"qid": qid, "imported": True}
-    return jsonify(result), 202
+    data = request.get_json(silent=True) or {}
+    qids = as_list(data.get("qids"))
+    if not qids:
+        return jsonify(error="missing qids"), 400
+    wdi = WikidataImporter()
+    results, errors = [], []
+    for q in qids:
+        try:
+            imported_q = wdi.import_entities(q)
+            results.append({"qid": imported_q, "result": imported_q is not None})
+        except Exception as e:
+            log.error("importing wikidata failed: %s", e, exc_info=True)
+            errors.append({"qid": q, "error": str(e)})
+    return jsonify({
+        "qids": qids,
+        "count": len(qids),
+        "results": results,
+        "errors": errors,
+        "imported": len(errors) == 0
+    }), 200
 
-@app.get("/test/wikidata")
-def test_import_wikidata():
-    qid = request.args.get("qid")
-    if not qid:
-        return jsonify(error="missing qid"), 400
-    integrator = MardiIntegrator()
-    integrator.import_entities(id_list = qid)
-    result = {"qid": qid, "imported": True}
-    return jsonify(result), 202
 
-
-@app.get("/haha")
-def haha():
-    return "hahaha"
+@app.post("/import/doi")
+def import_doi():
+    data = request.get_json(silent=True) or {}
+    dois = as_list(data.get("dois"))
+    if not dois:
+        return jsonify(error="missing doi"), 400
+    wdi = WikidataImporter()
+    api = MardiClient(
+            user= os.environ.get("FLASK_USER"),
+            password= os.environ.get("FLASK_PASS"),
+            mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
+            sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
+            wikibase_url=os.environ.get("WIKIBASE_URL"),
+            importer_api_url="http://importer-api"
+        )
+    results, errors = [], []
+    for doi in dois:
+        try:
+            pub = CrossrefPublication(api, wdi, doi)
+            result = pub.create()
+            results.append({"doi":doi, "result": result})
+        except Exception as e: 
+            log.error("importing doi failed: %s", e, exc_info=True)
+            errors.append({"doi": doi, "error": str(e)})
+    return jsonify({
+        "dois": dois,
+        "count": len(dois),
+        "results": results,
+        "errors": errors,
+        "imported": len(errors) == 0
+    }), 200
 
 if __name__ == "__main__":
     app.run(host = "0.0.0.0", port=8000)

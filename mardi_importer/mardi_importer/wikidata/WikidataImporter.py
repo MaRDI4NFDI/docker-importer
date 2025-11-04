@@ -10,7 +10,19 @@ from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, G
                                           Sense, String, TabularData, Time)
 
 class WikidataImporter():
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, languages=["en", "de"]) -> None:
+
+        if self._initialized:
+            return
+
         self.languages = languages
         self.api = MardiClient(
             user=os.environ.get("WIKIDATA_USER"), 
@@ -22,6 +34,7 @@ class WikidataImporter():
             user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
         )
         self.setup()
+        WikidataImporter._initialized = True
     
     def setup(self) -> None:
         """Initialize database connections and Wikidata-specific configurations."""

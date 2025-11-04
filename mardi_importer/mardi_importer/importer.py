@@ -1,10 +1,14 @@
 from typing import Dict, Type, Tuple
+from mardiclient import MardiClient
+from mardi_importer.base import ADataSource
+
 import os
 
-class SourceRegistry:
+class Importer:
     """Central registry for all data sources."""
     _sources: Dict[str, Type['ADataSource']] = {}
     _credentials: Dict[str, Tuple[str, str]] = {}
+    _apis: Dict[str, MardiClient] = {}
     
     @classmethod
     def register(cls, name: str, source_class: Type['ADataSource'], 
@@ -45,4 +49,25 @@ class SourceRegistry:
                 missing.append(password_env_var)
             raise ValueError(f"Missing required environment variables for {name}: {', '.join(missing)}")
         
-        return cls._sources[name](user=user, password=password)
+        source = cls._sources[name](user=user, password=password)
+
+        cls._apis[name] = source.api
+
+        return source
+
+    @classmethod
+    def get_api(cls, source_name: str) -> MardiClient:
+        """
+        Get the API instance for a source.
+        Creates the source if it doesn't exist yet.
+        
+        Args:
+            source_name: Registered name of the source
+            
+        Returns:
+            MardiClient instance for the source
+        """
+        if source_name not in cls._apis:
+            cls.create_source(source_name)
+        
+        return cls._apis[source_name]

@@ -1,35 +1,20 @@
 from abc import ABC, abstractmethod
 from mardiclient import MardiClient
 from mardi_importer.wikidata import WikidataImporter
-from typing import Dict, Any
 import logging
 import inspect
 import os
 import json
 
-class Importer:
-    """Controller class for importing data from an external source to the local Wikibase."""
-
-    def __init__(self, dataSource: "ADataSource"):
-        """
-        Construct.
-        Args:
-            dataSource: object implementig ADataSource
-        """
-        self.dataSource = dataSource
-
-    def import_all(self, pull=True, push=True) -> None:
-        """
-        Manages the import process.
-        """
-        self.dataSource.setup()
-        if pull:
-            self.dataSource.pull()
-        if push:
-            self.dataSource.push()
-
 class ADataSource(ABC):
     """Abstract base class for reading data from external sources."""
+    _instances = {}
+    _initialized = set()
+
+    def __new__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super().__new__(cls)
+        return cls._instances[cls]
     
     def __init__(self, user: str, password: str):
         """Initialize common attributes for all sources.
@@ -38,6 +23,9 @@ class ADataSource(ABC):
             user: Username for authentication
             password: Password for authentication
         """
+        if self.__class__ in ADataSource._initialized:
+            return
+
         self.logger = logging.getLogger(self.__class__.__name__)
         self.filepath = os.path.realpath(os.path.dirname(inspect.getfile(self.__class__)))
         self.api = MardiClient(
@@ -49,6 +37,8 @@ class ADataSource(ABC):
             importer_api_url="http://importer-api"
         )
         self.wdi = WikidataImporter()
+        self.setup()
+        ADataSource._initialized.add(self.__class__)
 
     def import_wikidata_entities(self, filename: str):
         filename = self.filepath + filename
@@ -88,3 +78,12 @@ class ADataSource(ABC):
     def push(self) -> None:
         """Push data to the MaRDI knowledge graph."""
         pass
+
+    def import_all(self, pull=True, push=True) -> None:
+        """
+        Manages the import process.
+        """
+        if pull:
+            self.pull()
+        if push:
+            self.push()

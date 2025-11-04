@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from argparse import ArgumentParser
-from mardi_importer.sources import import_source
+from mardi_importer.importer import Importer
 
 
 def get_parser():
@@ -21,7 +21,11 @@ def main(**args):
     if args["mode"] == "ZBMath":
         pull = False
 
-    import_source(args["mode"], pull=pull, push=push)
+    source = Importer.create_source(args["mode"])
+    if pull:
+        source.pull()
+    if push:
+        source.push()
 
 if __name__ == "__main__":
     args = get_parser().parse_args()

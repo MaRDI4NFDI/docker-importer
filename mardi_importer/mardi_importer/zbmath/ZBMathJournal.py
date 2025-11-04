@@ -1,3 +1,5 @@
+from mardi_importer import Importer
+
 class ZBMathJournal:
     """Class to manage zbMath journal items in the local Wikibase instance.
 
@@ -9,11 +11,15 @@ class ZBMathJournal:
 
     """
 
-    def __init__(self, api, name):
-        self.api = api
+    def __init__(self, name):
         self.name = name.strip()
         self.QID = None
         self.item = self.init_item()
+        self.api = None
+
+    def __post_init__(self):
+        if self.api is None:
+            self.api = Importer.get_api('zbmath')
 
     def init_item(self):
         item = self.api.item.new()

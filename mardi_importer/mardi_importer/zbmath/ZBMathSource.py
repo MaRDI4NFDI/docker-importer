@@ -491,7 +491,6 @@ class ZBMathSource(ADataSource):
                             for attempt in range(5):
                                 try:
                                     author = ZBMathAuthor(
-                                        api=self.api,
                                         name=a,
                                         zbmath_author_id=a_id,
                                         label_id_dict=self.label_id_dict,
@@ -534,9 +533,7 @@ class ZBMathSource(ADataSource):
                     else:
                         for attempt in range(5):
                             try:
-                                journal_item = ZBMathJournal(
-                                    api=self.api, name=journal_string
-                                )
+                                journal_item = ZBMathJournal(journal_string)
                                 if journal_item.exists():
                                     print(f"Journal {journal_string} exists!")
                                     journal = journal_item.QID
@@ -629,7 +626,6 @@ class ZBMathSource(ADataSource):
                             for attempt in range(5):
                                 try:
                                     reviewer_object = ZBMathAuthor(
-                                        api=self.api,
                                         name=reviewer_name,
                                         zbmath_author_id=reviewer_id,
                                         label_id_dict = self.label_id_dict,
@@ -678,7 +674,6 @@ class ZBMathSource(ADataSource):
                 for attempt in range(5):
                     try:
                         publication = ZBMathPublication(
-                            api=self.api,
                             title=document_title,
                             doi=doi,
                             authors=authors,

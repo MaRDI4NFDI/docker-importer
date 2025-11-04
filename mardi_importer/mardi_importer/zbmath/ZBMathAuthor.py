@@ -1,13 +1,11 @@
 from wikibaseintegrator.wbi_helpers import execute_sparql_query, merge_items
-
+from mardi_importer import Importer
 
 class ZBMathAuthor:
     """
     Class to merge zbMath author items in the local wikibase instance.
 
     Attributes:
-        api:
-            MardiClient instance
         name:
             Author name
         zbmath_author_id:
@@ -16,8 +14,7 @@ class ZBMathAuthor:
             dict mapping labels to ids for frequently searched items and properties
     """
 
-    def __init__(self, api, name, zbmath_author_id, label_id_dict,):
-        self.api = api
+    def __init__(self, name, zbmath_author_id, label_id_dict,):
         if name:
             name_parts = name.strip().split(",")
             self.name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
@@ -27,6 +24,11 @@ class ZBMathAuthor:
         self.zbmath_author_id = zbmath_author_id.strip()
         self.label_id_dict = label_id_dict
         self.item = self.init_item()
+        self.api = None
+    
+    def __post_init__(self):
+        if self.api is None:
+            self.api = Importer.get_api('zbmath')
 
     def init_item(self):
         item = self.api.item.new()

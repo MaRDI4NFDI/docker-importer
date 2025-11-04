@@ -1,11 +1,10 @@
 from .misc import search_item_by_property
+from mardi_importer import Importer
 
 
 class ZBMathPublication:
     """Class to manage zbMath publication items in the local Wikibase instance.
     Attributes:
-        api:
-            MardiClient instance
         title:
             publication title
         doi:
@@ -42,7 +41,6 @@ class ZBMathPublication:
 
     def __init__(
         self,
-        api,
         title,
         doi,
         authors,
@@ -60,7 +58,6 @@ class ZBMathPublication:
         keywords,
         label_id_dict,
     ):
-        self.api = api
         self.title = title
         self.zbl_id = zbl_id
         self.arxiv_id = arxiv_id
@@ -81,6 +78,11 @@ class ZBMathPublication:
         self.keywords = keywords
         self.label_id_dict = label_id_dict
         self.item = self.init_item()
+        self.api = None
+
+    def __post_init__(self):
+        if self.api is None:
+            self.api = Importer.get_api('zbmath')
 
     def init_item(self):
         item = self.api.item.new()

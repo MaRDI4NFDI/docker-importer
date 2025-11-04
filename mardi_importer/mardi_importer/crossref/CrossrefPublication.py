@@ -1,22 +1,16 @@
-import logging
-import pandas as pd
 import re
 
+from mardiclient import MardiClient
 from dataclasses import dataclass, field
 from habanero import Crossref
 from httpx import HTTPStatusError
-from typing import List
+from typing import List, Optional
 
-from mardiclient import MardiClient
-from mardi_importer.wikidata import WikidataImporter
-from .Author import Author
-
-log = logging.getLogger('CRANlogger')
+from mardi_importer import Importer
+from mardi_importer.utils import Author
 
 @dataclass
-class CrossrefPublication:
-    api: MardiClient
-    wdi: WikidataImporter
+class CrossrefPublication():
     doi: str
     authors: List[Author] = field(default_factory=list)
     title: str = ""
@@ -44,8 +38,11 @@ class CrossrefPublication:
     preprint: bool = False
     identical: str = ""
     QID: str = None
+    api: Optional[MardiClient] = None
 
     def __post_init__(self):
+        if self.api is None:
+            self.api = Importer.get_api('crossref')
         item = self.api.item.new()
         item.labels.set(language="en", value=self.title)
 
@@ -67,7 +64,6 @@ class CrossrefPublication:
                     for alias in author_item.aliases.get('en'):
                         aliases.append(str(alias))
                 author = Author(self.api,
-                                self.wdi,
                                 name=name,
                                 orcid=orcid,
                                 _aliases=aliases,
@@ -78,7 +74,7 @@ class CrossrefPublication:
                 cr = Crossref()
                 response = cr.works(ids=self.doi)
             except HTTPStatusError as e:
-                log.warning(f"Publication with doi: {self.doi} not found in Crossref: {str(e)}")
+                print(f"Publication with doi: {self.doi} not found in Crossref: {str(e)}")
                 return None
             else:
                 if response['status'] != 'ok':
@@ -225,9 +221,9 @@ class CrossrefPublication:
                             author_label = f"{author['given'].title()} {author['family'].title()}"
                             if 'ORCID' in author.keys():
                                 orcid_id = re.findall("\d{4}-\d{4}-\d{4}-.{4}", author['ORCID'])[0]
-                                self.authors.append(Author(self.api, self.wdi, name=author_label, orcid=orcid_id))
+                                self.authors.append(Author(self.api, name=author_label, orcid=orcid_id))
                             else:
-                                self.authors.append(Author(self.api, self.wdi, name=author_label))
+                                self.authors.append(Author(self.api, name=author_label))
 
                 if 'relation' in metadata.keys():
                     if 'is-preprint-of' in metadata['relation'].keys():
@@ -327,10 +323,10 @@ class CrossrefPublication:
 
 
         if self.QID:
-            log.info(f"Publication with DOI: {self.doi} created with ID {self.QID}.")
+            print(f"Publication with DOI: {self.doi} created with ID {self.QID}.")
             return self.QID
         else:
-            log.info(f"Publication with DOI: {self.doi} could not be created.")
+            print(f"Publication with DOI: {self.doi} could not be created.")
             return None
 
     def __preprocess_authors(self) -> List[str]:

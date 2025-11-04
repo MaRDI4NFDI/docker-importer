@@ -82,7 +82,7 @@ class PolyDBSource(ADataSource):
                          ('Silke Horn', '', '', 'wd:Q310695', 'wd:Q102398539')]
 
         for name, orcid, arxiv_id, affiliation, QID in author_tuples:
-            author = Author(self.api, self.wdi, name, orcid, arxiv_id, affiliation)
+            author = Author(self.api, name, orcid, arxiv_id, affiliation)
             if QID:
                 QID = QID.split(':')[1]
                 author.QID = self.import_entities(QID)

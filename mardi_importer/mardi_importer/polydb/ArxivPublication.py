@@ -177,11 +177,10 @@ class Arxiv():
                             finish = True
                             orcid = self.get_orcid(soup)
                             return Author(self.api,
-                                          self.wdi,
                                           name=name,
                                           orcid=orcid, 
                                           arxiv_id=arxiv_author_id)
-        return Author(self.api, self.wdi, name=name)
+        return Author(self.api, name=name)
 
     @staticmethod
     def arxiv_api(arxiv_id: str) -> FeedParserDict:

@@ -163,8 +163,7 @@ class Collection():
         if not elements: return []
         result = []
         for el in elements:
-            person = Author(self.api, 
-                            self.wdi,
+            person = Author(self.api,
                             name=el.get('name'),
                             orcid="",
                             arxiv_id="", 
@@ -252,7 +251,7 @@ class Collection():
             return ('arxiv', '2112.04447')
         else:
             authors = ref['authors'].split(', ')
-            authors = [Author(self.api, self.wdi, name=author) for author in authors]
+            authors = [Author(self.api, name=author) for author in authors]
             attributes = ref['bib']
             reference = GenericReference(self.api, title, authors, attributes)
             return ('reference', reference)

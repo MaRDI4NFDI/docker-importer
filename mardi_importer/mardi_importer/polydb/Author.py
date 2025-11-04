@@ -1,12 +1,12 @@
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.wbi_helpers import search_entities, merge_items
+from mardi_importer.wikidata import WikidataImporter
 
 from nameparser import HumanName
 
 class Author:
-    def __init__(self, api, wdi, name="", orcid=None, arxiv_id=None, affiliation=None, aliases=[], QID=None):
+    def __init__(self, api, name="", orcid=None, arxiv_id=None, affiliation=None, aliases=[], QID=None):
         self.api = api
-        self.wdi = wdi
         self.name = self.parse_name(name)
         self.orcid = orcid
         self.arxiv_id = arxiv_id
@@ -14,6 +14,7 @@ class Author:
         self._aliases = aliases
         self._QID = QID
         self._item = None
+        self.wdi = WikidataImporter()
 
     @staticmethod
     def parse_name(name: str) -> str:
@@ -83,7 +84,6 @@ class Author:
             item.write()
 
         return Author(self.api,
-                      self.wdi,
                       name=long_name, 
                       orcid=orcid, 
                       arxiv_id=arxiv_id,

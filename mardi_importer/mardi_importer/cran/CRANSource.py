@@ -75,7 +75,7 @@ class CRANSource(ADataSource):
             #flag = True
             #if package_label == "GeoModels":
 
-            package = RPackage(package_date, package_label, package_title, self.api, self.wdi)
+            package = RPackage(package_date, package_label, package_title)
             if package.exists():
                 if not package.is_updated():
                     print(f"Package {package_label} found: Not up to date. Attempting update...")

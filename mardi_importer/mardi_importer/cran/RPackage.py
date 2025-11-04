@@ -1,10 +1,10 @@
 from mardiclient import MardiClient, MardiItem
+from mardi_importer import Importer
 from mardi_importer.wikidata import WikidataImporter
-from mardi_importer.publications import (ArxivPublication, 
-                                         CrossrefPublication,
-                                         ZenodoResource, 
-                                         Author)
-from wikibaseintegrator.wbi_enums import ActionIfExists
+from mardi_importer.arxiv import ArxivSource, ArxivPublication
+from mardi_importer.crossref import CrossrefSource, CrossrefPublication
+from mardi_importer.zenodo import ZenodoSource, ZenodoResource
+from mardi_importer.utils import Author
 from wikibaseintegrator.wbi_helpers import search_entities, remove_claims
 
 from dataclasses import dataclass, field
@@ -54,8 +54,6 @@ class RPackage:
     date: str
     label: str
     description: str
-    api: MardiClient
-    wdi: WikidataImporter
     long_description: str = ""
     url: str = ""
     version: str = ""
@@ -71,6 +69,23 @@ class RPackage:
     zenodo_resources: List[ZenodoResource] = field(default_factory=list)
     _QID: str = ""
     _item: MardiItem = None
+    api: Optional[MardiClient] = None
+    wdi: Optional[WikidataImporter] = None
+    crossref: Optional[CrossrefSource] = None
+    arxiv: Optional[ArxivSource] = None
+    zenodo: Optional[ZenodoSource] = None
+
+    def __post_init__(self):
+        if self.api is None:
+            self.api = Importer.get_api('cran')
+        if self.wdi is None:
+            self.wdi = WikidataImporter()
+        if self.crossref is None:
+            self.crossref = Importer.create_source('crossref')
+        if self.arxiv is None:
+            self.arxiv = Importer.create_source('arxiv')
+        if self.zenodo is None:
+            self.zenodo = Importer.create_source('zenodo')
 
     @property
     def QID(self) -> str:
@@ -298,7 +313,7 @@ class RPackage:
             for author_qid in current_authors:
                 author_item = self.api.item.get(entity_id=author_qid)
                 author_label = str(author_item.labels.get('en'))
-                current_author = Author(self.api, self.wdi, name=author_label)
+                current_author = Author(self.api, name=author_label)
                 current_author._QID = author_qid
                 self.author_pool += [current_author]
                 
@@ -440,20 +455,20 @@ class RPackage:
                 crossref_references.append(doi)
 
         for doi in crossref_references:
-            publication = CrossrefPublication(self.api, self.wdi, doi.upper())
+            publication = self.crossref.new_publication(doi.upper())
             self.author_pool += publication.authors
             self.crossref_publications.append(publication)
 
         for arxiv_id in arxiv_references:
             arxiv_id = arxiv_id.replace(":",".")
-            publication = ArxivPublication(self.api, self.wdi, arxiv_id)
+            publication = self.arxiv.new_publication(arxiv_id)
             if publication.title != "Error":
                 self.author_pool += publication.authors
                 self.arxiv_publications.append(publication)
 
         for zenodo_id in zenodo_references:
             zenodo_id = zenodo_id.replace(":",".")
-            publication = ZenodoResource(self.api, self.wdi, zenodo_id)
+            publication = self.zenodo.new_resource(zenodo_id)
             self.author_pool += publication.authors
             self.zenodo_resources.append(publication)
 
@@ -701,7 +716,7 @@ class RPackage:
                         multiple_words = author.split(" ")
                         if len(multiple_words) > 1:
                             if author:
-                                authors.append(Author(self.api, self.wdi, author, orcid))
+                                authors.append(Author(self.api, author, orcid))
         else:
             authors_comma = x.split(", ")
             authors_and = x.split(" and ")
@@ -718,7 +733,7 @@ class RPackage:
             if len(author.split(" ")) > 5 or re.findall(r"[@\(\)\[\]&]", author):
                 author = ""
             if author:
-                authors.append(Author(self.api, self.wdi, author))
+                authors.append(Author(self.api, author))
         self.author_pool += authors
         return authors
 
@@ -742,7 +757,7 @@ class RPackage:
         name = re.sub(r"\(.*?\)", "", name)
         name = name.strip()
         name = name.split(',')
-        maintainer = Author(self.api, self.wdi, name=name[0])
+        maintainer = Author(self.api, name=name[0])
         self.author_pool += [maintainer]
         return maintainer
 

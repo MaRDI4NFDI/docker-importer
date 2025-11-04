@@ -1,11 +1,10 @@
 import requests
-import json
 import os
 import sys
 import pandas as pd
 
 from mardi_importer.base import ADataSource
-from mardi_importer.publications import ZenodoResource
+from .ZenodoResource import ZenodoResource
 from typing import List
 
 class ZenodoSource(ADataSource):
@@ -19,8 +18,7 @@ class ZenodoSource(ADataSource):
         resourceTypes: List[str] = None,
         orcid_id_file: str = None,
         customQ: str = None
-
-    ):    
+    ):
         super().__init__(user, password)
         self.zenodo_ids = []    
         self.filepath = os.path.realpath(os.path.dirname(__file__))
@@ -31,11 +29,13 @@ class ZenodoSource(ADataSource):
         self.customQ = customQ
         self.orcid_ids = None
 
-        if self.orcid_id_file:
-            self.orcid_ids = self.parse_orcids(orcid_id_file)
+        if self.resourceTypes is None:
+            self.resourceTypes = ['dataset']
+        if self.orcid_id_file is None:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            self.orcid_id_file = os.path.join(current_dir, 'orcids-all.csv')
 
-        # if all parameters are set to None, issue a warning
-
+        self.orcid_ids = self.parse_orcids(self.orcid_id_file)
 
     def setup(self):
         """Create all necessary properties and entities for Zenodo
@@ -79,6 +79,7 @@ class ZenodoSource(ADataSource):
             q_list.append(self.customQ)
 
         q_str = ' AND '.join(q_list)
+        print(q_str)
         
         if self.orcid_ids: 
             i=0
@@ -110,7 +111,7 @@ class ZenodoSource(ADataSource):
                 i = i+50
         else:
             response = requests.get('https://zenodo.org/api/records',
-                                    params={'q' : q_str})   
+                                    params={'q' : q_str})
             response_json = response.json()
             total_hits = response_json.get("hits").get("total")     
 
@@ -145,17 +146,15 @@ class ZenodoSource(ADataSource):
         #     self.zenodo_ids.append(str(zenodo_id))
 
     def push(self):
-        for id in self.zenodo_ids:   
-            entry = ZenodoResource.ZenodoResource(
-                self.api,
-                self.wdi,
-                zenodo_id = id
-            )
+        for zenodo_id in self.zenodo_ids:   
+            entry = ZenodoResource(zenodo_id)
 
             if not entry.exists():
-                print (f"Creating entry for zenodo id {id}")
+                print (f"Creating entry for zenodo id {zenodo_id}")
                 entry.create(update = False)
             else:
-                print (f"Entry for zenodo id: {id} already exists. Updating.")
+                print (f"Entry for zenodo id: {zenodo_id} already exists. Updating.")
                 entry.create(update = True)
 
+    def new_resource(self, zenodo_id: str) -> 'ZenodoResource':
+        return ZenodoResource(zenodo_id)

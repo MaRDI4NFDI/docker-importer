@@ -32,7 +32,9 @@ setuptools.setup(
         "sparqlwrapper",
         "sqlalchemy",
         "validators",
-        "wikibaseintegrator"
+        "wikibaseintegrator",
+        "flask",
+        "gunicorn",
     ],
     # entry_points={"console_scripts": ["import = scripts.main:main"]},
     # scripts=["scripts/import.py"],

@@ -1,8 +1,6 @@
 from flask import Flask, request, jsonify 
 from mardi_importer.wikidata import WikidataImporter
-from mardi_importer.polydb import CrossrefPublication
-from mardiclient import MardiClient
-import os
+from mardi_importer import Importer
 import re
 
 import logging
@@ -50,20 +48,12 @@ def import_doi():
     dois = as_list(data.get("dois"))
     if not dois:
         return jsonify(error="missing doi"), 400
-    wdi = WikidataImporter()
-    api = MardiClient(
-            user= os.environ.get("FLASK_USER"),
-            password= os.environ.get("FLASK_PASS"),
-            mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
-            sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
-            wikibase_url=os.environ.get("WIKIBASE_URL"),
-            importer_api_url="http://importer-api"
-        )
     results, errors = [], []
     for doi in dois:
         try:
-            pub = CrossrefPublication(api, wdi, doi)
-            result = pub.create()
+            crossref = Importer.create_source('crossref')
+            publication = crossref.new_publication(doi)
+            result = publication.create()
             results.append({"doi":doi, "result": result})
         except Exception as e: 
             log.error("importing doi failed: %s", e, exc_info=True)

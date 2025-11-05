@@ -39,7 +39,6 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
 # flask app
 COPY flask_app /app/flask_app
-RUN pip install --no-cache-dir -r /app/flask_app/requirements.txt
 
 # Install wikibaseintegrator from source
 RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \

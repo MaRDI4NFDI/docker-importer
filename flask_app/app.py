@@ -49,9 +49,9 @@ def import_doi():
     if not dois:
         return jsonify(error="missing doi"), 400
     results, errors = [], []
+    crossref = Importer.create_source('crossref')
     for doi in dois:
         try:
-            crossref = Importer.create_source('crossref')
             publication = crossref.new_publication(doi)
             result = publication.create()
             results.append({"doi":doi, "result": result})

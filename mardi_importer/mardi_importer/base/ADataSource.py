@@ -34,7 +34,7 @@ class ADataSource(ABC):
             mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
             sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
             wikibase_url=os.environ.get("WIKIBASE_URL"),
-            importer_api_url="http://importer-api"
+            importer_api_url=os.environ.get("IMPORTER_API_URL"),
         )
         self.wdi = WikidataImporter()
         self.setup()

@@ -36,9 +36,13 @@ class ADataSource(ABC):
             wikibase_url=os.environ.get("WIKIBASE_URL"),
             importer_api_url=os.environ.get("IMPORTER_API_URL"),
         )
-        self.wdi = WikidataImporter()
+        self.wdi = None
         self.setup()
         ADataSource._initialized.add(self.__class__)
+
+    def __post_init__(self):
+        if self.wdi is None:
+            self.wdi = WikidataImporter()
 
     def import_wikidata_entities(self, filename: str):
         filename = self.filepath + filename

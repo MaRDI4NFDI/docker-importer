@@ -18,10 +18,12 @@ class Author:
     _aliases: List[str] = field(default_factory=list)
     _QID: str = None
     _item: MardiItem = None
-    wdi = WikidataImporter()
+    wdi: WikidataImporter = None
 
     def __post_init__(self):
         self.name = self.parse_name(self.name)
+        if self.api is None:
+            self.api = WikidataImporter()
 
     @staticmethod
     def parse_name(name: str) -> str:

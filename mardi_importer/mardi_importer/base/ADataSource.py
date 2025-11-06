@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from mardiclient import MardiClient
 from mardi_importer.wikidata import WikidataImporter
+from datetime import datetime
 import logging
 import inspect
 import os
@@ -10,6 +11,7 @@ class ADataSource(ABC):
     """Abstract base class for reading data from external sources."""
     _instances = {}
     _initialized = set()
+    _setup_complete = set()
 
     def __new__(cls, *args, **kwargs):
         if cls not in cls._instances:
@@ -36,14 +38,49 @@ class ADataSource(ABC):
             wikibase_url=os.environ.get("WIKIBASE_URL"),
             importer_api_url=os.environ.get("IMPORTER_API_URL"),
         )
-        self.wdi = None
-        self.__post_init__()
-        self.setup()
+        self._wdi = None
+        
+        if not self._should_run_setup():
+            self.logger.info(f"Setup for {self.__class__.__name__} already complete")
+        else:
+            self.setup()
+            self._mark_setup_complete()
+
         ADataSource._initialized.add(self.__class__)
 
-    def __post_init__(self):
-        if self.wdi is None:
-            self.wdi = WikidataImporter()
+    @property
+    def wdi(self):
+        """Lazy initialization of WikidataImporter."""
+        if self._wdi is None:
+            self._wdi = WikidataImporter()
+        return self._wdi
+    
+    def _get_setup_marker_path(self) -> str:
+        """Get path to setup marker file in a writable location."""
+        marker_dir = '/tmp/mardi_importer'
+        os.makedirs(marker_dir, exist_ok=True)
+        
+        marker_filename = f'.{self.__class__.__name__}_setup_complete'
+        return os.path.join(marker_dir, marker_filename)
+    
+    def _should_run_setup(self) -> bool:
+        """Check if setup needs to be run."""
+        if self.__class__ in ADataSource._setup_complete:
+            return False
+        
+        setup_marker = self._get_setup_marker_path()
+        if os.path.exists(setup_marker):
+            ADataSource._setup_complete.add(self.__class__)
+            return False
+        
+        return True
+
+    def _mark_setup_complete(self):
+        """Mark setup as complete."""
+        ADataSource._setup_complete.add(self.__class__)
+        setup_marker = self._get_setup_marker_path()
+        with open(setup_marker, 'w') as f:
+            f.write(f"Setup completed at {datetime.now().isoformat()}\n")
 
     def import_wikidata_entities(self, filename: str):
         filename = self.filepath + filename

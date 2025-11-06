@@ -22,8 +22,8 @@ class Author:
 
     def __post_init__(self):
         self.name = self.parse_name(self.name)
-        if self.api is None:
-            self.api = WikidataImporter()
+        if self.wdi is None:
+            self.wdi = WikidataImporter()
 
     @staticmethod
     def parse_name(name: str) -> str:

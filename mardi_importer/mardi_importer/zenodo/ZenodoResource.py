@@ -26,12 +26,14 @@ class ZenodoResource():
     _projects: List[Project] = field(default_factory = list)
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
-    wdi: WikidataImporter = WikidataImporter()
+    wdi: WikidataImporter = None
     api: Optional[MardiClient] = None
 
     def __post_init__(self):
         if self.api is None:
             self.api = Importer.get_api('zenodo')
+        if self.wdi is None:
+            self.wdi = WikidataImporter()
         with urllib.request.urlopen(f"https://zenodo.org/api/records/{self.zenodo_id}") as url:
             json_data = json.load(url)
             self.metadata = json_data['metadata']

@@ -37,6 +37,7 @@ class ADataSource(ABC):
             importer_api_url=os.environ.get("IMPORTER_API_URL"),
         )
         self.wdi = None
+        self.__post_init__()
         self.setup()
         ADataSource._initialized.add(self.__class__)
 

@@ -62,4 +62,4 @@ COPY config /config
 
 # entry point
 WORKDIR /app
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8000", "flask_app.app:app"]
+CMD ["gunicorn", "-w", "2", "--timeout", "300", "-b", "0.0.0.0:8000", "flask_app.app:app"]

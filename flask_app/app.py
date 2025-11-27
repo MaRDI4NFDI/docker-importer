@@ -48,11 +48,22 @@ def import_doi():
     dois = as_list(data.get("dois"))
     if not dois:
         return jsonify(error="missing doi"), 400
+    dois = [x.upper() for x in dois]
     results, errors = [], []
+    arxiv = Importer.create_source('arxiv')
+    zenodo = Importer.create_source('zenodo')
     crossref = Importer.create_source('crossref')
+
     for doi in dois:
         try:
-            publication = crossref.new_publication(doi)
+            if "ARXIV" in doi:
+                arxiv_id = doi.split("ARXIV.")[-1]
+                publication = arxiv.new_publication(arxiv_id)
+            elif "ZENODO" in doi:
+                zenodo_id = doi.split(".")[-1]
+                publication = zenodo.new_resource(zenodo_id)
+            else:
+                publication = crossref.new_publication(doi)
             result = publication.create()
             results.append({"doi":doi, "result": result})
         except Exception as e: 

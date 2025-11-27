@@ -50,17 +50,14 @@ def import_doi():
         return jsonify(error="missing doi"), 400
     dois = [x.upper() for x in dois]
     results, errors = [], []
-    if any("ARXIV" in d for d in dois):
-        arxiv = Importer.create_source('arxiv')
-    if any("ZENODO" in d for d in dois):
-        zenodo = Importer.create_source('zenodo')
-    if not all(("ARXIV" in d) or ("ZENODO" in d)for d in dois):
-        crossref = Importer.create_source('crossref')
+    arxiv = Importer.create_source('arxiv')
+    zenodo = Importer.create_source('zenodo')
+    crossref = Importer.create_source('crossref')
 
     for doi in dois:
         try:
             if "ARXIV" in doi:
-                arxiv_id = doi.split("/")[-1]
+                arxiv_id = doi.split("ARXIV.")[-1]
                 publication = arxiv.new_publication(arxiv_id)
             elif "ZENODO" in doi:
                 zenodo_id = doi.split(".")[-1]

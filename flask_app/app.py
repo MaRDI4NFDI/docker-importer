@@ -29,6 +29,10 @@ def import_wikidata():
     for q in qids:
         try:
             imported_q = wdi.import_entities(q)
+            if not imported_q:
+                log.info(f"No import for wikidata qid {q}")
+            else:
+                log.info(f"Import for wikidata qid {q}: {imported_q}")
             results.append({"qid": imported_q, "result": imported_q is not None})
         except Exception as e:
             log.error("importing wikidata failed: %s", e, exc_info=True)
@@ -55,16 +59,21 @@ def import_doi():
     crossref = Importer.create_source('crossref')
 
     for doi in dois:
+        log.info(f"Importing for doi {doi}")
         try:
             if "ARXIV" in doi:
                 arxiv_id = doi.split("ARXIV.")[-1]
                 publication = arxiv.new_publication(arxiv_id)
+                log.info("arxiv recognized")
             elif "ZENODO" in doi:
                 zenodo_id = doi.split(".")[-1]
                 publication = zenodo.new_resource(zenodo_id)
+                log.info("zenodo recognized")
             else:
                 publication = crossref.new_publication(doi)
+                log.info("crossref recognized")
             result = publication.create()
+            log.info(f"Imported item {result} for doi {doi}.")
             results.append({"doi":doi, "result": result})
         except Exception as e: 
             log.error("importing doi failed: %s", e, exc_info=True)

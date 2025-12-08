@@ -18,7 +18,7 @@ class WikidataImporter():
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, languages=["en", "de"]) -> None:
+    def __init__(self, languages=["en", "de", "mul"]) -> None:
 
         if self._initialized:
             return

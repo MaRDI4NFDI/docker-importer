@@ -18,7 +18,7 @@ class WikidataImporter():
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, languages=["en", "de"]) -> None:
+    def __init__(self, languages=["en", "de", "mul"]) -> None:
 
         if self._initialized:
             return
@@ -72,7 +72,9 @@ class WikidataImporter():
             return db.create_engine(
                 url="mariadb+mariadbconnector://{0}:{1}@{2}/{3}".format(
                     db_user, db_pass, db_host, db_name
-                )
+                ),
+                pool_pre_ping=True,
+                pool_recycle=1800
             )            
 
     def create_id_list_from_file(self, file):

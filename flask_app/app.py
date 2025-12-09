@@ -25,24 +25,31 @@ def import_wikidata():
     if not qids:
         return jsonify(error="missing qids"), 400
     wdi = WikidataImporter()
-    results, errors = [], []
+    results = {}
+    all_ok = True
     for q in qids:
         try:
             imported_q = wdi.import_entities(q)
             if not imported_q:
                 log.info(f"No import for wikidata qid {q}")
+                status = "not_imported"
+                ok = False
             else:
                 log.info(f"Import for wikidata qid {q}: {imported_q}")
-            results.append({"qid": imported_q, "result": imported_q is not None})
+                status = "success"
+                ok = True
+            results[q] = {"qid": imported_q,"status": status,}
+            if not ok: all_ok = False
         except Exception as e:
             log.error("importing wikidata failed: %s", e, exc_info=True)
-            errors.append({"qid": q, "error": str(e)})
+            results[q] = {"qid": None,"status": "error","error": str(e),}
+            all_ok = False
+
     return jsonify({
         "qids": qids,
         "count": len(qids),
         "results": results,
-        "errors": errors,
-        "imported": len(errors) == 0
+        "all_imported": all_ok
     }), 200
 
 
@@ -53,7 +60,8 @@ def import_doi():
     if not dois:
         return jsonify(error="missing doi"), 400
     dois = [x.upper() for x in dois]
-    results, errors = [], []
+    results = {}
+    all_ok = True
     arxiv = Importer.create_source('arxiv')
     zenodo = Importer.create_source('zenodo')
     crossref = Importer.create_source('crossref')
@@ -74,16 +82,16 @@ def import_doi():
                 log.info("crossref recognized")
             result = publication.create()
             log.info(f"Imported item {result} for doi {doi}.")
-            results.append({"doi":doi, "result": result})
+            results[doi] = {"qid": result,"status": "success"}
         except Exception as e: 
             log.error("importing doi failed: %s", e, exc_info=True)
-            errors.append({"doi": doi, "error": str(e)})
+            results[doi] = {"qid": None,"status": "error", "error": str(e)}
+            all_ok = False
     return jsonify({
         "dois": dois,
         "count": len(dois),
         "results": results,
-        "errors": errors,
-        "imported": len(errors) == 0
+        "all_imported": all_ok
     }), 200
 
 if __name__ == "__main__":

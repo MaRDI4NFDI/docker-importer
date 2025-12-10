@@ -36,11 +36,13 @@ class CrossrefPublication():
     month: str = ""
     year: str = ""
     preprint: bool = False
+    create_empty: bool = False
     identical: str = ""
     QID: str = None
     api: Optional[MardiClient] = None
 
     def __post_init__(self):
+        self.crossref_ok = False
         if self.api is None:
             self.api = Importer.get_api('crossref')
         item = self.api.item.new()
@@ -79,7 +81,7 @@ class CrossrefPublication():
             else:
                 if response['status'] != 'ok':
                     return None
-                    
+                self.crossref_ok = True
                 metadata = response['message']
                 if 'title' in metadata.keys():
                     if len(metadata['title']) > 0:
@@ -237,6 +239,9 @@ class CrossrefPublication():
         if self.QID:
             return self.QID
 
+        if not self.crossref_ok and not self.create_empty:
+            print(f"Skipping creation, DOI {self.doi} not found in Crossref.")
+            return None
         item = self.api.item.new()
         if self.title:
             item.labels.set(language="en", value=self.title)

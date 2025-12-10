@@ -81,8 +81,13 @@ def import_doi():
                 publication = crossref.new_publication(doi)
                 log.info("crossref recognized")
             result = publication.create()
-            log.info(f"Imported item {result} for doi {doi}.")
-            results[doi] = {"qid": result,"status": "success"}
+            if result:
+                log.info(f"Imported item {result} for doi {doi}.")
+                results[doi] = {"qid": result,"status": "success"}
+            else:
+                log.info(f"doi {doi} was not found, not imported.")
+                results[doi] = {"qid": None,"status": "not_found", "error": "DOI was not found."}
+                all_ok = False
         except Exception as e: 
             log.error("importing doi failed: %s", e, exc_info=True)
             results[doi] = {"qid": None,"status": "error", "error": str(e)}

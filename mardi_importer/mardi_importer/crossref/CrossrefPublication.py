@@ -36,6 +36,7 @@ class CrossrefPublication():
     month: str = ""
     year: str = ""
     preprint: bool = False
+    create_empty: bool = False
     identical: str = ""
     QID: str = None
     api: Optional[MardiClient] = None
@@ -238,7 +239,7 @@ class CrossrefPublication():
         if self.QID:
             return self.QID
 
-        if not self.crossref_ok:
+        if not self.crossref_ok and not self.create_empty:
             print(f"Skipping creation, DOI {self.doi} not found in Crossref.")
             return None
         item = self.api.item.new()

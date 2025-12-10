@@ -87,6 +87,7 @@ def import_doi():
             else:
                 log.info(f"doi {doi} was not found, not imported.")
                 results[doi] = {"qid": None,"status": "not_found", "error": "DOI was not found."}
+                all_ok = False
         except Exception as e: 
             log.error("importing doi failed: %s", e, exc_info=True)
             results[doi] = {"qid": None,"status": "error", "error": str(e)}

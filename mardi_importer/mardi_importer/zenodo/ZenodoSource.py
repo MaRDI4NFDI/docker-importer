@@ -31,11 +31,13 @@ class ZenodoSource(ADataSource):
 
         if self.resourceTypes is None:
             self.resourceTypes = ['dataset']
-        if self.orcid_id_file is None:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            self.orcid_id_file = os.path.join(current_dir, 'orcids-all.csv')
+        if self.communities is None:
+            self.communities = ['mathplus','mardigmci']
+        # if self.orcid_id_file is None:
+        #     current_dir = os.path.dirname(os.path.abspath(__file__))
+        #     self.orcid_id_file = os.path.join(current_dir, 'orcids-all.csv')
 
-        self.orcid_ids = self.parse_orcids(self.orcid_id_file)
+        #self.orcid_ids = self.parse_orcids(self.orcid_id_file)
 
     def setup(self):
         """Create all necessary properties and entities for Zenodo
@@ -85,7 +87,7 @@ class ZenodoSource(ADataSource):
             i=0
             while i <= len(self.orcid_ids): # if there are too many orcids the initial request needs to be sent out in batches
 
-                orcid_str ='metadata.creators.\*:("' + '" "'.join(self.orcid_ids[i:i+50]) + '")'
+                orcid_str ='metadata.creators.\*:("' + '" "'.join(self.orcid_ids[i:i+20]) + '")'
                 print("retrieving zenodo entries for the following ORCID IDs: " + orcid_str)
 
                 response = requests.get('https://zenodo.org/api/records',
@@ -99,7 +101,7 @@ class ZenodoSource(ADataSource):
                     response = requests.get('https://zenodo.org/api/records',
                                             params={'q' :  q_str + ' AND ' + orcid_str, 
                                             'sort':'-mostrecent',
-                                            'size' : 50,
+                                            'size' : 20,
                                             'page' : page_cur})
                     response_json = response.json()
                     total_hits = total_hits - len(response_json.get("hits").get("hits"))
@@ -108,7 +110,7 @@ class ZenodoSource(ADataSource):
                     for entry in response_json.get("hits").get("hits"):
                         self.zenodo_ids.append(str(entry.get("id")))
 
-                i = i+50
+                i = i+20
         else:
             response = requests.get('https://zenodo.org/api/records',
                                     params={'q' : q_str})
@@ -120,7 +122,7 @@ class ZenodoSource(ADataSource):
                 response = requests.get('https://zenodo.org/api/records',
                                     params={'q' : q_str,
                                             'sort':'-mostrecent',
-                                            'size' : 50,
+                                            'size' : 20,
                                             'page' : page_cur})
                 response_json = response.json()
                 total_hits = total_hits - len(response_json.get("hits").get("hits"))

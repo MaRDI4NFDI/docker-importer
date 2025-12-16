@@ -199,6 +199,7 @@ class Arxiv():
 @dataclass
 class ArxivPublication():
     arxiv_id: str
+    api: Optional[MardiClient] = None
     metadata: Arxiv = None
     title: str = None
     QID: str = None
@@ -209,7 +210,7 @@ class ArxivPublication():
             self.api = Importer.get_api('arxiv')
         if ' ' in self.arxiv_id:
             self.arxiv_id = self.arxiv_id.split(' ')[0]
-        self.metadata = Arxiv(self.api, self.arxiv_id)
+        self.metadata = Arxiv(arxiv_id =self.arxiv_id)
         self.title = self.metadata.title
         self.authors = self.metadata.authors
 

@@ -210,7 +210,7 @@ class ArxivPublication():
             self.api = Importer.get_api('arxiv')
         if ' ' in self.arxiv_id:
             self.arxiv_id = self.arxiv_id.split(' ')[0]
-        self.metadata = Arxiv(api=self.api, arxiv_id =self.arxiv_id)
+        self.metadata = Arxiv(arxiv_id =self.arxiv_id)
         self.title = self.metadata.title
         self.authors = self.metadata.authors
 

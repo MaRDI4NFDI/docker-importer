@@ -155,10 +155,13 @@ class Arxiv():
             }
 
             base_url = "https://arxiv.org/a/"
-            req = requests.get(base_url + arxiv_author_id + ".html", headers)
+            req = requests.get(base_url + arxiv_author_id + ".html", headers=headers)
             soup = BeautifulSoup(req.content, 'html.parser')
 
-            author_html = soup.find("div", id="content").find("h1").get_text()
+            try:
+                author_html = soup.find("div", id="content").find("h1").get_text(strip=True)
+            except AttributeError:
+                author_html = "Not Found"
             if author_html == "Not Found":
                 finish = True
             else:

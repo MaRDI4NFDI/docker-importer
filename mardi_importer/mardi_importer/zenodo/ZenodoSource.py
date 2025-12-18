@@ -64,28 +64,29 @@ class ZenodoSource(ADataSource):
         orcids_all = orcid_df['orcid'].tolist()
         return orcids_all
 
-  def get_with_retries(url, params, retries=5, base_wait=3):
-    for attempt in range(retries):
-        try:
-            response = requests.get(url, params=params, timeout=10)
+    @staticmethod
+    def get_with_retries(url, params, retries=5, base_wait=3):
+        for attempt in range(retries):
+            try:
+                response = requests.get(url, params=params, timeout=10)
 
-            if response.status_code == 429:
+                if response.status_code == 429:
+                    wait_time = base_wait * (2 ** attempt)
+                    time.sleep(wait_time)
+                    continue
+
+                response.raise_for_status()
+                return response.json()
+
+            except requests.exceptions.HTTPError:
+                if 400 <= response.status_code < 500:
+                    raise
+
+            except (requests.exceptions.RequestException, ValueError):
+                if attempt == retries - 1:
+                    raise
                 wait_time = base_wait * (2 ** attempt)
                 time.sleep(wait_time)
-                continue
-
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.HTTPError:
-            if 400 <= response.status_code < 500:
-                raise
-
-        except (requests.exceptions.RequestException, ValueError):
-            if attempt == retries - 1:
-                raise
-            wait_time = base_wait * (2 ** attempt)
-            time.sleep(wait_time)
 
 
 
@@ -116,7 +117,7 @@ class ZenodoSource(ADataSource):
                 orcid_str = 'metadata.creators.*:("' + '" "'.join(self.orcid_ids[i:i+20]) + '")'
                 print("retrieving zenodo entries for the following ORCID IDs: " + orcid_str)
 
-                response_json = get_with_retries(
+                response_json = self.get_with_retries(
                     'https://zenodo.org/api/records',
                     params={'q': q_str + ' AND ' + orcid_str,
                             'sort': '-mostrecent'}
@@ -126,7 +127,7 @@ class ZenodoSource(ADataSource):
 
                 page_cur = 1
                 while total_hits > 0:
-                    response_json = get_with_retries(
+                    response_json = self.get_with_retries(
                         'https://zenodo.org/api/records',
                         params={'q': q_str + ' AND ' + orcid_str,
                                 'sort': '-mostrecent',
@@ -143,7 +144,7 @@ class ZenodoSource(ADataSource):
 
                 i += 20
         else:
-            response_json = get_with_retries(
+            response_json = self.get_with_retries(
                 'https://zenodo.org/api/records',
                 params={'q': q_str}
             )
@@ -152,7 +153,7 @@ class ZenodoSource(ADataSource):
 
             page_cur = 1
             while total_hits > 0:
-                response_json = get_with_retries(
+                response_json = self.get_with_retries(
                     'https://zenodo.org/api/records',
                     params={'q': q_str,
                             'sort': '-mostrecent',

@@ -38,7 +38,7 @@ class ZenodoSource(ADataSource):
         #     current_dir = os.path.dirname(os.path.abspath(__file__))
         #     self.orcid_id_file = os.path.join(current_dir, 'orcids-all.csv')
 
-        #self.orcid_ids = self.parse_orcids(self.orcid_id_file)
+        # self.orcid_ids = self.parse_orcids(self.orcid_id_file)
 
     def setup(self):
         """Create all necessary properties and entities for Zenodo
@@ -112,9 +112,9 @@ class ZenodoSource(ADataSource):
 
         if self.orcid_ids: 
             i = 0
-            while i <= len(self.orcid_ids):  # batch ORCIDs
+            while i < len(self.orcid_ids):  # batch ORCIDs
 
-                orcid_str = 'metadata.creators.*:("' + '" "'.join(self.orcid_ids[i:i+20]) + '")'
+                orcid_str = 'metadata.creators.\*:("' + '" "'.join(self.orcid_ids[i:i+20]) + '")'
                 print("retrieving zenodo entries for the following ORCID IDs: " + orcid_str)
 
                 response_json = self.get_with_retries(

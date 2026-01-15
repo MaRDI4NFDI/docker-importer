@@ -1,5 +1,7 @@
-from flask import Flask, request, jsonify 
+from flask import Flask, request, jsonify
 from mardi_importer.wikidata import WikidataImporter
+from prefect.deployments import run_deployment
+
 from mardi_importer import Importer
 import re
 
@@ -17,6 +19,44 @@ def as_list(value):
     if isinstance(value, str):
         return [v.strip() for v in re.split(r'[,\s]+', value) if v.strip()]
     return [str(value).strip()]
+
+@app.get("/healthcheck")
+def healthcheck():
+    return jsonify({
+        "status": "healthy",
+        "service": "mardi-importer-api"
+    }), 200
+
+@app.get("/import/wikidata_async")
+def import_wikidata_async():
+    data = request.get_json(silent=True) or {}
+    qids = as_list(data.get("qids"))
+    if not qids:
+        return jsonify(error="missing qids"), 400
+
+    try:
+        # Trigger the flow asynchronously on the Prefect Server
+        # 'timeout=0' tells Prefect not to wait for the result
+
+        flow_run = -1
+
+        # DISABLED FOR NOW
+        #flow_run = run_deployment(
+        #    name="Wikidata Import Flow/default",
+        #    parameters={"qids": qids},
+        #    timeout=0
+        #)
+
+        return jsonify({
+            "status": "accepted",
+            "message": "Wikidata import process started in background",
+            "flow_run_id": str(flow_run.id),
+            "qids_queued": qids
+        }), 202
+
+    except Exception as e:
+        log.error("Failed to trigger Prefect flow: %s", e)
+        return jsonify(error="Could not start background job", details=str(e)), 500
 
 @app.post("/import/wikidata")
 def import_wikidata():

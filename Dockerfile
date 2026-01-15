@@ -52,6 +52,9 @@ RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git \
 COPY /mardi_importer /mardi_importer
 RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 
+# Install Prefect client tools
+RUN pip install prefect-client
+
 # Add contentmath datatype to WikibaseIntegrator
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/
 RUN echo "from .contentmath import ContentMath" \

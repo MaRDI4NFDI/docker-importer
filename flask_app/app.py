@@ -20,8 +20,8 @@ def as_list(value):
         return [v.strip() for v in re.split(r'[,\s]+', value) if v.strip()]
     return [str(value).strip()]
 
-@app.get("/healthcheck")
-def healthcheck():
+@app.get("/health")
+def health():
     return jsonify({
         "status": "healthy",
         "service": "mardi-importer-api"
@@ -29,28 +29,38 @@ def healthcheck():
 
 @app.get("/import/wikidata_async")
 def import_wikidata_async():
+
+    log.info("Called 'import_wikidata_async'.")
+
     data = request.get_json(silent=True) or {}
     qids = as_list(data.get("qids"))
     if not qids:
+        log.error("missing QIDs")
         return jsonify(error="missing qids"), 400
+
+    log.info(f"QIDs: {qids}")
 
     try:
         # Trigger the flow asynchronously on the Prefect Server
         # 'timeout=0' tells Prefect not to wait for the result
+        workflow_name = "mardi-importer/prefect-mardi-importer"
 
-        flow_run = -1
+        log.info(f"Triggering Prefect workflow '{workflow_name}'")
 
-        # DISABLED FOR NOW
-        #flow_run = run_deployment(
-        #    name="Wikidata Import Flow/default",
-        #    parameters={"qids": qids},
-        #    timeout=0
-        #)
+        flow_run = run_deployment(
+            name=workflow_name,
+            parameters={"action": "import/wikidata", "qids": qids},
+            timeout=0,
+        )
+
+        log.info(f"Workflow triggered. ID: {flow_run.id}. Deployment ID: {flow_run.deployment_id}. Flow ID: {flow_run.flow_id}")
 
         return jsonify({
             "status": "accepted",
             "message": "Wikidata import process started in background",
-            "flow_run_id": str(flow_run.id),
+            "deployment_id": flow_run.deployment_id,
+            "id": flow_run.id,
+            "flow_id": flow_run.flow_id,
             "qids_queued": qids
         }), 202
 

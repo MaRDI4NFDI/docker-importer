@@ -282,6 +282,54 @@ def import_wikidata():
         "all_imported": all_ok
     }), 200
 
+@app.post("/import/doi_async")
+def import_doi_async():
+    """Trigger a background DOI import flow via Prefect.
+
+    Expects JSON with a ``dois`` field, which may be a list or a string of
+    comma/space-separated DOIs.
+
+    Returns:
+        Flask response tuple with flow metadata and HTTP status.
+    """
+
+    log.info("Called 'import_doi_async'.")
+
+    data = request.get_json(silent=True) or {}
+    dois = as_list(data.get("dois"))
+    if not dois:
+        log.error("missing DOIs")
+        return jsonify(error="missing dois"), 400
+
+    log.info(f"DOIs: {dois}")
+
+    try:
+        # Trigger the flow asynchronously on the Prefect Server
+        # 'timeout=0' tells Prefect not to wait for the result
+        workflow_name = "mardi-importer/prefect-mardi-importer"
+
+        log.info(f"Triggering Prefect workflow '{workflow_name}'")
+
+        flow_run = run_deployment(
+            name=workflow_name,
+            parameters={"action": "import/doi", "dois": dois},
+            timeout=0,
+        )
+
+        log.info(f"Workflow triggered. ID: {flow_run.id}. Deployment ID: {flow_run.deployment_id}. Flow ID: {flow_run.flow_id}")
+
+        return jsonify({
+            "status": "accepted",
+            "message": "DOI import process started in background",
+            "deployment_id": flow_run.deployment_id,
+            "id": flow_run.id,
+            "flow_id": flow_run.flow_id,
+            "dois_queued": dois
+        }), 202
+
+    except Exception as e:
+        log.error("Failed to trigger Prefect flow: %s", e)
+        return jsonify(error="Could not start background job", details=str(e)), 500
 
 @app.post("/import/doi")
 def import_doi():

@@ -11,7 +11,7 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     log = get_run_logger()
 
     # Set needed env variables for Wikidata importer
-    os.environ["DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
+    os.environ["DB_PASS"] = Secret.load("wikidata-importer-db-password").get()
     os.environ["DB_USER"] = "importer-user"
     os.environ["DB_NAME"] = "wikidata-importer"
     os.environ["DB_HOST"] = "mariadb-primary"

@@ -69,6 +69,7 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     }
 
 
+@flow(name="mardi-importer")
 def prefect_mardi_importer_flow(action: str, qids: Optional[List[str]] = None) -> Dict[str, Any]:
     log = get_run_logger()
     qids = qids or []

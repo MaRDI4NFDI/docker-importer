@@ -39,10 +39,14 @@ def as_list(value):
 
 @app.get("/health")
 def health():
-    """Return a basic health status payload."""
+    """Return a basic health status payload.
+
+    Returns:
+        Flask response tuple with service status.
+    """
     return jsonify({
         "status": "healthy",
-        "service": "mardi-importer-api"
+        "service": "docker-importer"
     }), 200
 
 @app.post("/import/wikidata_async")
@@ -238,6 +242,14 @@ def import_workflow_result():
 
 @app.post("/import/wikidata")
 def import_wikidata():
+    """Import Wikidata entities synchronously by QID.
+
+    Expects JSON with a ``qids`` field, which may be a list or a string of
+    comma/space-separated QIDs.
+
+    Returns:
+        Flask response tuple with per-QID import results.
+    """
     data = request.get_json(silent=True) or {}
     qids = as_list(data.get("qids"))
     if not qids:
@@ -273,6 +285,15 @@ def import_wikidata():
 
 @app.post("/import/doi")
 def import_doi():
+    """Import publications by DOI from supported sources.
+
+    Expects JSON with a ``dois`` field, which may be a list or a string of
+    comma/space-separated DOIs. Routes to arXiv, Zenodo, or Crossref based on
+    DOI patterns.
+
+    Returns:
+        Flask response tuple with per-DOI import results.
+    """
     data = request.get_json(silent=True) or {}
     dois = as_list(data.get("dois"))
     if not dois:

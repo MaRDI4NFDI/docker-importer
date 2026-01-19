@@ -21,6 +21,14 @@ PREFECT_API_AUTH_STRING = os.getenv("PREFECT_API_AUTH_STRING")  # "user:pass"
 app = Flask(__name__)
 
 def as_list(value):
+    """Normalize request values into a list of stripped strings.
+
+    Args:
+        value: Incoming value from JSON or query params.
+
+    Returns:
+        List of non-empty, stripped strings.
+    """
     if value is None:
         return []
     if isinstance(value, list):
@@ -31,6 +39,7 @@ def as_list(value):
 
 @app.get("/health")
 def health():
+    """Return a basic health status payload."""
     return jsonify({
         "status": "healthy",
         "service": "mardi-importer-api"
@@ -38,6 +47,14 @@ def health():
 
 @app.post("/import/wikidata_async")
 def import_wikidata_async():
+    """Trigger a background Wikidata import flow via Prefect.
+
+    Expects JSON with a ``qids`` field, which may be a list or a string of
+    comma/space-separated QIDs.
+
+    Returns:
+        Flask response tuple with flow metadata and HTTP status.
+    """
 
     log.info("Called 'import_wikidata_async'.")
 
@@ -78,6 +95,11 @@ def import_wikidata_async():
         return jsonify(error="Could not start background job", details=str(e)), 500
 
 def _prefect_headers():
+    """Build Prefect API headers, including Basic Auth when configured.
+
+    Returns:
+        Dict of headers for Prefect API requests.
+    """
     headers = {"Content-Type": "application/json"}
     if PREFECT_API_AUTH_STRING:
         token = base64.b64encode(PREFECT_API_AUTH_STRING.encode()).decode()
@@ -85,8 +107,17 @@ def _prefect_headers():
     return headers
 
 def _prefect_get(path: str, payload: dict | None = None, timeout: int = 30):
-    """
-    Prefect API helper. Uses Basic Auth via PREFECT_API_AUTH_STRING.
+    """Call the Prefect API via GET or POST depending on payload.
+
+    Uses Basic Auth via ``PREFECT_API_AUTH_STRING`` when present.
+
+    Args:
+        path: Prefect API path, including leading slash.
+        payload: JSON payload for POST requests; uses GET when omitted.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Parsed JSON response from Prefect.
     """
     url = f"{PREFECT_API_URL}{path}"
     if payload is None:
@@ -99,6 +130,14 @@ def _prefect_get(path: str, payload: dict | None = None, timeout: int = 30):
 
 @app.get("/import/workflow_status")
 def import_workflow_status():
+    """Return Prefect flow run status and optional result data.
+
+    Query params:
+        id: Prefect flow run id (required).
+
+    Returns:
+        Flask response tuple with flow status details.
+    """
     log.info("Called 'import_workflow_status'.")
 
     flow_run_id = request.args.get("id")
@@ -146,17 +185,15 @@ def import_workflow_status():
 
 @app.get("/import/workflow_result")
 def import_workflow_result():
-    """
-    Get the stored Prefect artifact for a completed flow run.
+    """Get the stored Prefect artifact for a completed flow run.
 
     Query params:
-      - id: Prefect flow_run_id (required)
-      - key_prefix: artifact key prefix (optional; default: "mardi-importer-result-")
+        id: Prefect flow run id (required).
+        key_prefix: Artifact key prefix (optional, default:
+            ``mardi-importer-result-``).
 
     Returns:
-      - 200 with artifact + data if found
-      - 202 if flow not completed yet
-      - 404 if completed but artifact not found
+        Flask response tuple with artifact data or status details.
     """
     flow_run_id = request.args.get("id")
     if not flow_run_id:

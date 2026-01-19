@@ -18,6 +18,10 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
 
     os.environ["WIKIDATA_USER"] = "Importer"
     os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
+    os.environ["MEDIAWIKI_API_URL"] = "http://wikibase-apache/w/api.php"
+    os.environ["WIKIBASE_URL"] = "http://wikibase-apache"
+    os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
+    os.environ["IMPORTER_API_URL"] = "http://importer-api"
 
     wdi = WikidataImporter()
     results: Dict[str, Any] = {}

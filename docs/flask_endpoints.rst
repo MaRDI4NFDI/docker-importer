@@ -25,6 +25,11 @@ In curl::
 
   -H "Content-Type: application/json"
 
+REMARK: if you are having a proxy server, you might want to try::
+
+  curl --noproxy "*" ...
+  Example for the health endpoint: curl --noproxy "*" -sS http://localhost:3333/health
+
 Endpoints
 ---------
 

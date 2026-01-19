@@ -1,5 +1,10 @@
+import base64
+import os
+
+import requests
 from flask import Flask, request, jsonify
 from mardi_importer.wikidata import WikidataImporter
+from prefect import get_client
 from prefect.deployments import run_deployment
 
 from mardi_importer import Importer
@@ -8,6 +13,9 @@ import re
 import logging
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+
+PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://prefect-mardi.zib.de/api")
+PREFECT_API_AUTH_STRING = os.getenv("PREFECT_API_AUTH_STRING")  # "user:pass"
 
 app = Flask(__name__)
 
@@ -67,6 +75,60 @@ def import_wikidata_async():
     except Exception as e:
         log.error("Failed to trigger Prefect flow: %s", e)
         return jsonify(error="Could not start background job", details=str(e)), 500
+
+def _prefect_headers():
+    headers = {"Content-Type": "application/json"}
+    if PREFECT_API_AUTH_STRING:
+        token = base64.b64encode(PREFECT_API_AUTH_STRING.encode()).decode()
+        headers["Authorization"] = f"Basic {token}"
+    return headers
+
+
+@app.get("/import/workflow_status")
+def import_workflow_status():
+    log.info("Called 'import_workflow_status'.")
+
+    flow_run_id = request.args.get("id")
+    if not flow_run_id:
+        return jsonify(error="missing flow run id (parameter: id)"), 400
+
+    try:
+        url = f"{PREFECT_API_URL}/flow_runs/{flow_run_id}"
+        r = requests.get(url, headers=_prefect_headers(), timeout=30)
+        r.raise_for_status()
+
+        data = r.json()
+        state = data.get("state", {}) or {}
+
+        result = {
+            "id": flow_run_id,
+            "state": state.get("type"),       # e.g. SCHEDULED, RUNNING, COMPLETED, FAILED
+            "state_name": state.get("name"),
+            "timestamp": state.get("timestamp"),
+        }
+
+        # Get result if job is finished
+        if state.get("type") == "COMPLETED":
+            result_url = f"{PREFECT_API_URL}/flow_runs/{flow_run_id}/result"
+            rr = requests.get(result_url, headers=_prefect_headers(), timeout=10)
+            if rr.status_code == 200:
+                result["result"] = rr.json()
+
+        return jsonify(result), 200
+
+    except requests.HTTPError as e:
+        log.error("Prefect returned HTTP error: %s", e, exc_info=True)
+        return jsonify(
+            error="could not fetch flow run",
+            details=str(e),
+        ), 404
+
+    except Exception as e:
+        log.error("Failed to query Prefect flow run: %s", e, exc_info=True)
+        return jsonify(
+            error="prefect api error",
+            details=str(e),
+        ), 500
 
 @app.post("/import/wikidata")
 def import_wikidata():

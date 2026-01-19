@@ -58,40 +58,6 @@ curl::
   }
 
 
-POST /import/wikidata_async
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).
-
-This endpoint accepts a JSON request body.
-
-**Request**
-
-curl::
-
-  curl -sS -X POST "http://localhost:3333/import/wikidata_async" \
-    -H "Content-Type: application/json" \
-    -d '{"qids":["Q42","Q1"]}' | jq .
-
-**Response (202)**
-
-.. code-block:: json
-
-  {
-    "status": "accepted",
-    "message": "Wikidata import process started in background",
-    "deployment_id": "...",
-    "id": "16e267d3-61d0-4484-b8ad-1af9221a969c",
-    "flow_id": "...",
-    "qids_queued": ["Q42","Q1"]
-  }
-
-**Errors**
-
-- 400 if ``qids`` missing
-- 500 if triggering the Prefect deployment fails
-
-
 GET /import/workflow_status
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -222,6 +188,40 @@ curl::
 - 400 if ``qids`` missing
 
 
+POST /import/wikidata_async
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).
+
+This endpoint accepts a JSON request body.
+
+**Request**
+
+curl::
+
+  curl -sS -X POST "http://localhost:3333/import/wikidata_async" \
+    -H "Content-Type: application/json" \
+    -d '{"qids":["Q42","Q1"]}' | jq .
+
+**Response (202)**
+
+.. code-block:: json
+
+  {
+    "status": "accepted",
+    "message": "Wikidata import process started in background",
+    "deployment_id": "...",
+    "id": "16e267d3-61d0-4484-b8ad-1af9221a969c",
+    "flow_id": "...",
+    "qids_queued": ["Q42","Q1"]
+  }
+
+**Errors**
+
+- 400 if ``qids`` missing
+- 500 if triggering the Prefect deployment fails
+
+
 POST /import/doi
 ~~~~~~~~~~~~~~~~
 
@@ -254,3 +254,36 @@ curl::
 
 - 400 if ``dois`` missing
 
+
+POST /import/doi_async
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).
+
+This endpoint accepts a JSON request body.
+
+**Request**
+
+curl::
+
+  curl -sS -X POST "http://localhost:3333/import/doi_async" \
+    -H "Content-Type: application/json" \
+    -d '{"dois":["10.1000/XYZ123","ARXIV.2101.00001"]}' | jq .
+
+**Response (202)**
+
+.. code-block:: json
+
+  {
+    "status": "accepted",
+    "message": "DOI import process started in background",
+    "deployment_id": "...",
+    "id": "16e267d3-61d0-4484-b8ad-1af9221a969c",
+    "flow_id": "...",
+    "dois_queued": ["10.1000/XYZ123","ARXIV.2101.00001"]
+  }
+
+**Errors**
+
+- 400 if ``dois`` missing
+- 500 if triggering the Prefect deployment fails

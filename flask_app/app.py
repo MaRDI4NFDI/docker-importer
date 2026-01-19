@@ -36,7 +36,7 @@ def health():
         "service": "mardi-importer-api"
     }), 200
 
-@app.get("/import/wikidata_async")
+@app.post("/import/wikidata_async")
 def import_wikidata_async():
 
     log.info("Called 'import_wikidata_async'.")

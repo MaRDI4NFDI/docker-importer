@@ -53,22 +53,18 @@ curl::
   }
 
 
-GET /import/wikidata_async
-~~~~~~~~~~~~~~~~~~~~~~~~~
+POST /import/wikidata_async
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).
 
-.. important::
-
-  This endpoint expects a JSON body even though it is a GET request.
-  Many clients/browsers cannot send a JSON body with GET.
-  Use curl for reliable testing, or provide a browser-friendly wrapper endpoint.
+This endpoint accepts a JSON request body.
 
 **Request**
 
-curl (recommended)::
+curl::
 
-  curl -sS -X GET "http://localhost:3333/import/wikidata_async" \
+  curl -sS -X POST "http://localhost:3333/import/wikidata_async" \
     -H "Content-Type: application/json" \
     -d '{"qids":["Q42","Q1"]}' | jq .
 

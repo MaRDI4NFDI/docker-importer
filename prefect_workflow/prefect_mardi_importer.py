@@ -1,16 +1,27 @@
+import os
 from typing import List, Dict, Any, Optional
 
 from prefect import flow, task, get_run_logger
 from mardi_importer.wikidata import WikidataImporter
+from prefect.blocks.system import Secret
 
 
-@task(retries=2, retry_delay_seconds=30)
+@task(retries=1, retry_delay_seconds=30)
 def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     log = get_run_logger()
+
+    # Load secrets for Wikidata importer from Prefect blocks
+    log.info("Loading Wikidata environment variables from Prefect blocks")
+    os.environ["DB_USER"] = Secret.load("wikidata-importer-db-user").get()
+    os.environ["DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
+    os.environ["DB_HOST"] = Secret.load("wikidata-importer-db-host").get()
+    os.environ["DB_NAME"] = Secret.load("wikidata-importer-db-name").get()
 
     wdi = WikidataImporter()
     results: Dict[str, Any] = {}
     all_ok = True
+
+    log.info("Starting batch import for Wikidata items: %s", ", ".join(qids))
 
     for q in qids:
         try:

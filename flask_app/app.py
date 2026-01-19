@@ -83,6 +83,18 @@ def _prefect_headers():
         headers["Authorization"] = f"Basic {token}"
     return headers
 
+def _prefect_get(path: str, payload: dict | None = None, timeout: int = 30):
+    """
+    Prefect API helper. Uses Basic Auth via PREFECT_API_AUTH_STRING.
+    """
+    url = f"{PREFECT_API_URL}{path}"
+    if payload is None:
+        r = requests.get(url, headers=_prefect_headers(), timeout=timeout)
+    else:
+        r = requests.post(url, headers=_prefect_headers(), json=payload, timeout=timeout)
+    r.raise_for_status()
+    return r.json()
+
 
 @app.get("/import/workflow_status")
 def import_workflow_status():
@@ -129,6 +141,71 @@ def import_workflow_status():
             error="prefect api error",
             details=str(e),
         ), 500
+
+
+@app.get("/import/workflow_result")
+def import_workflow_result():
+    """
+    Get the stored Prefect artifact for a completed flow run.
+
+    Query params:
+      - id: Prefect flow_run_id (required)
+      - key_prefix: artifact key prefix (optional; default: "mardi-importer-result-")
+
+    Returns:
+      - 200 with artifact + data if found
+      - 202 if flow not completed yet
+      - 404 if completed but artifact not found
+    """
+    flow_run_id = request.args.get("id")
+    if not flow_run_id:
+        return jsonify(error="missing flow run id (parameter: id)"), 400
+
+    key_prefix = request.args.get("key_prefix", "mardi-importer-result-")
+    expected_key = f"{key_prefix}{flow_run_id}"
+
+    # 1) Check flow run state
+    fr = _prefect_get(f"/flow_runs/{flow_run_id}", timeout=30)
+    state = (fr.get("state") or {}).get("type")
+
+    if state != "COMPLETED":
+        return jsonify(
+            id=flow_run_id,
+            state=state,
+            message="flow run not completed yet",
+        ), 202
+
+    # 2) Find artifact by key (latest for that key)
+    # Prefect artifact filtering endpoint
+    payload = {
+        "artifacts": {
+            "key": {"any_": [expected_key]}
+        },
+        "limit": 1,
+        "sort": "-created",
+    }
+
+    res = _prefect_get("/artifacts/filter", payload=payload, timeout=30)
+    items = res if isinstance(res, list) else res.get("items") or res.get("data") or []
+
+    if not items:
+        return jsonify(
+            id=flow_run_id,
+            state=state,
+            error="artifact not found",
+            expected_key=expected_key,
+        ), 404
+
+    a = items[0]
+
+    return jsonify(
+        id=flow_run_id,
+        state=state,
+        artifact_id=a.get("id"),
+        key=a.get("key"),
+        created=a.get("created"),
+        data=a.get("data"),
+    ), 200
 
 @app.post("/import/wikidata")
 def import_wikidata():

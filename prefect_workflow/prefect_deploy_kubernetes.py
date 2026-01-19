@@ -16,7 +16,7 @@ from prefect import flow
 
 if __name__ == "__main__":
     flow.from_source(
-        source="https://github.com/MaRDI4NFDI/mardi-importer.git",
+        source="https://github.com/MaRDI4NFDI/docker-importer.git",
         entrypoint="prefect_workflow/prefect_mardi_importer.py:prefect_mardi_importer_flow",
     ).deploy(
         # This must match Flask:
@@ -30,6 +30,6 @@ if __name__ == "__main__":
             "qids": ["Q42"],
         },
         job_variables={
-            "image": "ghcr.io/mardi4nfdi/mardi-importer:latest",
+            "image": "ghcr.io/mardi4nfdi/docker-importer:latest",
         },
     )

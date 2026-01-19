@@ -1,5 +1,6 @@
 import base64
 import os
+from urllib.parse import quote
 
 import requests
 from flask import Flask, request, jsonify
@@ -162,7 +163,7 @@ def import_workflow_result():
         return jsonify(error="missing flow run id (parameter: id)"), 400
 
     key_prefix = request.args.get("key_prefix", "mardi-importer-result-")
-    expected_key = f"{key_prefix}{flow_run_id}"
+    artifact_key = f"{key_prefix}{flow_run_id}"
 
     # 1) Check flow run state
     fr = _prefect_get(f"/flow_runs/{flow_run_id}", timeout=30)
@@ -175,28 +176,19 @@ def import_workflow_result():
             message="flow run not completed yet",
         ), 202
 
-    # 2) Find artifact by key (latest for that key)
-    # Prefect artifact filtering endpoint
-    payload = {
-        "artifacts": {
-            "key": {"any_": [expected_key]}
-        },
-        "limit": 1,
-        "sort": "-created",
-    }
-
-    res = _prefect_get("/artifacts/filter", payload=payload, timeout=30)
-    items = res if isinstance(res, list) else res.get("items") or res.get("data") or []
-
-    if not items:
-        return jsonify(
-            id=flow_run_id,
-            state=state,
-            error="artifact not found",
-            expected_key=expected_key,
-        ), 404
-
-    a = items[0]
+    # 2) Fetch artifact by key (latest)
+    key_enc = quote(artifact_key, safe="")
+    try:
+        a = _prefect_get(f"/artifacts/{key_enc}/latest", timeout=30)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 404:
+            return jsonify(
+                id=flow_run_id,
+                state=state,
+                error="artifact not found",
+                expected_key=artifact_key,
+            ), 404
+        raise
 
     return jsonify(
         id=flow_run_id,

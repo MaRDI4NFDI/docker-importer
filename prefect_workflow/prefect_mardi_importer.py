@@ -16,7 +16,7 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     os.environ["DB_NAME"] = "wikidata-importer"
     os.environ["DB_HOST"] = "mariadb-primary"
 
-    os.environ["WIKIDATA_USER"] = "Importer"
+    os.environ["WIKIDATA_USER"] = "Wikidata-Importer"
     os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
     os.environ["MEDIAWIKI_API_URL"] = "http://wikibase-apache/w/api.php"
     os.environ["WIKIBASE_URL"] = "http://wikibase-apache"

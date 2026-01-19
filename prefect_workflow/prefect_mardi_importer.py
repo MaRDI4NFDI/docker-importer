@@ -10,12 +10,11 @@ from prefect.blocks.system import Secret
 def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     log = get_run_logger()
 
-    # Load secrets for Wikidata importer from Prefect blocks
-    log.info("Loading Wikidata environment variables from Prefect blocks")
-    os.environ["DB_USER"] = Secret.load("wikidata-importer-db-user").get()
+    # Set needed env variables for Wikidata importer
     os.environ["DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["DB_HOST"] = Secret.load("wikidata-importer-db-host").get()
-    os.environ["DB_NAME"] = Secret.load("wikidata-importer-db-name").get()
+    os.environ["DB_USER"] = "importer-user"
+    os.environ["DB_NAME"] = "wikidata-importer"
+    os.environ["DB_HOST"] = "mariadb-primary"
 
     wdi = WikidataImporter()
     results: Dict[str, Any] = {}

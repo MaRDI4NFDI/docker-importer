@@ -3,7 +3,9 @@ from typing import List, Dict, Any, Optional
 
 from prefect import flow, task, get_run_logger
 from mardi_importer.wikidata import WikidataImporter
+from prefect.artifacts import Artifact
 from prefect.blocks.system import Secret
+from prefect.context import get_run_context
 
 
 @task(retries=1, retry_delay_seconds=30)
@@ -67,11 +69,7 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     }
 
 
-@flow(name="mardi-importer")
-def prefect_mardi_importer_flow(
-    action: str,
-    qids: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+def prefect_mardi_importer_flow(action: str, qids: Optional[List[str]] = None) -> Dict[str, Any]:
     log = get_run_logger()
     qids = qids or []
 
@@ -79,8 +77,27 @@ def prefect_mardi_importer_flow(
 
     if action != "import/wikidata":
         raise ValueError(f"Unsupported action: {action}")
-
     if not qids:
         raise ValueError("missing qids")
 
-    return import_wikidata_batch(qids)
+    result = import_wikidata_batch(qids)
+
+    ctx = get_run_context()
+    flow_run_id = str(ctx.flow_run.id)
+
+    # Store structured JSON in the artifact "data" field
+    artifact = Artifact(
+        type="json",
+        key=f"mardi-importer-result-{flow_run_id}",  # unique per run
+        description=f"Wikidata import result for flow_run_id={flow_run_id}",
+        data=result,
+    ).create()
+
+    # Return pointers for later programmatic retrieval
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_key": artifact.key,
+        "flow_run_id": flow_run_id,
+    }
+

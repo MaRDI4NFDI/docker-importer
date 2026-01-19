@@ -10,14 +10,18 @@ from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, G
                                           Sense, String, TabularData, Time)
 
 import logging
-from prefect.logging import get_run_logger
-from prefect.exceptions import MissingContextError
 
 
 def get_logger_safe(name: str = __name__) -> logging.Logger:
     try:
-        return get_run_logger()
-    except MissingContextError:
+        from prefect.logging import get_run_logger
+        from prefect.exceptions import MissingContextError
+
+        try:
+            return get_run_logger()
+        except MissingContextError:
+            return logging.getLogger(name)
+    except ModuleNotFoundError:
         return logging.getLogger(name)
 
 log = get_logger_safe(__name__)

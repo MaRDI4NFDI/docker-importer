@@ -40,6 +40,9 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 # flask app
 COPY flask_app /app/flask_app
 
+# prefect workflow
+COPY prefect_workflow /prefect_workflow
+
 # Install wikibaseintegrator from source
 RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \
     && pip install ./WikibaseIntegrator
@@ -53,7 +56,7 @@ COPY /mardi_importer /mardi_importer
 RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 
 # Install needed libs
-RUN pip install prefect-client requests
+RUN pip install --no-cache-dir prefect requests
 
 # Add contentmath datatype to WikibaseIntegrator
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/

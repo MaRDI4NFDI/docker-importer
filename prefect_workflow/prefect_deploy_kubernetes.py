@@ -30,6 +30,6 @@ if __name__ == "__main__":
             "qids": ["Q42"],
         },
         job_variables={
-            "image": "ghcr.io/mardi4nfdi/docker-importer:latest",
+            "image": "ghcr.io/mardi4nfdi/docker-importer:main",
         },
     )

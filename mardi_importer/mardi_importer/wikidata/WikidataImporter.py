@@ -9,6 +9,10 @@ from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
                                           Sense, String, TabularData, Time)
 
+import logging
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
 class WikidataImporter():
     _instance = None
     _initialized = False
@@ -257,15 +261,16 @@ class WikidataImporter():
         for wikidata_id in id_list:
 
             if wikidata_id.startswith("L"):
-                print(
+                log.warning(
                     f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
                 )
                 continue
 
-            print(f"importing entity {wikidata_id}")
+            log.info(f"importing entity {wikidata_id}")
 
             has_all_claims = self.query('has_all_claims', wikidata_id)
             if not has_all_claims:
+                log.info("has_all_claims is False")
                 # API call
                 entity = self._get_wikidata_information(
                     wikidata_id, 
@@ -273,12 +278,12 @@ class WikidataImporter():
                 )
 
                 if not entity:
-                    print(f"No labels for entity with id {wikidata_id}, skipping")
+                    log.info(f"No labels for entity with id {wikidata_id}, skipping")
                     continue
 
                 if entity.type == "property" and entity.datatype.value in \
                     self.excluded_datatypes:
-                    print(f"Warning: Lexemes not supported. Property skipped")
+                    log.info(f"Warning: Lexemes not supported. Property skipped")
                     continue
 
                 # Check if there is an internal ID redirection in Wikidata
@@ -299,6 +304,7 @@ class WikidataImporter():
                     local_id = self.query('local_id', wikidata_id)
 
                 if local_id:
+                    log.info(f"local id = {local_id}")
                     # Update existing entity
                     if entity.type == "item":
                         local_entity = self.api.item.get(entity_id=local_id)
@@ -317,6 +323,7 @@ class WikidataImporter():
                     else:
                         self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
                 else:
+                    log.info("no local id")
                     # Create entity
                     local_id = entity.write(login=self.api.login, as_new=True).id
                     self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)  
@@ -343,11 +350,11 @@ class WikidataImporter():
             local_id: Local entity ID
         """
         if wikidata_id.startswith("L"):
-            print(
+            log.warning(
                 f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
             )
 
-        print(f"Overwriting entity {local_id}")
+        log.info(f"Overwriting entity {local_id}")
 
         has_all_claims = self.query('has_all_claims', wikidata_id)
         if has_all_claims:
@@ -400,22 +407,22 @@ class WikidataImporter():
         for wikidata_id in id_list:
             # Skip Lexeme IDs
             if wikidata_id.startswith("L"):
-                print(
+                log.warning(
                     f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
                 )
                 continue
 
-            print(f"Updating entity {wikidata_id}")
+            log.info(f"Updating entity {wikidata_id}")
 
             entity = self._get_wikidata_information(wikidata_id, True)
 
             if not entity:
-                print(f"No labels for entity with id {wikidata_id}, skipping")
+                log.info(f"No labels for entity with id {wikidata_id}, skipping")
                 continue
 
             if entity.type == "property" and entity.datatype.value in \
                 self.excluded_datatypes:
-                print(f"Warning: Lexemes not supported. Property skipped.")
+                log.warning(f"Warning: Lexemes not supported. Property skipped.")
                 continue
 
             mardi_id = entity.exists()
@@ -571,7 +578,7 @@ class WikidataImporter():
             if prop_id not in self.excluded_properties:
                 local_prop_id = self._import_claim_entities(wikidata_id=prop_id)
                 if not local_prop_id:
-                    print("Warning: local id skipped")
+                    log.warning("Warning: local id skipped")
                     continue
                 for c in claim_list:
                     c_dict = c.get_json()

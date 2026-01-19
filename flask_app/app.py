@@ -1,6 +1,5 @@
 import base64
 import os
-from urllib.parse import quote
 
 import requests
 from flask import Flask, request, jsonify
@@ -21,6 +20,14 @@ PREFECT_API_AUTH_STRING = os.getenv("PREFECT_API_AUTH_STRING")  # "user:pass"
 app = Flask(__name__)
 
 def as_list(value):
+    """Normalize an input value to a list of non-empty strings.
+
+    Args:
+        value: Input that may be None, a list, a string, or another scalar.
+
+    Returns:
+        List[str]: Cleaned list of string values with blanks removed.
+    """
     if value is None:
         return []
     if isinstance(value, list):
@@ -31,13 +38,25 @@ def as_list(value):
 
 @app.get("/health")
 def health():
+    """Return a simple health check response.
+
+    Returns:
+        Response: JSON response with service status and HTTP 200.
+    """
     return jsonify({
         "status": "healthy",
-        "service": "mardi-importer-api"
+        "service": "docker-importer"
     }), 200
 
-@app.post("/import/wikidata_async")
+@app.get("/import/wikidata_async")
 def import_wikidata_async():
+    """Trigger an async Wikidata import via the Prefect deployment.
+
+    Expects JSON body with "qids" as list or comma/space separated string.
+
+    Returns:
+        Response: JSON response with flow identifiers and HTTP 202 on success.
+    """
 
     log.info("Called 'import_wikidata_async'.")
 
@@ -78,27 +97,28 @@ def import_wikidata_async():
         return jsonify(error="Could not start background job", details=str(e)), 500
 
 def _prefect_headers():
+    """Build Prefect API request headers with optional Basic auth.
+
+    Returns:
+        dict: Headers for Prefect API requests.
+    """
     headers = {"Content-Type": "application/json"}
     if PREFECT_API_AUTH_STRING:
         token = base64.b64encode(PREFECT_API_AUTH_STRING.encode()).decode()
         headers["Authorization"] = f"Basic {token}"
     return headers
 
-def _prefect_get(path: str, payload: dict | None = None, timeout: int = 30):
-    """
-    Prefect API helper. Uses Basic Auth via PREFECT_API_AUTH_STRING.
-    """
-    url = f"{PREFECT_API_URL}{path}"
-    if payload is None:
-        r = requests.get(url, headers=_prefect_headers(), timeout=timeout)
-    else:
-        r = requests.post(url, headers=_prefect_headers(), json=payload, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
-
 
 @app.get("/import/workflow_status")
 def import_workflow_status():
+    """Return current flow run status and optional result.
+
+    Query params:
+        id: Prefect flow_run_id (required).
+
+    Returns:
+        Response: JSON with flow state and optional result.
+    """
     log.info("Called 'import_workflow_status'.")
 
     flow_run_id = request.args.get("id")
@@ -143,64 +163,15 @@ def import_workflow_status():
             details=str(e),
         ), 500
 
-
-@app.get("/import/workflow_result")
-def import_workflow_result():
-    """
-    Get the stored Prefect artifact for a completed flow run.
-
-    Query params:
-      - id: Prefect flow_run_id (required)
-      - key_prefix: artifact key prefix (optional; default: "mardi-importer-result-")
-
-    Returns:
-      - 200 with artifact + data if found
-      - 202 if flow not completed yet
-      - 404 if completed but artifact not found
-    """
-    flow_run_id = request.args.get("id")
-    if not flow_run_id:
-        return jsonify(error="missing flow run id (parameter: id)"), 400
-
-    key_prefix = request.args.get("key_prefix", "mardi-importer-result-")
-    artifact_key = f"{key_prefix}{flow_run_id}"
-
-    # 1) Check flow run state
-    fr = _prefect_get(f"/flow_runs/{flow_run_id}", timeout=30)
-    state = (fr.get("state") or {}).get("type")
-
-    if state != "COMPLETED":
-        return jsonify(
-            id=flow_run_id,
-            state=state,
-            message="flow run not completed yet",
-        ), 202
-
-    # 2) Fetch artifact by key (latest)
-    key_enc = quote(artifact_key, safe="")
-    try:
-        a = _prefect_get(f"/artifacts/{key_enc}/latest", timeout=30)
-    except requests.HTTPError as e:
-        if e.response is not None and e.response.status_code == 404:
-            return jsonify(
-                id=flow_run_id,
-                state=state,
-                error="artifact not found",
-                expected_key=artifact_key,
-            ), 404
-        raise
-
-    return jsonify(
-        id=flow_run_id,
-        state=state,
-        artifact_id=a.get("id"),
-        key=a.get("key"),
-        created=a.get("created"),
-        data=a.get("data"),
-    ), 200
-
 @app.post("/import/wikidata")
 def import_wikidata():
+    """Import Wikidata entities synchronously by QID.
+
+    Expects JSON body with "qids" as list or comma/space separated string.
+
+    Returns:
+        Response: JSON with per-QID results and HTTP 200, or 400 on input error.
+    """
     data = request.get_json(silent=True) or {}
     qids = as_list(data.get("qids"))
     if not qids:
@@ -236,6 +207,14 @@ def import_wikidata():
 
 @app.post("/import/doi")
 def import_doi():
+    """Import publications synchronously by DOI.
+
+    Expects JSON body with "dois" as list or comma/space separated string.
+    Routes to arXiv, Zenodo, or Crossref based on DOI prefix.
+
+    Returns:
+        Response: JSON with per-DOI results and HTTP 200, or 400 on input error.
+    """
     data = request.get_json(silent=True) or {}
     dois = as_list(data.get("dois"))
     if not dois:

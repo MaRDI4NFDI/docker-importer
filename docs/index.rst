@@ -17,6 +17,7 @@ Table of contents
    :caption: Manual
 
    main
+   flask_endpoints
    tech
 
 .. toctree::

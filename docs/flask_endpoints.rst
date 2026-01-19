@@ -10,7 +10,7 @@ Local (e.g. via Kubernetes port-forward)::
 
 This assumes a port-forward like this::
 
-kubectl port-forward -n production svc/importer 3333:80
+  kubectl port-forward -n production svc/importer 3333:80
 
 All endpoints return JSON unless noted otherwise.
 

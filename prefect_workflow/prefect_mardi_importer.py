@@ -1,4 +1,5 @@
 import os
+import re
 from typing import List, Dict, Any, Optional
 
 from prefect import flow, task, get_run_logger
@@ -46,12 +47,10 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
             doi_upper = doi.upper()
             if "ARXIV" in doi_upper:
                 log.debug("trying to import from arxiv")
-                if "ARXIV." in doi_upper:
-                    arxiv_id = doi.split("ARXIV.", 1)[1].strip()
-                elif "ARXIV:" in doi_upper:
-                    arxiv_id = doi.split("ARXIV:", 1)[1].strip()
-                else:
+                match = re.search(r"(?i)arxiv[.:](.+)", doi)
+                if not match:
                     raise ValueError(f"Unsupported arXiv DOI format: {doi}")
+                arxiv_id = match.group(1).strip()
                 publication = arxiv.new_publication(arxiv_id)
                 log.info("arxiv recognized")
             elif "ZENODO" in doi_upper:

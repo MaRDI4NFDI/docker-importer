@@ -279,11 +279,11 @@ class WikidataImporter():
                 )
                 continue
 
-            self.log.info(f"importing entity {wikidata_id}")
+            self.log.debug(f"importing entity {wikidata_id}")
 
             has_all_claims = self.query('has_all_claims', wikidata_id)
             if not has_all_claims:
-                self.log.info("has_all_claims is False")
+                self.log.debug("has_all_claims is False")
                 # API call
                 entity = self._get_wikidata_information(
                     wikidata_id, 
@@ -291,12 +291,12 @@ class WikidataImporter():
                 )
 
                 if not entity:
-                    self.log.info(f"No labels for entity with id {wikidata_id}, skipping")
+                    self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")
                     continue
 
                 if entity.type == "property" and entity.datatype.value in \
                     self.excluded_datatypes:
-                    self.log.info(f"Warning: Lexemes not supported. Property skipped")
+                    self.log.debug(f"Warning: Lexemes not supported. Property skipped")
                     continue
 
                 # Check if there is an internal ID redirection in Wikidata
@@ -317,7 +317,7 @@ class WikidataImporter():
                     local_id = self.query('local_id', wikidata_id)
 
                 if local_id:
-                    self.log.info(f"local id = {local_id}")
+                    self.log.debug(f"local id = {local_id}")
                     # Update existing entity
                     if entity.type == "item":
                         local_entity = self.api.item.get(entity_id=local_id)
@@ -336,7 +336,7 @@ class WikidataImporter():
                     else:
                         self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
                 else:
-                    self.log.info("no local id")
+                    self.log.debug("no local id")
                     # Create entity
                     local_id = entity.write(login=self.api.login, as_new=True).id
                     self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)  
@@ -367,7 +367,7 @@ class WikidataImporter():
                 f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
             )
 
-        self.log.info(f"Overwriting entity {local_id}")
+        self.log.debug(f"Overwriting entity {local_id}")
 
         has_all_claims = self.query('has_all_claims', wikidata_id)
         if has_all_claims:
@@ -425,12 +425,12 @@ class WikidataImporter():
                 )
                 continue
 
-            self.log.info(f"Updating entity {wikidata_id}")
+            self.log.debug(f"Updating entity {wikidata_id}")
 
             entity = self._get_wikidata_information(wikidata_id, True)
 
             if not entity:
-                self.log.info(f"No labels for entity with id {wikidata_id}, skipping")
+                self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")
                 continue
 
             if entity.type == "property" and entity.datatype.value in \

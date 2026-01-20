@@ -1,8 +1,14 @@
 """Top-level package shim for repo checkout usage.
 
-This re-exports symbols from the actual package in mardi_importer/mardi_importer
-so imports like `from mardi_importer import Importer` work without installation.
+Use lazy attribute access to avoid circular imports during package init.
 """
 
-from mardi_importer.mardi_importer import Importer  # noqa: F401
+from importlib import import_module
+from typing import Any
+
+
+def __getattr__(name: str) -> Any:
+    if name == "Importer":
+        return import_module("mardi_importer.mardi_importer").Importer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

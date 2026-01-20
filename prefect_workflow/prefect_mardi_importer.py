@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 
 from prefect import flow, task, get_run_logger
 from mardi_importer.wikidata import WikidataImporter
-from mardi_importer.importer import Importer
+from mardi_importer import Importer
 from prefect.artifacts import Artifact
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context
@@ -35,6 +35,7 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
 
     results = {}
     all_ok = True
+    log.debug("Registered sources: %s", ", ".join(Importer._sources.keys()))
     arxiv = Importer.create_source('arxiv')
     zenodo = Importer.create_source('zenodo')
     crossref = Importer.create_source('crossref')

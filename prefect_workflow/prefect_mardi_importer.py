@@ -1,9 +1,18 @@
+import sys
+from site import getsitepackages
+
+# Ensure site-packages wins over the repo checkout on sys.path
+site_pkgs = getsitepackages()
+for p in reversed(site_pkgs):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+        
 import os
 from typing import List, Dict, Any, Optional
 
 from prefect import flow, task, get_run_logger
 from mardi_importer.wikidata import WikidataImporter
-from mardi_importer.importer import Importer
+from mardi_importer import Importer
 from prefect.artifacts import Artifact
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context

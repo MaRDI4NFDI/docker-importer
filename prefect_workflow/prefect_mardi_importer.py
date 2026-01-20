@@ -43,15 +43,24 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
     for doi in dois:
         log.info(f"Importing for doi {doi}")
         try:
-            if "ARXIV" in doi:
-                arxiv_id = doi.split("ARXIV.")[-1]
+            doi_upper = doi.upper()
+            if "ARXIV" in doi_upper:
+                log.debug("trying to import from arxiv")
+                if "ARXIV." in doi_upper:
+                    arxiv_id = doi.split("ARXIV.", 1)[1].strip()
+                elif "ARXIV:" in doi_upper:
+                    arxiv_id = doi.split("ARXIV:", 1)[1].strip()
+                else:
+                    raise ValueError(f"Unsupported arXiv DOI format: {doi}")
                 publication = arxiv.new_publication(arxiv_id)
                 log.info("arxiv recognized")
-            elif "ZENODO" in doi:
+            elif "ZENODO" in doi_upper:
+                log.debug("trying to import from zenodo")
                 zenodo_id = doi.split(".")[-1]
                 publication = zenodo.new_resource(zenodo_id)
                 log.info("zenodo recognized")
             else:
+                log.warning(f"did not recognize 'ARXIV' or 'ZENODO' in doi {doi_upper}, trying crossref")
                 publication = crossref.new_publication(doi)
                 log.info("crossref recognized")
             result = publication.create()

@@ -26,8 +26,6 @@ def get_logger_safe(name: str = __name__) -> logging.Logger:
         return logging.getLogger(name)
 
 
-log = get_logger_safe(__name__)
-
 taxonomy = ["cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", \
             "cs.CV", "cs.CY", "cs.DB", "cs.DC", "cs.DL", "cs.DM", "cs.DS", \
             "cs.ET", "cs.FL", "cs.GL", "cs.GR", "cs.GT", "cs.HC", "cs.IR", \
@@ -262,6 +260,10 @@ class ArxivPublication():
                 self.authors.append(author)
     
     def create(self):
+
+        log = get_logger_safe(__name__)
+        log.debug("Start creating wiki item for arXiv publication")
+
         if self.QID:
             return self.QID
 

@@ -300,7 +300,7 @@ def import_doi_async():
     if not dois:
         log.error("missing DOIs")
         return jsonify(error="missing dois"), 400
-
+    dois = [x.upper() for x in dois]
     log.info(f"DOIs: {dois}")
 
     try:
@@ -315,7 +315,6 @@ def import_doi_async():
             parameters={"action": "import/doi", "dois": dois},
             timeout=0,
         )
-
         log.info(f"Workflow triggered. ID: {flow_run.id}. Deployment ID: {flow_run.deployment_id}. Flow ID: {flow_run.flow_id}")
 
         return jsonify({

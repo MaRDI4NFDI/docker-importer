@@ -1,0 +1,15 @@
+# Minimal test dependencies for import-resolution tests.
+beautifulsoup4
+feedparser
+habanero
+httpx
+nameparser
+pandas
+requests
+sickle
+sqlalchemy
+
+# Install from source
+-e git+https://github.com/LeMyst/WikibaseIntegrator.git#egg=wikibaseintegrator
+-e git+https://github.com/MaRDI4NFDI/mardiclient.git#egg=mardiclient
+

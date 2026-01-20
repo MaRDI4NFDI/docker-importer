@@ -1,6 +1,7 @@
 import feedparser
 import requests
 import re
+import logging
 
 from bs4 import BeautifulSoup
 from dataclasses import dataclass, field
@@ -10,6 +11,22 @@ from typing import List, Optional
 from mardiclient import MardiClient
 from mardi_importer import Importer
 from mardi_importer.utils import Author
+
+
+def get_logger_safe(name: str = __name__) -> logging.Logger:
+    try:
+        from prefect.logging import get_run_logger
+        from prefect.exceptions import MissingContextError
+
+        try:
+            return get_run_logger()
+        except MissingContextError:
+            return logging.getLogger(name)
+    except ModuleNotFoundError:
+        return logging.getLogger(name)
+
+
+log = get_logger_safe(__name__)
 
 taxonomy = ["cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", \
             "cs.CV", "cs.CY", "cs.DB", "cs.DC", "cs.DL", "cs.DM", "cs.DS", \
@@ -289,6 +306,11 @@ class ArxivPublication():
                     category_claims.append(claim)
                 
             if category_claims:
+                log.debug(
+                    "arxiv category_claims types=%s values=%s",
+                    [type(c).__name__ for c in category_claims],
+                    category_claims,
+                )
                 item.add_claims(category_claims)
 
             # Authors
@@ -296,6 +318,11 @@ class ArxivPublication():
             claims = []
             for author in author_QID:
                 claims.append(self.api.get_claim("wdt:P50", author))
+            log.debug(
+                "arxiv author claims types=%s values=%s",
+                [type(c).__name__ for c in claims],
+                claims,
+            )
             item.add_claims(claims)
 
             # DOI

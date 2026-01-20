@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 from typing import Dict
 
@@ -53,6 +54,21 @@ class TestImporterArxivSource(unittest.TestCase):
             Importer._sources = old_sources
             Importer._credentials = old_credentials
             Importer._apis = old_apis
+
+    def test_arxiv_id_parsing_variants(self) -> None:
+        pattern = re.compile(r"(?i)arxiv[.:](.+)")
+        cases = {
+            "arXiv:2601.10736": "2601.10736",
+            "ARXIV:2601.10736": "2601.10736",
+            "ARXIV.2601.10736": "2601.10736",
+            "10.48550/arXiv.2601.10736": "2601.10736",
+            "prefix ARXIV:2601.10736": "2601.10736",
+        }
+
+        for raw, expected in cases.items():
+            match = pattern.search(raw)
+            self.assertIsNotNone(match, msg=f"no arXiv match for {raw!r}")
+            self.assertEqual(match.group(1).strip(), expected)
 
 
 if __name__ == "__main__":

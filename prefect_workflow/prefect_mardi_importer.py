@@ -37,6 +37,12 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
     results = {}
     all_ok = True
     log.debug("Registered sources: %s", ", ".join(Importer._sources.keys()))
+
+    # The following "create_source" calls trigger the respective source setups,
+    # which imports required Wikidata entities into the local Wikibase.
+    # See e.g. ArxivSource.py -> setup()
+    # Note: This can take a while.
+
     arxiv = Importer.create_source('arxiv')
     zenodo = Importer.create_source('zenodo')
     crossref = Importer.create_source('crossref')
@@ -62,7 +68,10 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
                 log.warning(f"did not recognize 'ARXIV' or 'ZENODO' in doi {doi_upper}, trying crossref")
                 publication = crossref.new_publication(doi)
                 log.info("crossref recognized")
+
+            # Try to actually create the wiki item
             result = publication.create()
+
             if result:
                 log.info(f"Imported item {result} for doi {doi}.")
                 results[doi] = {"qid": result,"status": "success"}

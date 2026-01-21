@@ -39,6 +39,7 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
 # flask app
 COPY flask_app /app/flask_app
+COPY services ./services
 
 # prefect workflow
 COPY prefect_workflow /prefect_workflow

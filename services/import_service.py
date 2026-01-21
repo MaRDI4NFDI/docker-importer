@@ -43,6 +43,7 @@ def build_health_payload(service_name: str = "docker-importer") -> dict:
     Returns:
         Health payload dictionary.
     """
+    log.debug("Flask Endpoint HEALTH called.")
     return {"status": "healthy", "service": service_name}
 
 
@@ -227,9 +228,9 @@ def trigger_wikidata_async(
     return {
         "status": "accepted",
         "message": "Wikidata import process started in background",
-        "deployment_id": flow_run.deployment_id,
-        "id": flow_run.id,
-        "flow_id": flow_run.flow_id,
+        "deployment_id": str(flow_run.deployment_id),
+        "id": str(flow_run.id),
+        "flow_id": str(flow_run.flow_id),
         "qids_queued": qids,
     }
 
@@ -256,9 +257,9 @@ def trigger_doi_async(
     return {
         "status": "accepted",
         "message": "DOI import process started in background",
-        "deployment_id": flow_run.deployment_id,
-        "id": flow_run.id,
-        "flow_id": flow_run.flow_id,
+        "deployment_id": str(flow_run.deployment_id),
+        "id": str(flow_run.id),
+        "flow_id": str(flow_run.flow_id),
         "dois_queued": doi_list,
     }
 

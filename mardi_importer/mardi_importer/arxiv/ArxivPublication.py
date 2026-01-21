@@ -60,6 +60,12 @@ class Arxiv():
 
     def __post_init__(self) -> None:
         self.entry = self.arxiv_api(self.arxiv_id)
+
+        if not self.entry:
+            raise ValueError(
+                f"arXiv entry for {self.arxiv_id} not found. Please check the arXiv ID."
+            )
+
         if self.api is None:
             self.api = Importer.get_api('arxiv')
 
@@ -200,9 +206,20 @@ class Arxiv():
 
     @staticmethod
     def arxiv_api(arxiv_id: str) -> FeedParserDict:
+        log = get_logger_safe(__name__)
+
+        clean_id = re.sub(r'^arxiv:', '', arxiv_id, flags=re.IGNORECASE).strip()
+
         api_url = 'http://export.arxiv.org/api/query?id_list='
-        response = requests.get(api_url + arxiv_id)
+        full_url = api_url + clean_id
+        log.debug(f"Fetching arXiv entry for {clean_id} (original: {arxiv_id}) - using: {full_url}")
+        response = requests.get(full_url)
         feed = feedparser.parse(response.text)
+
+        if not feed.entries:
+            log.warning(f"No arXiv entries found for ID: {clean_id}. The list is empty.")
+            return None
+
         return feed.entries[0]
 
     @staticmethod

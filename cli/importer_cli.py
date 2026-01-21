@@ -19,10 +19,31 @@ from services.import_service import (
     trigger_wikidata_async,
 )
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+    datefmt='%H:%M:%S'
+)
+log = logging.getLogger()
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+def print_mardi_logo():
+    # Enable ANSI support on Windows (if needed)
+    if os.name == "nt":
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
+    # ANSI colors
+    ORANGE = "\033[38;5;208m"
+    RESET = "\033[0m"
+
+    mardi_nfo = r"""
+██▄  ▄██  ▄▄▄  █████▄  ████▄  ██   ██  ██   ███  ██ ██████ ████▄  ██ 
+██ ▀▀ ██ ██▀██ ██▄▄██▄ ██  ██ ██   ▀█████   ██ ▀▄██ ██▄▄   ██  ██ ██ 
+██    ██ ██▀██ ██   ██ ████▀  ██       ██   ██   ██ ██     ████▀  ██
+"""
+
+    print(ORANGE + mardi_nfo + RESET)
 
 def _load_secrets() -> None:
     """Load environment variables from the local CLI secrets file.
@@ -34,12 +55,11 @@ def _load_secrets() -> None:
     if not secrets_path.exists():
         return
     for line in secrets_path.read_text().splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+        if not line.strip() or line.lstrip().startswith("#"):
             continue
-        if "=" not in stripped:
+        if "=" not in line:
             continue
-        key, value = stripped.split("=", 1)
+        key, value = line.split("=", 1)
         os.environ[key.strip()] = value.strip()
 
 
@@ -239,7 +259,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="CLI for docker-importer workflows and imports."
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command")
 
     sub = subparsers.add_parser("health", help="Report service health.")
     sub.set_defaults(func=cmd_health)
@@ -291,8 +311,22 @@ def main() -> int:
     Returns:
         Process exit code.
     """
+
+    print_mardi_logo()
+    log.info("Starting importer CLI")
+
     parser = build_parser()
     args = parser.parse_args()
+    if not hasattr(args, "func"):
+        print(
+            "This is the MaRDI importer CLI. To do a health check, execute: "
+            "python -m cli.importer_cli health"
+        )
+        parser.print_help()
+        sys.stderr.write(
+            "importer_cli.py: error: the following arguments are required: command\n"
+        )
+        return 2
     return args.func(args)
 
 

@@ -14,3 +14,4 @@ mardi_importer/mardi_importer/scripts/CRAN.log
 bot_scripts/.ipynb_checkpoints/
 /cli/secrets.txt
 .idea
+.venv

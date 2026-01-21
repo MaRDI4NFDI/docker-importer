@@ -80,7 +80,7 @@ class WikidataImporter():
                 db_name = 'my_wiki'
             db_host = os.environ["DB_HOST"]
 
-            self.log.debug("Creating mariadb connection to: {db_host}")
+            self.log.debug(f"Creating mariadb connection to: {db_host}")
 
             return db.create_engine(
                 url="mariadb+mariadbconnector://{0}:{1}@{2}/{3}".format(
@@ -275,7 +275,7 @@ class WikidataImporter():
                 )
                 continue
 
-            self.log.debug(f"importing entity {wikidata_id} from Wikidata {WIKIDATA_API_URL}")
+            self.log.debug(f"importing entity {wikidata_id} from Wikidata using {WIKIDATA_API_URL}")
 
             has_all_claims = self.query('has_all_claims', wikidata_id)
             if not has_all_claims:

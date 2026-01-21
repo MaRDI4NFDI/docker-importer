@@ -142,6 +142,15 @@ class Arxiv():
         Returns:
             Author: Author object with the arXiv author ID, if found.
         """
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, 'Author') and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+
         author_split = name.lower().split(' ')
         finish = False
         i = 1
@@ -149,11 +158,11 @@ class Arxiv():
             arxiv_author_id = "_".join([author_split[-1], author_split[0][0], str(i)])
             i += 1
             headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '3600',
-            'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Max-Age': '3600',
+                'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'
             }
 
             base_url = "https://arxiv.org/a/"
@@ -164,6 +173,7 @@ class Arxiv():
                 author_html = soup.find("div", id="content").find("h1").get_text(strip=True)
             except AttributeError:
                 author_html = "Not Found"
+
             if author_html == "Not Found":
                 finish = True
             else:
@@ -179,11 +189,14 @@ class Arxiv():
                         if article == self.title:
                             finish = True
                             orcid = self.get_orcid(soup)
-                            return Author(self.api,
-                                          name=name,
-                                          orcid=orcid, 
-                                          arxiv_id=arxiv_author_id)
-        return Author(self.api, name=name)
+                            # Return using the resolved factory
+                            return author_factory(self.api,
+                                                  name=name,
+                                                  orcid=orcid,
+                                                  arxiv_id=arxiv_author_id)
+
+        # Fallback return using the resolved factory
+        return author_factory(self.api, name=name)
 
     @staticmethod
     def arxiv_api(arxiv_id: str) -> FeedParserDict:

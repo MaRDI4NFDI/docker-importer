@@ -1,3 +1,4 @@
+import logging
 import re
 
 from mardiclient import MardiClient
@@ -322,17 +323,17 @@ class CrossrefPublication():
                 item.add_claim("wdt:P577", f"+{self.year}-00-00T00:00:00Z", precision=9)
 
             author_QID = self.__preprocess_authors()
-            claims = []
+            author_claims = []
             for author in author_QID:
-                claims.append(self.api.get_claim("wdt:P50", author))
+                author_claims.append(self.api.get_claim("wdt:P50", author))
 
             log.debug(
-                "crossref claims types=%s values=%s",
-                [type(c).__name__ for c in claims],
-                claims,
+                "crossref author_claims types=%s values=%s",
+                [type(c).__name__ for c in author_claims],
+                author_claims,
             )
 
-            item.add_claims(claims)
+            item.add_claims(author_claims)
             
             if not self.QID:
                 self.QID = item.write().id
@@ -368,9 +369,15 @@ class CrossrefPublication():
             QIDs corresponding to each author.
         """
         author_QID = []
+
+        log = get_logger_safe(__name__)
+        log.debug(f"Start preprocessing authors for: {self.authors}")
+
         for author in self.authors:
             if not author.QID:
+                log.debug(f"Creating author item for: {author}")
                 author.create()
+                log.debug(f"Created author with QID: {author.QID}")
             author_QID.append(author.QID)
         return author_QID
 

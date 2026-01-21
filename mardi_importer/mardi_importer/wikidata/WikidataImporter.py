@@ -266,6 +266,8 @@ class WikidataImporter():
         if filename: id_list = self.create_id_list_from_file(filename)
         if isinstance(id_list, str): id_list = [id_list]
 
+        self.log.debug(f"Start importing Wikidata entities using {WIKIDATA_API_URL}")
+
         for wikidata_id in id_list:
 
             if wikidata_id.startswith("L"):
@@ -274,7 +276,7 @@ class WikidataImporter():
                 )
                 continue
 
-            self.log.debug(f"importing entity {wikidata_id} from Wikidata using {WIKIDATA_API_URL}")
+            self.log.debug(f"importing entity {wikidata_id}")
 
             has_all_claims = self.query('has_all_claims', wikidata_id)
             if not has_all_claims:
@@ -340,6 +342,8 @@ class WikidataImporter():
                 imported_entities[wikidata_id] = self.query('local_id', wikidata_id)
             else:
                 imported_entities[wikidata_id] = local_id
+
+        self.log.debug(f"Done importing Wikidata entities")
 
         if len(imported_entities) == 1:
             return list(imported_entities.values())[0]

@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from mardi_importer import Importer
 from mardi_importer.utils import Author
+from mardi_importer.logger.logging_utils import get_logger_safe
 
 @dataclass
 class CrossrefPublication():
@@ -42,6 +43,9 @@ class CrossrefPublication():
     api: Optional[MardiClient] = None
 
     def __post_init__(self):
+
+        log = get_logger_safe(__name__)
+
         self.crossref_ok = False
         if self.api is None:
             self.api = Importer.get_api('crossref')
@@ -76,7 +80,7 @@ class CrossrefPublication():
                 cr = Crossref()
                 response = cr.works(ids=self.doi)
             except HTTPStatusError as e:
-                print(f"Publication with doi: {self.doi} not found in Crossref: {str(e)}")
+                log.error(f"Publication with doi: {self.doi} not found in Crossref: {str(e)}")
                 return None
             else:
                 if response['status'] != 'ok':
@@ -248,8 +252,11 @@ class CrossrefPublication():
         if self.QID:
             return self.QID
 
+        log = get_logger_safe(__name__)
+        log.debug("Start creating wiki item for crossref publication")
+
         if not self.crossref_ok and not self.create_empty:
-            print(f"Skipping creation, DOI {self.doi} not found in Crossref.")
+            log.warning(f"Skipping creation, DOI {self.doi} not found in Crossref.")
             return None
         item = self.api.item.new()
         if self.title:
@@ -318,6 +325,13 @@ class CrossrefPublication():
             claims = []
             for author in author_QID:
                 claims.append(self.api.get_claim("wdt:P50", author))
+
+            log.debug(
+                "crossref claims types=%s values=%s",
+                [type(c).__name__ for c in claims],
+                claims,
+            )
+
             item.add_claims(claims)
             
             if not self.QID:
@@ -337,10 +351,10 @@ class CrossrefPublication():
 
 
         if self.QID:
-            print(f"Publication with DOI: {self.doi} created with ID {self.QID}.")
+            log.info(f"Publication with DOI: {self.doi} created with ID {self.QID}.")
             return self.QID
         else:
-            print(f"Publication with DOI: {self.doi} could not be created.")
+            log.warning(f"Publication with DOI: {self.doi} could not be created.")
             return None
 
     def __preprocess_authors(self) -> List[str]:

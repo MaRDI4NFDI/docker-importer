@@ -1,5 +1,4 @@
 import os
-import re
 import sqlalchemy as db
 
 from mardiclient import MardiClient
@@ -9,20 +8,8 @@ from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
                                           Sense, String, TabularData, Time)
 
-import logging
+from mardi_importer.utils.logging_utils import get_logger_safe
 
-
-def get_logger_safe(name: str = __name__) -> logging.Logger:
-    try:
-        from prefect.logging import get_run_logger
-        from prefect.exceptions import MissingContextError
-
-        try:
-            return get_run_logger()
-        except MissingContextError:
-            return logging.getLogger(name)
-    except ModuleNotFoundError:
-        return logging.getLogger(name)
 
 class WikidataImporter():
     _instance = None

@@ -1,29 +1,16 @@
+import re
+from dataclasses import dataclass, field
+from typing import List, Optional
+
 import feedparser
 import requests
-import re
-import logging
-
 from bs4 import BeautifulSoup
-from dataclasses import dataclass, field
 from feedparser.util import FeedParserDict
-from typing import List, Optional
 
 from mardiclient import MardiClient
 from mardi_importer import Importer
 from mardi_importer.utils import Author
-
-
-def get_logger_safe(name: str = __name__) -> logging.Logger:
-    try:
-        from prefect.logging import get_run_logger
-        from prefect.exceptions import MissingContextError
-
-        try:
-            return get_run_logger()
-        except MissingContextError:
-            return logging.getLogger(name)
-    except ModuleNotFoundError:
-        return logging.getLogger(name)
+from mardi_importer.utils.logging_utils import get_logger_safe
 
 
 taxonomy = ["cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", \

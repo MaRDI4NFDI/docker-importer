@@ -1,9 +1,42 @@
+import sys
 import types
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import requests
+
+
+def _install_prefect_stub() -> None:
+    """Install a minimal Prefect stub in sys.modules for tests.
+
+    This prevents import errors when Prefect is not installed.
+
+    Returns:
+        None.
+    """
+    if "prefect" in sys.modules:
+        return
+
+    fake_prefect = types.ModuleType("prefect")
+    fake_deployments = types.ModuleType("prefect.deployments")
+
+    def run_deployment(*_args, **_kwargs):
+        """Placeholder run_deployment for test imports.
+
+        Raises:
+            RuntimeError: Always raised if called without a test patch.
+        """
+        raise RuntimeError("run_deployment stub was called without patching")
+
+    fake_deployments.run_deployment = run_deployment
+    fake_prefect.deployments = fake_deployments
+
+    sys.modules["prefect"] = fake_prefect
+    sys.modules["prefect.deployments"] = fake_deployments
+
+
+_install_prefect_stub()
 
 from services import import_service
 

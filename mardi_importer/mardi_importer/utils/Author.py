@@ -1,11 +1,10 @@
+from mardiclient import MardiClient, MardiItem
+from mardi_importer.wikidata import WikidataImporter
+
 from dataclasses import dataclass, field
 from typing import List
-
-from mardiclient import MardiClient, MardiItem
 from nameparser import HumanName
 from nameparser.config import CONSTANTS
-
-from mardi_importer.wikidata.WikidataImporter import WikidataImporter
 CONSTANTS.titles.remove('Mahdi')
 CONSTANTS.titles.remove('Bodhisattva')
 

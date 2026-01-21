@@ -4,7 +4,7 @@ import types
 import unittest
 from unittest.mock import patch
 
-from mardi_importer.utils.logging_utils import get_logger_safe
+from mardi_importer.logger.logging_utils import get_logger_safe
 
 
 class TestGetLoggerSafe(unittest.TestCase):

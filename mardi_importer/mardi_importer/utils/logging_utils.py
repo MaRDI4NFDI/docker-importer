@@ -1,14 +1,10 @@
-import logging
+"""Backward-compatible wrapper for `mardi_importer.logger.logging_utils`.
 
+Prefer importing `get_logger_safe` from `mardi_importer.logger` going forward.
 
-def get_logger_safe(name: str = __name__) -> logging.Logger:
-    try:
-        from prefect.logging import get_run_logger
-        from prefect.exceptions import MissingContextError
+This module remains to avoid breaking external imports.
+"""
 
-        try:
-            return get_run_logger()
-        except MissingContextError:
-            return logging.getLogger(name)
-    except ModuleNotFoundError:
-        return logging.getLogger(name)
+from mardi_importer.logger.logging_utils import get_logger_safe
+
+__all__ = ["get_logger_safe"]

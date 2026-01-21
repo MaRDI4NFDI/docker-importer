@@ -1,10 +1,11 @@
 """Utility subpackage.
 
-This package is imported by low-level modules (e.g. WikidataImporter) during
-startup. Keep `__init__` free of eager imports to avoid circular-import issues.
+This package is imported by low-level modules during startup. Keep `__init__`
+free of eager imports to avoid circular-import issues.
 
-In particular, `mardi_importer.wikidata.WikidataImporter` imports
-`mardi_importer.utils.logging_utils`, which imports this package. Importing
+Historically, `mardi_importer.wikidata.WikidataImporter` imported logging helpers
+from `mardi_importer.utils.logging_utils`, which forced this package to import
+early. Importing
 `Author` here would re-import `mardi_importer.wikidata` while it is still
 initializing and can cause `from mardi_importer.wikidata import WikidataImporter`
 to resolve to the *module* instead of the class (leading to

@@ -10,7 +10,7 @@ from feedparser.util import FeedParserDict
 from mardiclient import MardiClient
 from mardi_importer import Importer
 from mardi_importer.utils import Author
-from mardi_importer.utils.logging_utils import get_logger_safe
+from mardi_importer.logger.logging_utils import get_logger_safe
 
 
 taxonomy = ["cs.AI", "cs.AR", "cs.CC", "cs.CE", "cs.CG", "cs.CL", "cs.CR", \

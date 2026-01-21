@@ -1,4 +1,3 @@
-import logging
 import os
 import sqlalchemy as db
 
@@ -9,7 +8,7 @@ from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
                                           Sense, String, TabularData, Time)
 
-from mardi_importer.utils.logging_utils import get_logger_safe
+from mardi_importer.logger.logging_utils import get_logger_safe
 
 WIKIDATA_API_URL = 'https://www.wikidata.org/w/api.php'
 

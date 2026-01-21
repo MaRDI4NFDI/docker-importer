@@ -215,7 +215,16 @@ class CrossrefPublication():
                                 self.month = "0" + self.month
                         self.year = str(metadata['published']['date-parts'][0][0])
                         if self.year and self.book:
-                            self.description += f" ({self.year})" 
+                            self.description += f" ({self.year})"
+
+                # Logic to determine if 'Author' is the class or the module containing the class
+                if hasattr(Author, 'Author') and not isinstance(Author, type):
+                    author_factory = Author.Author
+                else:
+                    author_factory = Author
+
+                if not callable(author_factory):
+                    raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
 
                 if 'author' in metadata.keys():
                     for author in metadata['author']:
@@ -223,9 +232,9 @@ class CrossrefPublication():
                             author_label = f"{author['given'].title()} {author['family'].title()}"
                             if 'ORCID' in author.keys():
                                 orcid_id = re.findall("\d{4}-\d{4}-\d{4}-.{4}", author['ORCID'])[0]
-                                self.authors.append(Author(self.api, name=author_label, orcid=orcid_id))
+                                self.authors.append(author_factory(self.api, name=author_label, orcid=orcid_id))
                             else:
-                                self.authors.append(Author(self.api, name=author_label))
+                                self.authors.append(author_factory(self.api, name=author_label))
 
                 if 'relation' in metadata.keys():
                     if 'is-preprint-of' in metadata['relation'].keys():

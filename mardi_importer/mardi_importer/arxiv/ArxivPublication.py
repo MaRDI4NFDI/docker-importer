@@ -321,10 +321,10 @@ class ArxivPublication():
             self.QID = item.write().id
 
         if self.QID:
-            print(f"arXiv preprint with arXiv id: {self.arxiv_id} created with ID {self.QID}.")
+            log.debug(f"arXiv preprint with arXiv id: {self.arxiv_id} created with ID {self.QID}.")
             return self.QID
         else:
-            print(f"arXiv preprint with arXiv id: {self.arxiv_id} could not be created.")
+            log.debug(f"arXiv preprint with arXiv id: {self.arxiv_id} could not be created.")
             return None
 
     def __preprocess_authors(self) -> List[str]:
@@ -337,9 +337,11 @@ class ArxivPublication():
           List[str]: 
             QIDs corresponding to each author.
         """
+        log = get_logger_safe(__name__)
         author_QID = []
         for author in self.authors:
             if not author.QID:
+                log.debug(f"Creating author: {author}")
                 author.create()
             author_QID.append(author.QID)
         return author_QID

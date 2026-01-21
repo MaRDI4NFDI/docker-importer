@@ -1,3 +1,4 @@
+import logging
 import os
 import sqlalchemy as db
 
@@ -10,6 +11,7 @@ from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, G
 
 from mardi_importer.utils.logging_utils import get_logger_safe
 
+WIKIDATA_API_URL = 'https://www.wikidata.org/w/api.php'
 
 class WikidataImporter():
     _instance = None
@@ -28,6 +30,11 @@ class WikidataImporter():
         # Initialize logger inside runtime context so Prefect can capture it.
         self.log = get_logger_safe(__name__)
         self.languages = languages
+
+        mediawiki_api_url = os.environ.get("MEDIAWIKI_API_URL"),
+
+        self.log.debug(f"Creating MardiClient instance using MEDIAWIKI_API_URL={mediawiki_api_url} ")
+
         self.api = MardiClient(
             user=os.environ.get("WIKIDATA_USER"), 
             password=os.environ.get("WIKIDATA_PASS"),
@@ -72,6 +79,8 @@ class WikidataImporter():
             if mediawiki:
                 db_name = 'my_wiki'
             db_host = os.environ["DB_HOST"]
+
+            self.log.debug("Creating mariadb connection to: {db_host}")
 
             return db.create_engine(
                 url="mariadb+mariadbconnector://{0}:{1}@{2}/{3}".format(
@@ -266,7 +275,7 @@ class WikidataImporter():
                 )
                 continue
 
-            self.log.debug(f"importing entity {wikidata_id}")
+            self.log.debug(f"importing entity {wikidata_id} from Wikidata {WIKIDATA_API_URL}")
 
             has_all_claims = self.query('has_all_claims', wikidata_id)
             if not has_all_claims:
@@ -506,7 +515,6 @@ class WikidataImporter():
         Raises:
             ValueError: If wikidata_id format is invalid
         """
-        WIKIDATA_API_URL = 'https://www.wikidata.org/w/api.php'
         VALID_PREFIXES = {'Q', 'P'}
 
         # Validate ID format

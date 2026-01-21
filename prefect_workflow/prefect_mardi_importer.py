@@ -43,9 +43,16 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
     # See e.g. ArxivSource.py -> setup()
     # Note: This can take a while.
 
+    log.debug("Creating source handler arxiv")
     arxiv = Importer.create_source('arxiv')
+
+    log.debug("Creating source handler zenode")
     zenodo = Importer.create_source('zenodo')
+
+    log.debug("Creating source handler crossref")
     crossref = Importer.create_source('crossref')
+
+    log.debug("Creating source handlers done")
 
     for doi in dois:
         log.info(f"Importing for doi {doi}")

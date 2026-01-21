@@ -54,6 +54,7 @@ def _load_secrets() -> None:
     secrets_path = Path(__file__).resolve().parent / "secrets.txt"
     if not secrets_path.exists():
         return
+    log.debug("Loading CLI secrets from %s", secrets_path)
     for line in secrets_path.read_text().splitlines():
         if not line.strip() or line.lstrip().startswith("#"):
             continue
@@ -61,9 +62,6 @@ def _load_secrets() -> None:
             continue
         key, value = line.split("=", 1)
         os.environ[key.strip()] = value.strip()
-
-
-_load_secrets()
 
 PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://prefect-mardi.zib.de/api")
 PREFECT_API_AUTH_STRING = os.getenv("PREFECT_API_AUTH_STRING")  # "user:pass"
@@ -313,6 +311,7 @@ def main() -> int:
     """
 
     print_mardi_logo()
+    _load_secrets()
     log.info("Starting importer CLI")
 
     parser = build_parser()

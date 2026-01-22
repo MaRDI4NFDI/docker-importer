@@ -15,3 +15,4 @@ bot_scripts/.ipynb_checkpoints/
 /cli/secrets.txt
 .idea
 .venv
+.venv_linux

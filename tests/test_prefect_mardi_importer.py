@@ -97,35 +97,7 @@ def _install_prefect_stub() -> None:
     sys.modules["prefect.context"] = fake_context
 
 
-def _install_mardi_importer_stub() -> None:
-    """Install minimal stubs for the mardi_importer package tree."""
-    fake_pkg = types.ModuleType("mardi_importer")
-    fake_wikidata = types.ModuleType("mardi_importer.wikidata")
-    fake_mardi_importer = types.ModuleType("mardi_importer.mardi_importer")
-
-    class WikidataImporter:
-        def import_entities(self, *_args, **_kwargs):
-            raise NotImplementedError
-
-    class Importer:
-        _sources = {}
-
-        @staticmethod
-        def create_source(_name):
-            raise NotImplementedError
-
-    fake_wikidata.WikidataImporter = WikidataImporter
-    fake_mardi_importer.Importer = Importer
-    fake_pkg.wikidata = fake_wikidata
-    fake_pkg.mardi_importer = fake_mardi_importer
-
-    sys.modules["mardi_importer"] = fake_pkg
-    sys.modules["mardi_importer.wikidata"] = fake_wikidata
-    sys.modules["mardi_importer.mardi_importer"] = fake_mardi_importer
-
-
 _install_prefect_stub()
-_install_mardi_importer_stub()
 
 from prefect_workflow import prefect_mardi_importer as pmi
 

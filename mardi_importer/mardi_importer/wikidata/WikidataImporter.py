@@ -9,6 +9,7 @@ from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, G
                                           Sense, String, TabularData, Time)
 
 from mardi_importer.logger.logging_utils import get_logger_safe
+from wikibaseintegrator.wbi_exceptions import ModificationFailed
 
 WIKIDATA_API_URL = 'https://www.wikidata.org/w/api.php'
 
@@ -314,7 +315,7 @@ class WikidataImporter():
                     local_id = self.query('local_id', wikidata_id)
 
                 if local_id:
-                    self.log.debug(f"local id = {local_id}")
+                    self.log.debug(f"Found local id {local_id} for wikidata id {wikidata_id}. Updating...")
                     # Update existing entity
                     if entity.type == "item":
                         local_entity = self.api.item.get(entity_id=local_id)
@@ -333,10 +334,15 @@ class WikidataImporter():
                     else:
                         self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
                 else:
-                    self.log.debug("no local id")
+                    self.log.debug(f"No local id found. Creating item for wikidata id {wikidata_id} with data: {entity}")
                     # Create entity
-                    local_id = entity.write(login=self.api.login, as_new=True).id
-                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)  
+                    try:
+                        local_id = entity.write(login=self.api.login, as_new=True).id
+                    except ModificationFailed as e:
+                        self.log.error(f"Creating item for wikidata id {wikidata_id} failed! Returned local_id: {local_id}")
+
+                    self.log.debug(f"Inserting new item with id {local_id} for wikidata id {wikidata_id} into database")
+                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
 
             if has_all_claims:
                 imported_entities[wikidata_id] = self.query('local_id', wikidata_id)

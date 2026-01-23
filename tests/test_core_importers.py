@@ -5,6 +5,10 @@ import sys
 import types
 import logging
 
+from tests.prefect_stub import install_prefect_stub
+
+install_prefect_stub(force=True)
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)

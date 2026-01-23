@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tests.prefect_stub import install_prefect_stub
+
+install_prefect_stub(force=True)
+
 
 def _install_prefect_stub() -> None:
     """Install a minimal Prefect stub in sys.modules for tests (always)."""

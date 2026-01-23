@@ -3,6 +3,10 @@ import types
 import unittest
 from unittest.mock import Mock, patch
 
+from tests.prefect_stub import install_prefect_stub
+
+install_prefect_stub(force=True)
+
 # Mock Flask module to avoid dependency
 def _install_flask_stub() -> None:
     """Install a minimal Flask stub for tests."""

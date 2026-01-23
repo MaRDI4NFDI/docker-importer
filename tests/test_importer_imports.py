@@ -6,6 +6,27 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _install_wbi_helpers_stub() -> None:
+    import types
+
+    wbi = types.ModuleType("wikibaseintegrator")
+    helpers = types.ModuleType("wikibaseintegrator.wbi_helpers")
+
+    def _noop(*_args, **_kwargs):
+        return None
+
+    helpers.search_entities = _noop
+    helpers.remove_claims = _noop
+    helpers.merge_items = _noop
+    helpers.execute_sparql_query = _noop
+
+    sys.modules["wikibaseintegrator"] = wbi
+    sys.modules["wikibaseintegrator.wbi_helpers"] = helpers
+
+
+_install_wbi_helpers_stub()
+
+
 def _reset_mardi_importer_modules() -> None:
     for name in list(sys.modules):
         if name == "mardi_importer" or name.startswith("mardi_importer."):

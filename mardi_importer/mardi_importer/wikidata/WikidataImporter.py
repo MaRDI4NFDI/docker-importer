@@ -5,15 +5,33 @@ from mardiclient import MardiClient
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
-from wikibaseintegrator.datatypes import (URL, CommonsMedia, ExternalID, Form, GeoShape, GlobeCoordinate, Item, Lexeme, Math, MonolingualText, MusicalNotation, Property, Quantity,
-                                          Sense, String, TabularData, Time)
+from wikibaseintegrator.datatypes import (
+    URL,
+    CommonsMedia,
+    ExternalID,
+    Form,
+    GeoShape,
+    GlobeCoordinate,
+    Item,
+    Lexeme,
+    Math,
+    MonolingualText,
+    MusicalNotation,
+    Property,
+    Quantity,
+    Sense,
+    String,
+    TabularData,
+    Time,
+)
 
 from mardi_importer.logger.logging_utils import get_logger_safe
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
 
-WIKIDATA_API_URL = 'https://www.wikidata.org/w/api.php'
+WIKIDATA_API_URL = "https://www.wikidata.org/w/api.php"
 
-class WikidataImporter():
+
+class WikidataImporter:
     _instance = None
     _initialized = False
 
@@ -23,7 +41,6 @@ class WikidataImporter():
         return cls._instance
 
     def __init__(self, languages=["en", "de", "mul"]) -> None:
-
         if self._initialized:
             return
 
@@ -31,22 +48,25 @@ class WikidataImporter():
         self.log = get_logger_safe(__name__)
         self.languages = languages
 
-        mediawiki_api_url = os.environ.get("MEDIAWIKI_API_URL"),
+        mediawiki_api_url = (os.environ.get("MEDIAWIKI_API_URL"),)
 
-        self.log.debug(f"Creating MardiClient instance using MEDIAWIKI_API_URL={mediawiki_api_url} ")
+        self.log.debug(
+            f"Creating MardiClient instance using MEDIAWIKI_API_URL={mediawiki_api_url} "
+        )
 
         self.api = MardiClient(
-            user=os.environ.get("WIKIDATA_USER"), 
+            user=os.environ.get("WIKIDATA_USER"),
             password=os.environ.get("WIKIDATA_PASS"),
             mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
             sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
             wikibase_url=os.environ.get("WIKIBASE_URL"),
             importer_api_url=os.environ.get("IMPORTER_API_URL"),
-            user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
+            user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)",
         )
+
         self.setup()
         WikidataImporter._initialized = True
-    
+
     def setup(self) -> None:
         """Initialize database connections and Wikidata-specific configurations."""
         self.engine = self._create_engine()
@@ -57,13 +77,30 @@ class WikidataImporter():
         self.wikidata_PID = self._init_wikidata_PID()
         self.wikidata_QID = self._init_wikidata_QID()
 
-        self.excluded_properties = ['P1151', 'P1855', 'P2139', 'P2302', \
-                                    'P2559', 'P2875', 'P3254', 'P3709', \
-                                    'P3713', 'P3734', 'P6104', 'P6685', \
-                                    'P8093', 'P8979', 'P12861']
-        
-        self.excluded_datatypes = ['wikibase-lexeme', 'wikibase-sense', \
-                                   'wikibase-form', 'entity-schema']
+        self.excluded_properties = [
+            "P1151",
+            "P1855",
+            "P2139",
+            "P2302",
+            "P2559",
+            "P2875",
+            "P3254",
+            "P3709",
+            "P3713",
+            "P3734",
+            "P6104",
+            "P6685",
+            "P8093",
+            "P8979",
+            "P12861",
+        ]
+
+        self.excluded_datatypes = [
+            "wikibase-lexeme",
+            "wikibase-sense",
+            "wikibase-form",
+            "entity-schema",
+        ]
 
     def _create_engine(self, mediawiki=False):
         """
@@ -77,7 +114,7 @@ class WikidataImporter():
             db_pass = os.environ["DB_PASS"]
             db_name = os.environ["DB_NAME"]
             if mediawiki:
-                db_name = 'my_wiki'
+                db_name = "my_wiki"
             db_host = os.environ["DB_HOST"]
 
             self.log.debug(f"Creating mariadb connection to: {db_host}")
@@ -87,8 +124,8 @@ class WikidataImporter():
                     db_user, db_pass, db_host, db_name
                 ),
                 pool_pre_ping=True,
-                pool_recycle=1800
-            )            
+                pool_recycle=1800,
+            )
 
     def create_id_list_from_file(self, file):
         """Function for creating a list of ids
@@ -122,8 +159,12 @@ class WikidataImporter():
                     items_table = db.Table(
                         "items",
                         metadata,
-                        db.Column("id", db.Integer, primary_key=True, autoincrement=True),
-                        db.Column("wikidata_id", db.Integer, nullable=False, index=True),
+                        db.Column(
+                            "id", db.Integer, primary_key=True, autoincrement=True
+                        ),
+                        db.Column(
+                            "wikidata_id", db.Integer, nullable=False, index=True
+                        ),
                         db.Column("local_id", db.Integer, nullable=False, index=True),
                         db.Column("has_all_claims", db.Boolean(), nullable=False),
                     )
@@ -132,13 +173,17 @@ class WikidataImporter():
                     properties_table = db.Table(
                         "properties",
                         metadata,
-                        db.Column("id", db.Integer, primary_key=True, autoincrement=True),
-                        db.Column("wikidata_id", db.Integer, nullable=False, index=True),
+                        db.Column(
+                            "id", db.Integer, primary_key=True, autoincrement=True
+                        ),
+                        db.Column(
+                            "wikidata_id", db.Integer, nullable=False, index=True
+                        ),
                         db.Column("local_id", db.Integer, nullable=False, index=True),
                         db.Column("has_all_claims", db.Boolean(), nullable=False),
                     )
                     metadata.create_all(self.engine)
-    
+
     def insert_id_in_db(self, wikidata_id, local_id, has_all_claims):
         """
         Insert wikidata_id, local_id and has_all_claims into mapping table.
@@ -155,19 +200,15 @@ class WikidataImporter():
         metadata = db.MetaData()
 
         table_name = "items"
-        if wikidata_id.startswith('P'):
+        if wikidata_id.startswith("P"):
             table_name = "properties"
 
-        table = db.Table(
-            table_name, 
-            metadata,
-            autoload_with=self.engine
-        )
+        table = db.Table(table_name, metadata, autoload_with=self.engine)
 
         ins = table.insert().values(
             wikidata_id=wikidata_id[1:],
             local_id=local_id[1:],
-            has_all_claims=has_all_claims
+            has_all_claims=has_all_claims,
         )
 
         with self.engine.connect() as connection:
@@ -188,18 +229,16 @@ class WikidataImporter():
         metadata = db.MetaData()
 
         table_name = "items"
-        if wikidata_id.startswith('P'):
+        if wikidata_id.startswith("P"):
             table_name = "properties"
 
-        table = db.Table(
-            table_name, 
-            metadata,
-            autoload_with=self.engine
-        )
+        table = db.Table(table_name, metadata, autoload_with=self.engine)
 
-        ins = table.update().values(
-            has_all_claims=True
-        ).where(table.c.wikidata_id == wikidata_id[1:])
+        ins = (
+            table.update()
+            .values(has_all_claims=True)
+            .where(table.c.wikidata_id == wikidata_id[1:])
+        )
 
         with self.engine.connect() as connection:
             connection.execute(ins)
@@ -217,9 +256,9 @@ class WikidataImporter():
         prop = self.api.property.new()
         prop.labels.set(language="en", value="Wikidata PID")
         prop.descriptions.set(
-            language="en", 
-            value="Identifier in Wikidata of the corresponding properties"
-        )        
+            language="en",
+            value="Identifier in Wikidata of the corresponding properties",
+        )
         prop.datatype = "external-id"
 
         wikidata_PID = prop.exists()
@@ -236,10 +275,7 @@ class WikidataImporter():
         """
         prop = self.api.property.new()
         prop.labels.set(language="en", value="Wikidata QID")
-        prop.descriptions.set(
-            language="en", 
-            value="Corresponding QID in Wikidata"
-        )        
+        prop.descriptions.set(language="en", value="Corresponding QID in Wikidata")
         prop.datatype = "external-id"
         wikidata_QID = prop.exists()
         return wikidata_QID or prop.write(login=self.api.login, as_new=True).id
@@ -252,25 +288,26 @@ class WikidataImporter():
         a the ids to be imported.
 
         Args:
-            id_list: Single string or list of strings of wikidata 
+            id_list: Single string or list of strings of wikidata
                 entity ids. Lexemes not supported.
-            filename: Filename containing list of entities to be 
+            filename: Filename containing list of entities to be
                 imported.
-            recurse: Whether to import claims for the entities in 
+            recurse: Whether to import claims for the entities in
                 id_list
 
         Returns:
-            Imported entities (Dict): Dictionary containing the local ids of 
+            Imported entities (Dict): Dictionary containing the local ids of
             all the imported entities.
         """
         imported_entities = {}
-        if filename: id_list = self.create_id_list_from_file(filename)
-        if isinstance(id_list, str): id_list = [id_list]
+        if filename:
+            id_list = self.create_id_list_from_file(filename)
+        if isinstance(id_list, str):
+            id_list = [id_list]
 
         self.log.debug(f"Start importing Wikidata entities using {WIKIDATA_API_URL}")
 
         for wikidata_id in id_list:
-
             if wikidata_id.startswith("L"):
                 self.log.warning(
                     f"Warning: Lexemes not supported. Lexeme {wikidata_id} was not imported"
@@ -279,43 +316,48 @@ class WikidataImporter():
 
             self.log.debug(f"importing entity {wikidata_id}")
 
-            has_all_claims = self.query('has_all_claims', wikidata_id)
+            has_all_claims = self.query("has_all_claims", wikidata_id)
             if not has_all_claims:
                 self.log.debug("has_all_claims is False")
                 # API call
-                entity = self._get_wikidata_information(
-                    wikidata_id, 
-                    recurse
-                )
+                entity = self._get_wikidata_information(wikidata_id, recurse)
 
                 if not entity:
-                    self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")
+                    self.log.debug(
+                        f"No labels for entity with id {wikidata_id}, skipping"
+                    )
                     continue
 
-                if entity.type == "property" and entity.datatype.value in \
-                    self.excluded_datatypes:
+                if (
+                    entity.type == "property"
+                    and entity.datatype.value in self.excluded_datatypes
+                ):
                     self.log.debug(f"Warning: Lexemes not supported. Property skipped")
                     continue
 
                 # Check if there is an internal ID redirection in Wikidata
                 if wikidata_id != entity.id:
                     wikidata_id = entity.id
-                    has_all_claims = self.query('has_all_claims', wikidata_id)
+                    has_all_claims = self.query("has_all_claims", wikidata_id)
                     if has_all_claims:
-                        imported_entities[wikidata_id] = self.query('local_id', wikidata_id)
+                        imported_entities[wikidata_id] = self.query(
+                            "local_id", wikidata_id
+                        )
                         continue
 
                 if recurse:
                     self._convert_claim_ids(entity)
 
                 entity = self._add_wikidata_ID_claim(entity, wikidata_id)
-                
+
                 local_id = entity.exists()
                 if not local_id:
-                    local_id = self.query('local_id', wikidata_id)
+                    local_id = self.query("local_id", wikidata_id)
 
                 if local_id:
-                    self.log.debug(f"Found local id {local_id} for wikidata id {wikidata_id}. Updating...")
+                    self.log.debug(
+                        f"Found local id {local_id} for wikidata id {wikidata_id}. Updating..."
+                    )
                     # Update existing entity
                     if entity.type == "item":
                         local_entity = self.api.item.get(entity_id=local_id)
@@ -329,23 +371,31 @@ class WikidataImporter():
                         ActionIfExists.APPEND_OR_REPLACE,
                     )
                     local_entity.write(login=self.api.login)
-                    if self.query('local_id', wikidata_id) and recurse:
+                    if self.query("local_id", wikidata_id) and recurse:
                         self.update_has_all_claims(wikidata_id)
                     else:
-                        self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
+                        self.insert_id_in_db(
+                            wikidata_id, local_id, has_all_claims=recurse
+                        )
                 else:
-                    self.log.debug(f"No local id found. Creating item for wikidata id {wikidata_id} with data: {entity}")
+                    self.log.debug(
+                        f"No local id found. Creating item for wikidata id {wikidata_id} with data: {entity}"
+                    )
                     # Create entity
                     try:
                         local_id = entity.write(login=self.api.login, as_new=True).id
                     except ModificationFailed as e:
-                        self.log.error(f"Creating item for wikidata id {wikidata_id} failed! Returned local_id: {local_id}")
+                        self.log.error(
+                            f"Creating item for wikidata id {wikidata_id} failed! Returned local_id: {local_id}"
+                        )
 
-                    self.log.debug(f"Inserting new item with id {local_id} for wikidata id {wikidata_id} into database")
+                    self.log.debug(
+                        f"Inserting new item with id {local_id} for wikidata id {wikidata_id} into database"
+                    )
                     self.insert_id_in_db(wikidata_id, local_id, has_all_claims=recurse)
 
             if has_all_claims:
-                imported_entities[wikidata_id] = self.query('local_id', wikidata_id)
+                imported_entities[wikidata_id] = self.query("local_id", wikidata_id)
             else:
                 imported_entities[wikidata_id] = local_id
 
@@ -374,28 +424,24 @@ class WikidataImporter():
 
         self.log.debug(f"Overwriting entity {local_id}")
 
-        has_all_claims = self.query('has_all_claims', wikidata_id)
+        has_all_claims = self.query("has_all_claims", wikidata_id)
         if has_all_claims:
-            return self.query('local_id', wikidata_id)
+            return self.query("local_id", wikidata_id)
         else:
             # API call
-            entity = self._get_wikidata_information(
-                wikidata_id, 
-                recurse=True
-            )
+            entity = self._get_wikidata_information(wikidata_id, recurse=True)
 
             if entity:
-
                 # Check if there is an entity ID redirection in Wikidata
                 if wikidata_id != entity.id:
                     wikidata_id = entity.id
-                    has_all_claims = self.query('has_all_claims', wikidata_id)
+                    has_all_claims = self.query("has_all_claims", wikidata_id)
                     if has_all_claims:
-                        return self.query('local_id', wikidata_id)
+                        return self.query("local_id", wikidata_id)
 
                 self._convert_claim_ids(entity)
                 entity = self._add_wikidata_ID_claim(entity, wikidata_id)
-                
+
                 # Retrieve existing entity
                 if entity.type == "item":
                     local_entity = self.api.item.get(entity_id=local_id)
@@ -409,18 +455,19 @@ class WikidataImporter():
                     ActionIfExists.APPEND_OR_REPLACE,
                 )
                 local_entity.write(login=self.api.login)
-                if self.query('local_id', wikidata_id):
+                if self.query("local_id", wikidata_id):
                     self.update_has_all_claims(wikidata_id)
                 else:
-                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=True)  
-            
+                    self.insert_id_in_db(wikidata_id, local_id, has_all_claims=True)
+
             return local_id
 
-    def update_entities(self, id_list, label = False, description = False):
+    def update_entities(self, id_list, label=False, description=False):
         updated_entities = {}
 
         # Ensure id_list is a list
-        if isinstance(id_list, str): id_list = [id_list]
+        if isinstance(id_list, str):
+            id_list = [id_list]
 
         for wikidata_id in id_list:
             # Skip Lexeme IDs
@@ -438,8 +485,10 @@ class WikidataImporter():
                 self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")
                 continue
 
-            if entity.type == "property" and entity.datatype.value in \
-                self.excluded_datatypes:
+            if (
+                entity.type == "property"
+                and entity.datatype.value in self.excluded_datatypes
+            ):
                 self.log.warning(f"Warning: Lexemes not supported. Property skipped.")
                 continue
 
@@ -457,7 +506,7 @@ class WikidataImporter():
 
         if len(updated_entities) == 1:
             return list(updated_entities.values())[0]
-        return updated_entities        
+        return updated_entities
 
     def _import_claim_entities(self, wikidata_id):
         """Function for importing entities that are mentioned
@@ -469,36 +518,40 @@ class WikidataImporter():
         Returns:
             local id or None, if the entity had no labels
         """
-        local_id = self.query('local_id', wikidata_id)
-        if local_id: 
+        local_id = self.query("local_id", wikidata_id)
+        if local_id:
             return local_id
-    
+
         entity = self._get_wikidata_information(wikidata_id)
 
         if not entity:
             return None
 
         # Check for unsupported property datatypes
-        if entity.type == "property" and \
-            entity.datatype.value in self.excluded_datatypes:
+        if (
+            entity.type == "property"
+            and entity.datatype.value in self.excluded_datatypes
+        ):
             return None
-            
+
         # Handle potential ID redirection
         elif wikidata_id != entity.id:
             wikidata_id = entity.id
-            local_id = self.query('local_id', wikidata_id)
-            if local_id: 
+            local_id = self.query("local_id", wikidata_id)
+            if local_id:
                 return local_id
 
         # Check if the entity has been redirected by Wikidata
         # into another entity that has already been imported
-        local_id = self.query('local_id', entity.id)
-        if local_id: 
+        local_id = self.query("local_id", entity.id)
+        if local_id:
             return local_id
 
         local_id = entity.exists()
         if local_id:
-            new_entity = (self.api.item if local_id.startswith('Q') else self.api.property).get(entity_id=local_id)
+            new_entity = (
+                self.api.item if local_id.startswith("Q") else self.api.property
+            ).get(entity_id=local_id)
             new_entity.descriptions = entity.descriptions
             entity = new_entity
             entity = self._add_wikidata_ID_claim(entity, wikidata_id)
@@ -524,44 +577,47 @@ class WikidataImporter():
         Raises:
             ValueError: If wikidata_id format is invalid
         """
-        VALID_PREFIXES = {'Q', 'P'}
+        VALID_PREFIXES = {"Q", "P"}
 
         # Validate ID format
-        prefix = wikidata_id[0] if wikidata_id else ''
+        prefix = wikidata_id[0] if wikidata_id else ""
         if prefix not in VALID_PREFIXES:
-            raise ValueError(f"Invalid ID format: {wikidata_id}. Must start with Q or P")
-        
+            raise ValueError(
+                f"Invalid ID format: {wikidata_id}. Must start with Q or P"
+            )
+
         # Get entity
-        params = {
-            'entity_id': wikidata_id,
-            'mediawiki_api_url': WIKIDATA_API_URL
-        }
-        entity = (self.api.item if prefix == 'Q' else self.api.property).get(**params)
+        params = {"entity_id": wikidata_id, "mediawiki_api_url": WIKIDATA_API_URL}
+        entity = (self.api.item if prefix == "Q" else self.api.property).get(**params)
 
         if self.languages != "all":
             # Filter labels for desired languages
             entity.labels.values = {
-                lang: value for lang, value in entity.labels.values.items()
+                lang: value
+                for lang, value in entity.labels.values.items()
                 if lang in self.languages
             }
             if not entity.labels.values:
                 return None
-            
+
             # Filter descriptions for desired languages
             entity.descriptions.values = {
-                lang: value for lang, value in entity.descriptions.values.items()
+                lang: value
+                for lang, value in entity.descriptions.values.items()
                 if lang in self.languages
             }
 
             # Clear descriptions that match labels (e.g. wdt:P121)
             for lang in self.languages:
-                if (lang in entity.labels.values and 
-                    entity.labels.values.get(lang) == entity.descriptions.values.get(lang)):
-                    entity.descriptions.set(language=lang, value=None)           
-        
+                if lang in entity.labels.values and entity.labels.values.get(
+                    lang
+                ) == entity.descriptions.values.get(lang):
+                    entity.descriptions.set(language=lang, value=None)
+
             # Filter aliases for desired languages
             entity.aliases.aliases = {
-                lang: aliases for lang, aliases in entity.aliases.aliases.items()
+                lang: aliases
+                for lang, aliases in entity.aliases.aliases.items()
                 if lang in self.languages
             }
 
@@ -602,15 +658,17 @@ class WikidataImporter():
                     if c_dict["mainsnak"]["datatype"] in entity_names:
                         if "datavalue" in c_dict["mainsnak"]:
                             local_mainsnak_id = self._import_claim_entities(
-                                wikidata_id=c_dict["mainsnak"]["datavalue"]["value"]["id"],
+                                wikidata_id=c_dict["mainsnak"]["datavalue"]["value"][
+                                    "id"
+                                ],
                             )
                             if not local_mainsnak_id:
                                 continue
-                            c_dict["mainsnak"]["datavalue"]["value"][
-                                "id"
-                            ] = local_mainsnak_id
-                            c_dict["mainsnak"]["datavalue"]["value"]["numeric-id"] = int(
-                                local_mainsnak_id[1:]
+                            c_dict["mainsnak"]["datavalue"]["value"]["id"] = (
+                                local_mainsnak_id
+                            )
+                            c_dict["mainsnak"]["datavalue"]["value"]["numeric-id"] = (
+                                int(local_mainsnak_id[1:])
                             )
                             c_dict["mainsnak"]["property"] = local_prop_id
                             # to avoid problem with missing reference hash
@@ -744,8 +802,8 @@ class WikidataImporter():
         return qualifiers
 
     def _convert_entity_links(self, snak):
-        """Function for in-place conversion of unit for quantity 
-        and globe for globecoordinate to a link to the local entity 
+        """Function for in-place conversion of unit for quantity
+        and globe for globecoordinate to a link to the local entity
         instead of a link to the wikidata entity.
 
         Args:
@@ -762,11 +820,11 @@ class WikidataImporter():
                 link_string = data["unit"]
                 key_string = "unit"
         elif snak["datatype"] == "globe-coordinate":
-            #if "globe" in data:
+            # if "globe" in data:
             #    link_string = data["globe"]
             #    key_string = "globe"
             if not data["precision"]:
-                data["precision"] = 1/3600
+                data["precision"] = 1 / 3600
             return
         else:
             return
@@ -787,12 +845,12 @@ class WikidataImporter():
                     this should be added to
             wikidata_id: wikidata id of the wikidata item
         """
-        if wikidata_id.startswith('Q'):
+        if wikidata_id.startswith("Q"):
             claim = ExternalID(
                 value=wikidata_id,
                 prop_nr=self.wikidata_QID,
             )
-        elif wikidata_id.startswith('P'):
+        elif wikidata_id.startswith("P"):
             claim = ExternalID(
                 value=wikidata_id,
                 prop_nr=self.wikidata_PID,
@@ -815,24 +873,20 @@ class WikidataImporter():
         metadata = db.MetaData()
 
         table_name = "items"
-        if wikidata_id.startswith('P'):
+        if wikidata_id.startswith("P"):
             table_name = "properties"
 
-        table = db.Table(
-            table_name, 
-            metadata,
-            autoload_with=self.engine
-        )
+        table = db.Table(table_name, metadata, autoload_with=self.engine)
 
-        if parameter in ['local_id', 'has_all_claims']:
+        if parameter in ["local_id", "has_all_claims"]:
             sql = db.select(table.columns[parameter]).where(
                 table.columns.wikidata_id == wikidata_id[1:],
             )
             with self.engine.connect() as connection:
                 db_result = connection.execute(sql).fetchone()
             if db_result:
-                if parameter == 'local_id':
-                    if wikidata_id.startswith('Q'):
+                if parameter == "local_id":
+                    if wikidata_id.startswith("Q"):
                         return f"Q{db_result[0]}"
                     else:
                         return f"P{db_result[0]}"

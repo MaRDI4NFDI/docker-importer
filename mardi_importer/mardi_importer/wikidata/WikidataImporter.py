@@ -49,6 +49,7 @@ class WikidataImporter:
         self.languages = languages
 
         mediawiki_api_url = (os.environ.get("MEDIAWIKI_API_URL"),)
+        self.wikibase_host = os.environ.get("WIKIBASE_HOST")
 
         self.log.debug(
             f"Creating MardiClient instance using MEDIAWIKI_API_URL={mediawiki_api_url} "
@@ -833,7 +834,7 @@ class WikidataImporter:
             local_id = self._import_claim_entities(
                 wikidata_id=uid,
             )
-            data[key_string] = wbi_config["WIKIBASE_URL"] + "/entity/" + local_id
+            data[key_string] = f"https://{self.wikibase_host}/entity/{local_id}"
 
     def _add_wikidata_ID_claim(self, entity, wikidata_id):
         """Function for in-place addition of a claim with the

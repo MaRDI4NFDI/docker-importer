@@ -437,19 +437,56 @@ def _install_pandas_stub() -> None:
 
     pandas_module = types.ModuleType("pandas")
 
+    class DummySeries:
+        def __init__(self, data):
+            self._data = list(data)
+
+        def __eq__(self, other):
+            return [value == other for value in self._data]
+
+    class DummyILoc:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def __getitem__(self, index):
+            return self._rows[index]
+
     class DummyDataFrame:
-        columns = []
+        def __init__(self, rows=None):
+            self._rows = list(rows or [])
+            self.columns = list(self._rows[0].keys()) if self._rows else []
 
         def drop_duplicates(self):
-            return None
+            return self
+
+        @property
+        def empty(self):
+            return len(self._rows) == 0
+
+        @property
+        def iloc(self):
+            return DummyILoc(self._rows)
 
         def __getitem__(self, _key):
+            if isinstance(_key, str):
+                return DummySeries([row.get(_key) for row in self._rows])
+            if isinstance(_key, list):
+                filtered = [row for row, keep in zip(self._rows, _key) if keep]
+                return DummyDataFrame(filtered)
             return []
+
+    def DataFrame(rows=None, *_args, **_kwargs):
+        return DummyDataFrame(rows)
 
     def read_csv(*_args, **_kwargs):
         return DummyDataFrame()
 
+    def read_html(*_args, **_kwargs):
+        return [DummyDataFrame()]
+
+    pandas_module.DataFrame = DataFrame
     pandas_module.read_csv = read_csv
+    pandas_module.read_html = read_html
 
     sys.modules["pandas"] = pandas_module
 

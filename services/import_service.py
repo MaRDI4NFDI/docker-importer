@@ -128,9 +128,7 @@ def get_workflow_status(
 
     if state.get("type") == "COMPLETED":
         result_url = f"{prefect_api_url}/flow_runs/{flow_run_id}/result"
-        result_response = requests.get(
-            result_url, headers=headers, timeout=10
-        )
+        result_response = requests.get(result_url, headers=headers, timeout=10)
         if result_response.status_code == 200:
             result["result"] = result_response.json()
 
@@ -299,6 +297,49 @@ def import_wikidata_sync(qids: list[str]) -> tuple[dict, bool]:
     payload = {
         "qids": qids,
         "count": len(qids),
+        "results": results,
+        "all_imported": all_ok,
+    }
+    return payload, all_ok
+
+
+def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
+    """Import CRAN packages synchronously.
+
+    Args:
+        packages: List of CRAN package names.
+
+    Returns:
+        Tuple of payload and overall success flag.
+    """
+    results: dict[str, dict] = {}
+    all_ok = True
+    cran = Importer.create_source("cran")
+
+    for package in packages:
+        log.info("Importing for CRAN package %s", package)
+        try:
+            software = cran.new_software(package)
+            result = software.create()
+            if result:
+                log.info("Imported item %s for CRAN package %s.", result, package)
+                results[package] = {"qid": result, "status": "success"}
+            else:
+                log.info("CRAN package %s was not found, not imported.", package)
+                results[package] = {
+                    "qid": None,
+                    "status": "not_found",
+                    "error": "CRAN package was not found.",
+                }
+                all_ok = False
+        except Exception as exc:
+            log.error("importing CRAN package failed: %s", exc, exc_info=True)
+            results[package] = {"qid": None, "status": "error", "error": str(exc)}
+            all_ok = False
+
+    payload = {
+        "packages": packages,
+        "count": len(packages),
         "results": results,
         "all_imported": all_ok,
     }

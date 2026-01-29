@@ -12,6 +12,7 @@ from services.import_service import (
     build_health_payload,
     get_workflow_result,
     get_workflow_status,
+    import_cran_sync,
     import_doi_sync,
     import_wikidata_sync,
     normalize_list,
@@ -21,15 +22,17 @@ from services.import_service import (
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s",
+    datefmt="%H:%M:%S",
 )
 log = logging.getLogger()
+
 
 def print_mardi_logo():
     # Enable ANSI support on Windows (if needed)
     if os.name == "nt":
         import ctypes
+
         kernel32 = ctypes.windll.kernel32
         kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
@@ -44,6 +47,7 @@ def print_mardi_logo():
 """
 
     print(ORANGE + mardi_nfo + RESET)
+
 
 def _load_secrets() -> None:
     """Load environment variables from the local CLI secrets file.
@@ -62,6 +66,7 @@ def _load_secrets() -> None:
             continue
         key, value = line.split("=", 1)
         os.environ[key.strip()] = value.strip()
+
 
 PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://prefect-mardi.zib.de/api")
 PREFECT_API_AUTH_STRING = os.getenv("PREFECT_API_AUTH_STRING")  # "user:pass"
@@ -104,9 +109,7 @@ def cmd_import_wikidata_async(args: argparse.Namespace) -> int:
     except Exception as exc:
         log.error("Failed to trigger Prefect flow: %s", exc)
         print(
-            json.dumps(
-                {"error": "Could not start background job", "details": str(exc)}
-            )
+            json.dumps({"error": "Could not start background job", "details": str(exc)})
         )
         return 1
 
@@ -222,9 +225,7 @@ def cmd_import_doi_async(args: argparse.Namespace) -> int:
     except Exception as exc:
         log.error("Failed to trigger Prefect flow: %s", exc)
         print(
-            json.dumps(
-                {"error": "Could not start background job", "details": str(exc)}
-            )
+            json.dumps({"error": "Could not start background job", "details": str(exc)})
         )
         return 1
 
@@ -244,6 +245,25 @@ def cmd_import_doi(args: argparse.Namespace) -> int:
         return 2
 
     payload, all_ok = import_doi_sync(dois)
+    print(json.dumps(payload))
+    return 0 if all_ok else 1
+
+
+def cmd_import_cran(args: argparse.Namespace) -> int:
+    """Import CRAN packages synchronously.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    packages = normalize_list(args.packages)
+    if not packages:
+        print(json.dumps({"error": "missing package"}))
+        return 2
+
+    payload, all_ok = import_cran_sync(packages)
     print(json.dumps(payload))
     return 0 if all_ok else 1
 
@@ -290,15 +310,21 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--qids", nargs="*", help="QIDs list or comma-separated.")
     sub.set_defaults(func=cmd_import_wikidata)
 
-    sub = subparsers.add_parser(
-        "import-doi-async", help="Trigger Prefect DOI import."
-    )
+    sub = subparsers.add_parser("import-doi-async", help="Trigger Prefect DOI import.")
     sub.add_argument("--dois", nargs="*", help="DOIs list or comma-separated.")
     sub.set_defaults(func=cmd_import_doi_async)
 
     sub = subparsers.add_parser("import-doi", help="Import DOI synchronously.")
     sub.add_argument("--dois", nargs="*", help="DOIs list or comma-separated.")
     sub.set_defaults(func=cmd_import_doi)
+
+    sub = subparsers.add_parser(
+        "import-cran", help="Import CRAN packages synchronously."
+    )
+    sub.add_argument(
+        "--packages", nargs="*", help="CRAN package list or comma-separated."
+    )
+    sub.set_defaults(func=cmd_import_cran)
 
     return parser
 

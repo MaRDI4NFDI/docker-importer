@@ -243,6 +243,39 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(payload["results"]["10.5281/ZENODO.123"]["status"], "success")
         self.assertEqual(payload["results"]["10.5555/XYZ"]["status"], "not_found")
 
+    def test_import_cran_sync(self) -> None:
+        """Return per-package results and overall success flag."""
+        cran_source = Mock()
+
+        success_software = Mock()
+        success_software.create.return_value = "Q1"
+
+        missing_software = Mock()
+        missing_software.create.return_value = None
+
+        def new_software_side_effect(name: str) -> Mock:
+            if name == "dplyr":
+                return success_software
+            if name == "ggplot2":
+                return missing_software
+            raise ValueError("boom")
+
+        cran_source.new_software.side_effect = new_software_side_effect
+
+        with patch("services.import_service.log.error"):
+            with patch(
+                "services.import_service.Importer.create_source",
+                return_value=cran_source,
+            ):
+                payload, all_ok = import_service.import_cran_sync(
+                    ["dplyr", "ggplot2", "badpkg"]
+                )
+
+        self.assertFalse(all_ok)
+        self.assertEqual(payload["results"]["dplyr"]["status"], "success")
+        self.assertEqual(payload["results"]["ggplot2"]["status"], "not_found")
+        self.assertEqual(payload["results"]["badpkg"]["status"], "error")
+
 
 if __name__ == "__main__":
     unittest.main()

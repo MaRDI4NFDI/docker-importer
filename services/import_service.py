@@ -8,6 +8,7 @@ import requests
 from prefect.deployments import run_deployment
 
 from mardi_importer import Importer
+from mardi_importer.cran.RPackage import RPackage
 from mardi_importer.wikidata import WikidataImporter
 
 
@@ -315,21 +316,65 @@ def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
     results: dict[str, dict] = {}
     all_ok = True
     cran = Importer.create_source("cran")
+    try:
+        package_table = cran.pull()
+    except Exception as exc:
+        log.error("importing CRAN packages failed during pull: %s", exc, exc_info=True)
+        for package in packages:
+            results[package] = {"qid": None, "status": "error", "error": str(exc)}
+        payload = {
+            "packages": packages,
+            "count": len(packages),
+            "results": results,
+            "all_imported": False,
+        }
+        return payload, False
 
     for package in packages:
         log.info("Importing for CRAN package %s", package)
         try:
-            software = cran.new_software(package)
-            result = software.create()
-            if result:
-                log.info("Imported item %s for CRAN package %s.", result, package)
-                results[package] = {"qid": result, "status": "success"}
-            else:
+            matches = package_table[package_table["Package"] == package]
+            if matches.empty:
                 log.info("CRAN package %s was not found, not imported.", package)
                 results[package] = {
                     "qid": None,
                     "status": "not_found",
                     "error": "CRAN package was not found.",
+                }
+                all_ok = False
+                continue
+
+            package_date = matches.iloc[0]["Date"]
+            package_label = matches.iloc[0]["Package"]
+            package_title = matches.iloc[0]["Title"]
+
+            r_package = RPackage(package_date, package_label, package_title)
+            if r_package.exists():
+                if not r_package.is_updated():
+                    r_package.update()
+                qid = r_package.QID
+            else:
+                pulled = r_package.pull()
+                if not pulled:
+                    results[package] = {
+                        "qid": None,
+                        "status": "not_found",
+                        "error": "CRAN package metadata was not found.",
+                    }
+                    all_ok = False
+                    continue
+                created = pulled.insert_claims().write()
+                qid = created.get("QID") if created else None
+
+            if qid:
+                log.info("Imported item %s for CRAN package %s.", qid, package)
+                results[package] = {"qid": qid, "status": "success"}
+            else:
+                log.info("CRAN package %s was not imported.", package)
+                results[package] = {
+                    "qid": None,
+                    "status": "error",
+                    "error": "CRAN package was not imported.",
                 }
                 all_ok = False
         except Exception as exc:

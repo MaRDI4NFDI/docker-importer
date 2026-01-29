@@ -245,36 +245,51 @@ class TestImportService(unittest.TestCase):
 
     def test_import_cran_sync(self) -> None:
         """Return per-package results and overall success flag."""
+        import pandas as pd
+
         cran_source = Mock()
+        cran_source.pull.return_value = pd.DataFrame(
+            [
+                {"Date": "2024-01-01", "Package": "dplyr", "Title": "Dplyr"},
+                {"Date": "2024-01-02", "Package": "ggplot2", "Title": "Ggplot2"},
+            ]
+        )
 
-        success_software = Mock()
-        success_software.create.return_value = "Q1"
+        existing_package = Mock()
+        existing_package.exists.return_value = True
+        existing_package.is_updated.return_value = True
+        existing_package.QID = "Q1"
 
-        missing_software = Mock()
-        missing_software.create.return_value = None
+        new_package = Mock()
+        new_package.exists.return_value = False
+        new_package.pull.return_value = new_package
+        new_package.insert_claims.return_value = new_package
+        new_package.write.return_value = {"QID": "Q2"}
 
-        def new_software_side_effect(name: str) -> Mock:
-            if name == "dplyr":
-                return success_software
-            if name == "ggplot2":
-                return missing_software
+        def rpackage_side_effect(date: str, label: str, title: str) -> Mock:
+            if label == "dplyr":
+                return existing_package
+            if label == "ggplot2":
+                return new_package
             raise ValueError("boom")
-
-        cran_source.new_software.side_effect = new_software_side_effect
 
         with patch("services.import_service.log.error"):
             with patch(
                 "services.import_service.Importer.create_source",
                 return_value=cran_source,
             ):
-                payload, all_ok = import_service.import_cran_sync(
-                    ["dplyr", "ggplot2", "badpkg"]
-                )
+                with patch(
+                    "services.import_service.RPackage",
+                    side_effect=rpackage_side_effect,
+                ):
+                    payload, all_ok = import_service.import_cran_sync(
+                        ["dplyr", "ggplot2", "badpkg"]
+                    )
 
         self.assertFalse(all_ok)
         self.assertEqual(payload["results"]["dplyr"]["status"], "success")
-        self.assertEqual(payload["results"]["ggplot2"]["status"], "not_found")
-        self.assertEqual(payload["results"]["badpkg"]["status"], "error")
+        self.assertEqual(payload["results"]["ggplot2"]["status"], "success")
+        self.assertEqual(payload["results"]["badpkg"]["status"], "not_found")
 
 
 if __name__ == "__main__":

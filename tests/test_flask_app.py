@@ -293,16 +293,23 @@ class TestFlaskApp(unittest.TestCase):
         """Test successful CRAN import."""
         fake_request.get_json.return_value = {"packages": ["dplyr"]}
 
+        import pandas as pd
+
         cran_source = Mock()
+        cran_source.pull.return_value = pd.DataFrame(
+            [{"Date": "2024-01-01", "Package": "dplyr", "Title": "Dplyr"}]
+        )
         software = Mock()
-        software.create.return_value = "Q1"
-        cran_source.new_software.return_value = software
+        software.exists.return_value = True
+        software.is_updated.return_value = True
+        software.QID = "Q1"
 
         with patch(
             "services.import_service.Importer.create_source",
             return_value=cran_source,
         ):
-            response, status = import_cran()
+            with patch("services.import_service.RPackage", return_value=software):
+                response, status = import_cran()
 
         self.assertEqual(status, 200)
         self.assertEqual(response["results"]["dplyr"]["status"], "success")

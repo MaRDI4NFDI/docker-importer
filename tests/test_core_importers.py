@@ -13,6 +13,7 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+
 def _install_mardi_importer_inner_stub() -> None:
     if "mardi_importer.mardi_importer" in sys.modules:
         return
@@ -62,12 +63,15 @@ def _install_mardi_importer_inner_stub() -> None:
     sys.modules["mardi_importer.mardi_importer"] = inner_module
     try:
         import importlib
+
         top_level = importlib.import_module("mardi_importer")
         setattr(top_level, "mardi_importer", inner_module)
     except ModuleNotFoundError:
         pass
 
+
 _install_mardi_importer_inner_stub()
+
 
 # Set up a minimal Flask stub for app imports if not already done
 def _install_flask_stub() -> None:
@@ -91,11 +95,13 @@ def _install_flask_stub() -> None:
         def get(self, path):
             def decorator(func):
                 return func
+
             return decorator
 
         def post(self, path):
             def decorator(func):
                 return func
+
             return decorator
 
     fake_flask = types.ModuleType("flask")
@@ -105,7 +111,9 @@ def _install_flask_stub() -> None:
 
     sys.modules["flask"] = fake_flask
 
+
 _install_flask_stub()
+
 
 def _install_mardiclient_stub() -> None:
     if "mardiclient" in sys.modules:
@@ -129,7 +137,9 @@ def _install_mardiclient_stub() -> None:
 
     sys.modules["mardiclient"] = mardiclient_module
 
+
 _install_mardiclient_stub()
+
 
 def _install_sqlalchemy_stub() -> None:
     if "sqlalchemy" in sys.modules:
@@ -186,7 +196,9 @@ def _install_sqlalchemy_stub() -> None:
     sys.modules["sqlalchemy"] = sqlalchemy_module
     sys.modules["sqlalchemy.schema"] = schema_module
 
+
 _install_sqlalchemy_stub()
+
 
 def _install_wikibaseintegrator_stub() -> None:
     if "wikibaseintegrator" in sys.modules:
@@ -198,6 +210,7 @@ def _install_wikibaseintegrator_stub() -> None:
     enums_module = types.ModuleType("wikibaseintegrator.wbi_enums")
     datatypes_module = types.ModuleType("wikibaseintegrator.datatypes")
     exceptions_module = types.ModuleType("wikibaseintegrator.wbi_exceptions")
+    helpers_module = types.ModuleType("wikibaseintegrator.wbi_helpers")
 
     class Claim:
         pass
@@ -273,6 +286,9 @@ def _install_wikibaseintegrator_stub() -> None:
     class ModificationFailed(Exception):
         pass
 
+    def _noop(*_args, **_kwargs):
+        return None
+
     models_module.Claim = Claim
     models_module.Claims = Claims
     models_module.Qualifiers = Qualifiers
@@ -303,11 +319,17 @@ def _install_wikibaseintegrator_stub() -> None:
 
     exceptions_module.ModificationFailed = ModificationFailed
 
+    helpers_module.search_entities = _noop
+    helpers_module.remove_claims = _noop
+    helpers_module.merge_items = _noop
+    helpers_module.execute_sparql_query = _noop
+
     wbi_module.models = models_module
     wbi_module.wbi_config = config_module
     wbi_module.wbi_enums = enums_module
     wbi_module.datatypes = datatypes_module
     wbi_module.wbi_exceptions = exceptions_module
+    wbi_module.wbi_helpers = helpers_module
 
     sys.modules["wikibaseintegrator"] = wbi_module
     sys.modules["wikibaseintegrator.models"] = models_module
@@ -315,8 +337,11 @@ def _install_wikibaseintegrator_stub() -> None:
     sys.modules["wikibaseintegrator.wbi_enums"] = enums_module
     sys.modules["wikibaseintegrator.datatypes"] = datatypes_module
     sys.modules["wikibaseintegrator.wbi_exceptions"] = exceptions_module
+    sys.modules["wikibaseintegrator.wbi_helpers"] = helpers_module
+
 
 _install_wikibaseintegrator_stub()
+
 
 def _install_feedparser_stub() -> None:
     if "feedparser" in sys.modules:
@@ -337,7 +362,9 @@ def _install_feedparser_stub() -> None:
     sys.modules["feedparser"] = feedparser_module
     sys.modules["feedparser.util"] = util_module
 
+
 _install_feedparser_stub()
+
 
 def _install_requests_stub() -> None:
     if "requests" in sys.modules:
@@ -376,7 +403,9 @@ def _install_requests_stub() -> None:
     sys.modules["requests"] = requests_module
     sys.modules["requests.exceptions"] = exceptions_module
 
+
 _install_requests_stub()
+
 
 def _install_bs4_stub() -> None:
     if "bs4" in sys.modules:
@@ -398,7 +427,9 @@ def _install_bs4_stub() -> None:
 
     sys.modules["bs4"] = bs4_module
 
+
 _install_bs4_stub()
+
 
 def _install_pandas_stub() -> None:
     if "pandas" in sys.modules:
@@ -422,7 +453,9 @@ def _install_pandas_stub() -> None:
 
     sys.modules["pandas"] = pandas_module
 
+
 _install_pandas_stub()
+
 
 def _install_habanero_stub() -> None:
     if "habanero" in sys.modules:
@@ -438,7 +471,9 @@ def _install_habanero_stub() -> None:
 
     sys.modules["habanero"] = habanero_module
 
+
 _install_habanero_stub()
+
 
 def _install_httpx_stub() -> None:
     if "httpx" in sys.modules:
@@ -480,7 +515,9 @@ def _install_httpx_stub() -> None:
 
     sys.modules["httpx"] = httpx_module
 
+
 _install_httpx_stub()
+
 
 def _install_nameparser_stub() -> None:
     if "nameparser" in sys.modules:
@@ -507,7 +544,9 @@ def _install_nameparser_stub() -> None:
     sys.modules["nameparser"] = nameparser_module
     sys.modules["nameparser.config"] = config_module
 
+
 _install_nameparser_stub()
+
 
 def _install_mardi_utils_stub() -> None:
     if "mardi_importer.utils" in sys.modules:
@@ -528,7 +567,9 @@ def _install_mardi_utils_stub() -> None:
     sys.modules["mardi_importer.utils"] = utils_module
     sys.modules["mardi_importer.utils.Author"] = author_module
 
+
 _install_mardi_utils_stub()
+
 
 def _install_coolname_stub() -> None:
     if "coolname" in sys.modules:
@@ -546,9 +587,10 @@ def _install_coolname_stub() -> None:
     sys.modules["coolname"] = coolname_module
     sys.modules["coolname.impl"] = impl_module
 
+
 _install_coolname_stub()
 
-coolname_load_config_patcher = patch('coolname.impl.load_config', return_value={})
+coolname_load_config_patcher = patch("coolname.impl.load_config", return_value={})
 coolname_load_config_patcher.start()
 
 # Import necessary modules
@@ -558,7 +600,9 @@ from mardi_importer.mardi_importer.wikidata.WikidataImporter import WikidataImpo
 from mardi_importer.mardi_importer.arxiv.ArxivSource import ArxivSource
 from mardi_importer.mardi_importer.arxiv.ArxivPublication import ArxivPublication
 from mardi_importer.mardi_importer.crossref.CrossrefSource import CrossrefSource
-from mardi_importer.mardi_importer.crossref.CrossrefPublication import CrossrefPublication
+from mardi_importer.mardi_importer.crossref.CrossrefPublication import (
+    CrossrefPublication,
+)
 from mardi_importer.mardi_importer.zenodo.ZenodoSource import ZenodoSource
 from mardi_importer.mardi_importer.zenodo.ZenodoResource import ZenodoResource
 
@@ -587,42 +631,48 @@ MOCK_ENV_VARS = {
     "ZENODO_PASS": "test_zenodo_pass",
 }
 
+
 class TestCoreImporters(unittest.TestCase):
     def setUp(self) -> None:
-        self.patcher_env = patch.dict('os.environ', MOCK_ENV_VARS)
+        self.patcher_env = patch.dict("os.environ", MOCK_ENV_VARS)
         self.patcher_env.start()
 
         # Suppress logging output during tests
-        self.logger_wikidata = logging.getLogger("mardi_importer.wikidata.WikidataImporter")
+        self.logger_wikidata = logging.getLogger(
+            "mardi_importer.wikidata.WikidataImporter"
+        )
         self.logger_arxiv = logging.getLogger("mardi_importer.arxiv.ArxivSource")
         self.logger_datasource = logging.getLogger("mardi_importer.base.ADataSource")
-        
+
         self.original_wikidata_level = self.logger_wikidata.level
         self.original_arxiv_level = self.logger_arxiv.level
         self.original_datasource_level = self.logger_datasource.level
-        
+
         self.logger_wikidata.setLevel(logging.CRITICAL)
         self.logger_arxiv.setLevel(logging.CRITICAL)
         self.logger_datasource.setLevel(logging.CRITICAL)
 
     def tearDown(self) -> None:
         self.patcher_env.stop()
-        
+
         self.logger_wikidata.setLevel(self.original_wikidata_level)
         self.logger_arxiv.setLevel(self.original_arxiv_level)
         self.logger_datasource.setLevel(self.original_datasource_level)
 
-    @patch('mardiclient.MardiClient._config') # Patching _config method
-    @patch('sqlalchemy.schema.MetaData.create_all')
+    @patch("mardiclient.MardiClient._config")  # Patching _config method
+    @patch("sqlalchemy.schema.MetaData.create_all")
     @patch.object(WikidataImporterModule, "MardiClient")
-    @patch('sqlalchemy.create_engine')
-    @patch('wikibaseintegrator.wbi_config.config', new={'WIKIBASE_URL': MOCK_ENV_VARS["WIKIBASE_URL"]})
+    @patch("sqlalchemy.create_engine")
+    @patch(
+        "wikibaseintegrator.wbi_config.config",
+        new={"WIKIBASE_URL": MOCK_ENV_VARS["WIKIBASE_URL"]},
+    )
     def test_wikidata_importer_init_and_setup(
         self,
         mock_create_engine,
         mock_mardi_client,
         mock_metadata_create_all,
-        mock_config # Argument for the _config patch
+        mock_config,  # Argument for the _config patch
     ) -> None:
         # Configure mock_config to return a mock Clientlogin object
         mock_config.return_value = Mock(login=Mock())
@@ -632,12 +682,14 @@ class TestCoreImporters(unittest.TestCase):
         mock_property_obj.new.return_value = Mock()
         mock_property_obj.new.return_value.labels.set.return_value = None
         mock_property_obj.new.return_value.descriptions.set.return_value = None
-        mock_property_obj.new.return_value.exists.return_value = "P123" # PID exists
+        mock_property_obj.new.return_value.exists.return_value = "P123"  # PID exists
         mock_property_obj.new.return_value.write.return_value.id = "P123"
-        mock_property_obj.get.return_value = Mock() # For _get_wikidata_information
+        mock_property_obj.get.return_value = Mock()  # For _get_wikidata_information
 
         mock_mardi_client_instance = Mock()
-        mock_mardi_client_instance.login = mock_config.return_value.login # Use the mocked Clientlogin from _config
+        mock_mardi_client_instance.login = (
+            mock_config.return_value.login
+        )  # Use the mocked Clientlogin from _config
         mock_mardi_client_instance.property = mock_property_obj
         mock_mardi_client_instance.item = Mock()
 
@@ -655,8 +707,10 @@ class TestCoreImporters(unittest.TestCase):
         mock_create_engine.return_value = mock_engine
 
         # Mock inspect.has_table
-        with patch('sqlalchemy.inspect') as mock_inspect:
-            mock_inspect.return_value.has_table.return_value = False # Tables don't exist yet
+        with patch("sqlalchemy.inspect") as mock_inspect:
+            mock_inspect.return_value.has_table.return_value = (
+                False  # Tables don't exist yet
+            )
 
             # Reset singleton instance for proper re-initialization
             WikidataImporter._instance = None
@@ -671,22 +725,29 @@ class TestCoreImporters(unittest.TestCase):
                 sparql_endpoint_url=MOCK_ENV_VARS["SPARQL_ENDPOINT_URL"],
                 wikibase_url=MOCK_ENV_VARS["WIKIBASE_URL"],
                 importer_api_url=MOCK_ENV_VARS["IMPORTER_API_URL"],
-                user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
+                user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)",
             )
             self.assertTrue(mock_create_engine.called)
             self.assertTrue(mock_inspect.called)
-            self.assertTrue(mock_metadata_create_all.called) # Assert that create_all was called
-            self.assertTrue(mock_mardi_client_instance.property.new.called) # _init_wikidata_PID/_QID
+            self.assertTrue(
+                mock_metadata_create_all.called
+            )  # Assert that create_all was called
+            self.assertTrue(
+                mock_mardi_client_instance.property.new.called
+            )  # _init_wikidata_PID/_QID
 
-    @patch('mardiclient.MardiClient._config') # Patching _config method
+    @patch("mardiclient.MardiClient._config")  # Patching _config method
     @patch.object(WikidataImporterModule, "MardiClient")
-    @patch('sqlalchemy.create_engine')
-    @patch('wikibaseintegrator.wbi_config.config', new={'WIKIBASE_URL': MOCK_ENV_VARS["WIKIBASE_URL"]})
+    @patch("sqlalchemy.create_engine")
+    @patch(
+        "wikibaseintegrator.wbi_config.config",
+        new={"WIKIBASE_URL": MOCK_ENV_VARS["WIKIBASE_URL"]},
+    )
     def test_wikidata_importer_get_wikidata_information(
         self,
         mock_create_engine,
         mock_mardi_client,
-        mock_config # Argument for the _config patch
+        mock_config,  # Argument for the _config patch
     ) -> None:
         # Configure mock_config to return a mock Clientlogin object
         mock_config.return_value = Mock(login=Mock())
@@ -694,25 +755,24 @@ class TestCoreImporters(unittest.TestCase):
         # Setup mocks for Mardiclient and its internal methods
         mock_item_get = Mock()
         mock_item_get.return_value = Mock(
-            labels=Mock(values={'en': 'Test Item', 'de': 'Test Gegenstand'}),
-            descriptions=Mock(values={'en': 'A test item'}),
+            labels=Mock(values={"en": "Test Item", "de": "Test Gegenstand"}),
+            descriptions=Mock(values={"en": "A test item"}),
             aliases=Mock(aliases={}),
             claims=Mock(),
             sitelinks=Mock(),
-            type='item',
-            datatype=Mock(value='wikibase-item')
+            type="item",
+            datatype=Mock(value="wikibase-item"),
         )
         mock_property_obj = Mock()
         mock_property_obj.new.return_value = Mock(
-            exists=Mock(return_value="P123"),
-            write=Mock(return_value=Mock(id="P123"))
+            exists=Mock(return_value="P123"), write=Mock(return_value=Mock(id="P123"))
         )
         mock_property_obj.get.return_value = Mock()
 
         mock_mardi_client_instance = Mock(
             item=Mock(get=mock_item_get),
             property=mock_property_obj,
-            login=mock_config.return_value.login, # Use the mocked Clientlogin from _config
+            login=mock_config.return_value.login,  # Use the mocked Clientlogin from _config
         )
         mock_mardi_client.return_value = mock_mardi_client_instance
 
@@ -728,24 +788,30 @@ class TestCoreImporters(unittest.TestCase):
         mock_create_engine.return_value = mock_engine
 
         # Mock inspect.has_table
-        with patch('sqlalchemy.inspect') as mock_inspect:
-            mock_inspect.return_value.has_table.return_value = True # Assume tables exist
+        with patch("sqlalchemy.inspect") as mock_inspect:
+            mock_inspect.return_value.has_table.return_value = (
+                True  # Assume tables exist
+            )
 
             # Reset singleton instance for proper re-initialization
             WikidataImporter._instance = None
             WikidataImporter._initialized = False
 
             importer = WikidataImporter(languages=["en"])
-            
+
             # Test with a valid QID
             entity = importer._get_wikidata_information("Q123", recurse=False)
 
-            mock_item_get.assert_called_once_with(entity_id="Q123", mediawiki_api_url='https://www.wikidata.org/w/api.php')
-            self.assertEqual(entity.labels.values['en'], 'Test Item')
-            self.assertNotIn('de', entity.labels.values) # Language filtering
-            self.assertEqual(entity.descriptions.values['en'], 'A test item')
-            self.assertFalse(entity.claims.claims) # claims should be empty if recurse=False
-            self.assertFalse(entity.sitelinks.sitelinks) # sitelinks should be empty
+            mock_item_get.assert_called_once_with(
+                entity_id="Q123", mediawiki_api_url="https://www.wikidata.org/w/api.php"
+            )
+            self.assertEqual(entity.labels.values["en"], "Test Item")
+            self.assertNotIn("de", entity.labels.values)  # Language filtering
+            self.assertEqual(entity.descriptions.values["en"], "A test item")
+            self.assertFalse(
+                entity.claims.claims
+            )  # claims should be empty if recurse=False
+            self.assertFalse(entity.sitelinks.sitelinks)  # sitelinks should be empty
 
             # Test with an invalid ID format
             with self.assertRaises(ValueError):
@@ -754,7 +820,7 @@ class TestCoreImporters(unittest.TestCase):
 
 class TestArxivSource(unittest.TestCase):
     def setUp(self) -> None:
-        self.patcher_env = patch.dict('os.environ', MOCK_ENV_VARS)
+        self.patcher_env = patch.dict("os.environ", MOCK_ENV_VARS)
         self.patcher_env.start()
         # Suppress logging output during tests
         self.logger_arxiv = logging.getLogger("mardi_importer.arxiv.ArxivSource")
@@ -766,17 +832,17 @@ class TestArxivSource(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.patcher_env.stop()
-        
+
         self.logger_arxiv.setLevel(self.original_arxiv_level)
         self.logger_datasource.setLevel(self.original_datasource_level)
-    
-    @patch('mardiclient.MardiClient._config') # Patching _config method
+
+    @patch("mardiclient.MardiClient._config")  # Patching _config method
     @patch.object(ADataSourceModule, "MardiClient")
     @patch.object(ADataSourceModule, "WikidataImporter")
     @patch.object(ArxivPublication, "__post_init__", return_value=None)
-    @patch('os.path.exists', return_value=False) # To ensure setup() is called
-    @patch('os.makedirs')
-    @patch('builtins.open', new_callable=mock_open) # Use mock_open
+    @patch("os.path.exists", return_value=False)  # To ensure setup() is called
+    @patch("os.makedirs")
+    @patch("builtins.open", new_callable=mock_open)  # Use mock_open
     def test_arxiv_source_init_and_setup(
         self,
         mock_open,
@@ -785,15 +851,17 @@ class TestArxivSource(unittest.TestCase):
         mock_arxiv_post_init,
         mock_wikidata_importer,
         mock_mardi_client,
-        mock_config # Argument for the _config patch
+        mock_config,  # Argument for the _config patch
     ) -> None:
         # Configure mock_config to return a mock Clientlogin object
         mock_config.return_value = Mock(login=Mock())
-        
+
         # Mock ADataSource.__init__
         mock_mardi_client_instance = Mock()
         mock_mardi_client.return_value = mock_mardi_client_instance
-        mock_mardi_client_instance.login = mock_config.return_value.login # Ensure login attribute is correctly mocked
+        mock_mardi_client_instance.login = (
+            mock_config.return_value.login
+        )  # Ensure login attribute is correctly mocked
 
         # Mock WikidataImporter instance returned by ADataSource.wdi property
         mock_wdi_instance = mock_wikidata_importer.return_value
@@ -805,8 +873,7 @@ class TestArxivSource(unittest.TestCase):
         ArxivSource._setup_complete = set()
 
         arxiv_source = ArxivSource(
-            user=MOCK_ENV_VARS["ARXIV_USER"],
-            password=MOCK_ENV_VARS["ARXIV_PASS"]
+            user=MOCK_ENV_VARS["ARXIV_USER"], password=MOCK_ENV_VARS["ARXIV_PASS"]
         )
 
         mock_mardi_client.assert_called_once_with(
@@ -817,7 +884,9 @@ class TestArxivSource(unittest.TestCase):
             wikibase_url=MOCK_ENV_VARS["WIKIBASE_URL"],
             importer_api_url=MOCK_ENV_VARS["IMPORTER_API_URL"],
         )
-        mock_wdi_instance.import_entities.assert_called_once_with(filename=arxiv_source.filepath + "/wikidata_entities.txt")
+        mock_wdi_instance.import_entities.assert_called_once_with(
+            filename=arxiv_source.filepath + "/wikidata_entities.txt"
+        )
         self.assertTrue(mock_makedirs.called)
         mock_open.assert_called_once()
 
@@ -829,10 +898,12 @@ class TestArxivSource(unittest.TestCase):
 
 class TestCrossrefSource(unittest.TestCase):
     def setUp(self) -> None:
-        self.patcher_env = patch.dict('os.environ', MOCK_ENV_VARS)
+        self.patcher_env = patch.dict("os.environ", MOCK_ENV_VARS)
         self.patcher_env.start()
         # Suppress logging output during tests
-        self.logger_crossref = logging.getLogger("mardi_importer.crossref.CrossrefSource")
+        self.logger_crossref = logging.getLogger(
+            "mardi_importer.crossref.CrossrefSource"
+        )
         self.logger_datasource = logging.getLogger("mardi_importer.base.ADataSource")
         self.original_crossref_level = self.logger_crossref.level
         self.original_datasource_level = self.logger_datasource.level
@@ -845,13 +916,13 @@ class TestCrossrefSource(unittest.TestCase):
         self.logger_crossref.setLevel(self.original_crossref_level)
         self.logger_datasource.setLevel(self.original_datasource_level)
 
-    @patch('mardiclient.MardiClient._config') # Patching _config method
+    @patch("mardiclient.MardiClient._config")  # Patching _config method
     @patch.object(ADataSourceModule, "MardiClient")
     @patch.object(ADataSourceModule, "WikidataImporter")
     @patch.object(CrossrefPublication, "__post_init__", return_value=None)
-    @patch('os.path.exists', return_value=False) # To ensure setup() is called
-    @patch('os.makedirs')
-    @patch('builtins.open', new_callable=mock_open) # Use mock_open
+    @patch("os.path.exists", return_value=False)  # To ensure setup() is called
+    @patch("os.makedirs")
+    @patch("builtins.open", new_callable=mock_open)  # Use mock_open
     def test_crossref_source_init_and_setup(
         self,
         mock_open,
@@ -860,7 +931,7 @@ class TestCrossrefSource(unittest.TestCase):
         mock_crossref_post_init,
         mock_wikidata_importer,
         mock_mardi_client,
-        mock_config # Argument for the _config patch
+        mock_config,  # Argument for the _config patch
     ) -> None:
         # Configure mock_config to return a mock Clientlogin object
         mock_config.return_value = Mock(login=Mock())
@@ -880,8 +951,7 @@ class TestCrossrefSource(unittest.TestCase):
         CrossrefSource._setup_complete = set()
 
         crossref_source = CrossrefSource(
-            user=MOCK_ENV_VARS["CROSSREF_USER"],
-            password=MOCK_ENV_VARS["CROSSREF_PASS"]
+            user=MOCK_ENV_VARS["CROSSREF_USER"], password=MOCK_ENV_VARS["CROSSREF_PASS"]
         )
 
         mock_mardi_client.assert_called_once_with(
@@ -892,7 +962,9 @@ class TestCrossrefSource(unittest.TestCase):
             wikibase_url=MOCK_ENV_VARS["WIKIBASE_URL"],
             importer_api_url=MOCK_ENV_VARS["IMPORTER_API_URL"],
         )
-        mock_wdi_instance.import_entities.assert_called_once_with(filename=crossref_source.filepath + "/wikidata_entities.txt")
+        mock_wdi_instance.import_entities.assert_called_once_with(
+            filename=crossref_source.filepath + "/wikidata_entities.txt"
+        )
         self.assertTrue(mock_makedirs.called)
         mock_open.assert_called_once()
 
@@ -904,7 +976,7 @@ class TestCrossrefSource(unittest.TestCase):
 
 class TestZenodoSource(unittest.TestCase):
     def setUp(self) -> None:
-        self.patcher_env = patch.dict('os.environ', MOCK_ENV_VARS)
+        self.patcher_env = patch.dict("os.environ", MOCK_ENV_VARS)
         self.patcher_env.start()
         # Suppress logging output during tests
         self.logger_zenodo = logging.getLogger("mardi_importer.zenodo.ZenodoSource")
@@ -920,14 +992,14 @@ class TestZenodoSource(unittest.TestCase):
         self.logger_zenodo.setLevel(self.original_zenodo_level)
         self.logger_datasource.setLevel(self.original_datasource_level)
 
-    @patch('mardiclient.MardiClient._config') # Patching _config method
+    @patch("mardiclient.MardiClient._config")  # Patching _config method
     @patch.object(ADataSourceModule, "MardiClient")
     @patch.object(ADataSourceModule, "WikidataImporter")
     @patch.object(ZenodoResource, "__post_init__", return_value=None)
     @patch.object(ADataSourceModule.ADataSource, "create_local_entities")
-    @patch('os.path.exists', return_value=False) # To ensure setup() is called
-    @patch('os.makedirs')
-    @patch('builtins.open', new_callable=mock_open) # Use mock_open
+    @patch("os.path.exists", return_value=False)  # To ensure setup() is called
+    @patch("os.makedirs")
+    @patch("builtins.open", new_callable=mock_open)  # Use mock_open
     def test_zenodo_source_init_and_setup(
         self,
         mock_open,
@@ -937,7 +1009,7 @@ class TestZenodoSource(unittest.TestCase):
         mock_zenodo_post_init,
         mock_wikidata_importer,
         mock_mardi_client,
-        mock_config # Argument for the _config patch
+        mock_config,  # Argument for the _config patch
     ) -> None:
         # Configure mock_config to return a mock Clientlogin object
         mock_config.return_value = Mock(login=Mock())
@@ -957,8 +1029,7 @@ class TestZenodoSource(unittest.TestCase):
         ZenodoSource._setup_complete = set()
 
         zenodo_source = ZenodoSource(
-            user=MOCK_ENV_VARS["ZENODO_USER"],
-            password=MOCK_ENV_VARS["ZENODO_PASS"]
+            user=MOCK_ENV_VARS["ZENODO_USER"], password=MOCK_ENV_VARS["ZENODO_PASS"]
         )
 
         mock_mardi_client.assert_called_once_with(
@@ -969,7 +1040,9 @@ class TestZenodoSource(unittest.TestCase):
             wikibase_url=MOCK_ENV_VARS["WIKIBASE_URL"],
             importer_api_url=MOCK_ENV_VARS["IMPORTER_API_URL"],
         )
-        mock_wdi_instance.import_entities.assert_called_once_with(filename=zenodo_source.filepath + "/wikidata_entities.txt")
+        mock_wdi_instance.import_entities.assert_called_once_with(
+            filename=zenodo_source.filepath + "/wikidata_entities.txt"
+        )
         mock_create_local_entities.assert_called_once_with("/new_entities.json")
         self.assertTrue(mock_makedirs.called)
         mock_open.assert_called_once()

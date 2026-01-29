@@ -7,6 +7,7 @@ from tests.prefect_stub import install_prefect_stub
 
 install_prefect_stub(force=True)
 
+
 # Mock Flask module to avoid dependency
 def _install_flask_stub() -> None:
     """Install a minimal Flask stub for tests."""
@@ -27,11 +28,13 @@ def _install_flask_stub() -> None:
         def get(self, path):
             def decorator(func):
                 return func
+
             return decorator
 
         def post(self, path):
             def decorator(func):
                 return func
+
             return decorator
 
     fake_flask = types.ModuleType("flask")
@@ -40,6 +43,7 @@ def _install_flask_stub() -> None:
     fake_flask.request = fake_request
 
     sys.modules["flask"] = fake_flask
+
 
 _install_flask_stub()
 
@@ -51,6 +55,7 @@ from flask_app.app import (
     import_wikidata,
     import_doi_async,
     import_doi,
+    import_cran,
 )
 from services import import_service
 
@@ -64,10 +69,12 @@ class TestFlaskApp(unittest.TestCase):
     def setUp(self) -> None:
         # Ensure PREFECT_API_AUTH_STRING is None for tests
         import flask_app.app
+
         flask_app.app.PREFECT_API_AUTH_STRING = None
 
         # Suppress logging output during tests
         import logging
+
         self.logger = logging.getLogger("flask_app.app")
         self.original_level = self.logger.level
         self.logger.setLevel(logging.CRITICAL)
@@ -112,7 +119,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response["error"], "Could not start background job")
         self.assertIn("Prefect error", response["details"])
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_import_workflow_status_success(self, mock_get) -> None:
         """Test successful workflow status retrieval."""
         mock_response = Mock()
@@ -140,10 +147,11 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(response["error"], "missing flow run id (parameter: id)")
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_import_workflow_status_http_error(self, mock_get) -> None:
         """Test workflow status with HTTP error."""
         from requests import HTTPError
+
         mock_get.side_effect = HTTPError("404 Not Found")
 
         fake_request.args.get.side_effect = None
@@ -152,18 +160,25 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(response["error"], "could not fetch flow run")
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_import_workflow_result_success(self, mock_get) -> None:
         """Test successful workflow result retrieval."""
         mock_resp1 = Mock()
         mock_resp1.json.return_value = {"state": {"type": "COMPLETED"}}
         mock_resp1.raise_for_status.return_value = None
         mock_resp2 = Mock()
-        mock_resp2.json.return_value = {"id": "a1", "key": "k", "created": "now", "data": {"x": 1}}
+        mock_resp2.json.return_value = {
+            "id": "a1",
+            "key": "k",
+            "created": "now",
+            "data": {"x": 1},
+        }
         mock_resp2.raise_for_status.return_value = None
         mock_get.side_effect = [mock_resp1, mock_resp2]
 
-        fake_request.args.get.side_effect = lambda *args: "run1" if args[0] == "id" else "mardi-importer-result-"
+        fake_request.args.get.side_effect = (
+            lambda *args: "run1" if args[0] == "id" else "mardi-importer-result-"
+        )
         response, status = import_workflow_result()
         self.assertEqual(status, 200)
         self.assertEqual(response["artifact_id"], "a1")
@@ -176,10 +191,11 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(response["error"], "missing flow run id (parameter: id)")
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_import_workflow_result_http_error(self, mock_get) -> None:
         """Test workflow result with HTTP error."""
         from requests import HTTPError
+
         mock_resp = Mock()
         mock_resp.json.return_value = {"state": {"type": "COMPLETED"}}
         mock_resp.raise_for_status.return_value = None
@@ -207,6 +223,89 @@ class TestFlaskApp(unittest.TestCase):
         response, status = import_doi_async()
         self.assertEqual(status, 400)
         self.assertEqual(response["error"], "missing dois")
+
+    def test_import_wikidata_missing_qids(self) -> None:
+        """Test sync Wikidata import with missing QIDs."""
+        fake_request.get_json.return_value = {}
+        response, status = import_wikidata()
+        self.assertEqual(status, 400)
+        self.assertEqual(response["error"], "missing qids")
+
+    def test_import_wikidata_success(self) -> None:
+        """Test successful sync Wikidata import."""
+        fake_request.get_json.return_value = {"qids": ["Q1"]}
+        importer = Mock()
+        importer.import_entities.return_value = "Q1"
+
+        with patch(
+            "services.import_service.WikidataImporter",
+            return_value=importer,
+        ):
+            response, status = import_wikidata()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["results"]["Q1"]["status"], "success")
+
+    def test_import_doi_missing_dois(self) -> None:
+        """Test sync DOI import with missing DOIs."""
+        fake_request.get_json.return_value = {}
+        response, status = import_doi()
+        self.assertEqual(status, 400)
+        self.assertEqual(response["error"], "missing doi")
+
+    def test_import_doi_success(self) -> None:
+        """Test successful sync DOI import."""
+        fake_request.get_json.return_value = {"dois": ["10.1234/arxiv.0001"]}
+
+        arxiv_source = Mock()
+        zenodo_source = Mock()
+        crossref_source = Mock()
+
+        arxiv_publication = Mock()
+        arxiv_publication.create.return_value = "Q1"
+        arxiv_source.new_publication.return_value = arxiv_publication
+
+        zenodo_publication = Mock()
+        zenodo_publication.create.return_value = None
+        zenodo_source.new_resource.return_value = zenodo_publication
+
+        crossref_publication = Mock()
+        crossref_publication.create.return_value = None
+        crossref_source.new_publication.return_value = crossref_publication
+
+        with patch(
+            "services.import_service.Importer.create_source",
+            side_effect=[arxiv_source, zenodo_source, crossref_source],
+        ):
+            response, status = import_doi()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["results"]["10.1234/ARXIV.0001"]["status"], "success")
+
+    def test_import_cran_missing_packages(self) -> None:
+        """Test CRAN import with missing packages."""
+        fake_request.get_json.return_value = {}
+        response, status = import_cran()
+        self.assertEqual(status, 400)
+        self.assertEqual(response["error"], "missing packages")
+
+    def test_import_cran_success(self) -> None:
+        """Test successful CRAN import."""
+        fake_request.get_json.return_value = {"packages": ["dplyr"]}
+
+        cran_source = Mock()
+        software = Mock()
+        software.create.return_value = "Q1"
+        cran_source.new_software.return_value = software
+
+        with patch(
+            "services.import_service.Importer.create_source",
+            return_value=cran_source,
+        ):
+            response, status = import_cran()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["results"]["dplyr"]["status"], "success")
 
 
 if __name__ == "__main__":

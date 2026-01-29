@@ -35,6 +35,13 @@ python -m cli.importer_cli import-doi-async --dois 10.48550/ARXIV.2101.00001
 python -m cli.importer_cli import-doi --dois 10.48550/ARXIV.2101.00001
 ```
 
+### CRAN import (sync)
+
+```bash
+python -m cli.importer_cli import-cran --packages dplyr ggplot2
+python -m cli.importer_cli import-cran --packages "dplyr,ggplot2"
+```
+
 ### Prefect flow run status
 
 ```bash

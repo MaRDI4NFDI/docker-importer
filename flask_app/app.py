@@ -9,6 +9,7 @@ from services.import_service import (
     build_health_payload,
     get_workflow_result,
     get_workflow_status,
+    import_cran_sync,
     import_doi_sync,
     import_wikidata_sync,
     normalize_list,
@@ -219,6 +220,25 @@ def import_doi():
         return jsonify(error="missing doi"), 400
 
     payload, _all_ok = import_doi_sync(dois)
+    return jsonify(payload), 200
+
+
+@app.post("/import/cran")
+def import_cran():
+    """Import CRAN packages synchronously.
+
+    Expects JSON with a ``packages`` field, which may be a list or a string of
+    comma/space-separated package names.
+
+    Returns:
+        Flask response tuple with per-package import results.
+    """
+    data = request.get_json(silent=True) or {}
+    packages = normalize_list(data.get("packages"))
+    if not packages:
+        return jsonify(error="missing packages"), 400
+
+    payload, _all_ok = import_cran_sync(packages)
     return jsonify(payload), 200
 
 

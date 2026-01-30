@@ -4,6 +4,9 @@ from mardi_importer.base import ADataSource
 
 import os
 
+from wikibaseintegrator.wbi_login import LoginError
+
+
 class Importer:
     """Central registry for all data sources."""
     _sources: Dict[str, Type['ADataSource']] = {}
@@ -50,6 +53,9 @@ class Importer:
             raise ValueError(f"Missing required environment variables for {name}: {', '.join(missing)}")
         
         source = cls._sources[name](user=user, password=password)
+
+        if source.api is None or source.api.login is None:
+            raise LoginError(f"Authentication failed for {name} (using {user_env_var})")
 
         cls._apis[name] = source.api
 

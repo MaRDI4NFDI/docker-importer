@@ -333,10 +333,7 @@ class ArxivPublication():
                 item.add_claims(category_claims)
 
             # Authors
-            author_QID = self.__preprocess_authors()
-            claims = []
-            for author in author_QID:
-                claims.append(self.api.get_claim("wdt:P50", author))
+            claims = self.__preprocess_authors()
             log.debug(
                 "arxiv author claims types=%s values=%s",
                 [type(c).__name__ for c in claims],
@@ -360,18 +357,23 @@ class ArxivPublication():
     def __preprocess_authors(self) -> List[str]:
         """Processes the author information of each publication.
 
-        Create the author if it does not exist already as an 
+        Create the author if it does not exist already as an
         entity in wikibase.
-            
+
+        If an author has no ORCID and no existing QID, store the author as
+        an author name string (P2093) instead of creating an author item.
+
         Returns:
-          List[str]: 
-            QIDs corresponding to each author.
+        List:
+            Author claims to be added (P50 entity claims and/or P2093 string claims).
         """
-        log = get_logger_safe(__name__)
-        author_QID = []
+        claims = []
         for author in self.authors:
-            if not author.QID:
-                log.debug(f"Creating author: {author}")
-                author.create()
-            author_QID.append(author.QID)
-        return author_QID
+            if author.orcid or author.QID:
+                if not author.QID:
+                    author.create()
+                claims.append(self.api.get_claim("wdt:P50", author.QID))
+            else:
+                if author.name:
+                    claims.append(self.api.get_claim("wdt:P2093", author.name))
+        return claims

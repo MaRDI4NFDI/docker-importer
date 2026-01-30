@@ -17,7 +17,9 @@ import requests
 import re
 
 import logging
-log = logging.getLogger('CRANlogger')
+
+log = logging.getLogger("CRANlogger")
+
 
 @dataclass
 class RPackage:
@@ -51,6 +53,7 @@ class RPackage:
         _QID:
           Package QID
     """
+
     date: str
     label: str
     description: str
@@ -77,15 +80,15 @@ class RPackage:
 
     def __post_init__(self):
         if self.api is None:
-            self.api = Importer.get_api('cran')
+            self.api = Importer.get_api("cran")
         if self.wdi is None:
             self.wdi = WikidataImporter()
         if self.crossref is None:
-            self.crossref = Importer.create_source('crossref')
+            self.crossref = Importer.create_source("crossref")
         if self.arxiv is None:
-            self.arxiv = Importer.create_source('arxiv')
+            self.arxiv = Importer.create_source("arxiv")
         if self.zenodo is None:
-            self.zenodo = Importer.create_source('zenodo')
+            self.zenodo = Importer.create_source("zenodo")
 
     @property
     def QID(self) -> str:
@@ -97,7 +100,7 @@ class RPackage:
         Returns:
             str: The entity QID representing the R package.
         """
-        self._QID = self._QID or self.item.is_instance_of('wd:Q73539779')
+        self._QID = self._QID or self.item.is_instance_of("wd:Q73539779")
         return self._QID
 
     @property
@@ -115,10 +118,7 @@ class RPackage:
             description = self.description
             if self.label == self.description:
                 description += " (R Package)"
-            self._item.descriptions.set(
-                language="en",
-                value=description
-            )
+            self._item.descriptions.set(language="en", value=description)
         return self._item
 
     def exists(self) -> str:
@@ -153,19 +153,19 @@ class RPackage:
 
         try:
             page = requests.get(self.url)
-            soup = BeautifulSoup(page.content, 'lxml')
+            soup = BeautifulSoup(page.content, "lxml")
         except:
             log.warning(f"Package {self.label} package not found in CRAN.")
             return None
         else:
-            if soup.find_all('table'):
-                self.long_description = soup.find_all('p')[0].get_text() or ""
+            if soup.find_all("table"):
+                self.long_description = soup.find_all("p")[0].get_text() or ""
                 self.parse_publications(self.long_description)
                 self.long_description = re.sub("\n", "", self.long_description).strip()
                 self.long_description = re.sub("\t", "", self.long_description).strip()
 
-                table = soup.find_all('table')[0]
-                package_df = self.clean_package_list(table)                
+                table = soup.find_all("table")[0]
+                package_df = self.clean_package_list(table)
 
                 if "Version" in package_df.columns:
                     self.version = package_df.loc[1, "Version"]
@@ -182,7 +182,9 @@ class RPackage:
 
                 self.get_versions()
             else:
-                log.warning(f"Metadata table not found in CRAN. Package has probably been archived.")
+                log.warning(
+                    f"Metadata table not found in CRAN. Package has probably been archived."
+                )
             return self
 
     def create(self) -> None:
@@ -195,16 +197,16 @@ class RPackage:
             None
         """
         package = self.pull()
-        
+
         if package:
             package = package.insert_claims().write()
 
         if package:
             log.info(f"Package created with QID: {package['QID']}.")
-            #print('package created')
+            # print('package created')
         else:
             log.info(f"Package could not be created.")
-            #print('package not created')
+            # print('package not created')
 
     def write(self) -> Optional[Dict[str, str]]:
         """Write the package item to the Wikibase instance.
@@ -221,18 +223,19 @@ class RPackage:
         if self.item.claims:
             item = self.item.write()
             if item:
-                return {'QID': item.id}
+                return {"QID": item.id}
 
     def insert_claims(self):
-
         # Logic to determine if 'Author' is the class or the module containing the class
-        if hasattr(Author, 'Author') and not isinstance(Author, type):
+        if hasattr(Author, "Author") and not isinstance(Author, type):
             author_factory = Author.Author
         else:
             author_factory = Author
 
         if not callable(author_factory):
-            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+            raise TypeError(
+                f"Could not resolve a callable Author class. Check your imports."
+            )
 
         # Instance of: R package
         self.item.add_claim("wdt:P31", "wd:Q73539779")
@@ -256,37 +259,53 @@ class RPackage:
             qualifier = [self.api.get_claim("wdt:P577", f"+{self.date}T00:00:00Z")]
             self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
-        # Disambiguate Authors and create corresponding Author items
-        self.author_pool = author_factory.disambiguate_authors(self.author_pool)
+        pool_for_items = []
+        for a in self.author_pool:
+            if a.orcid or a is self.maintainer:
+                pool_for_items.append(a)
+
+        self.author_pool = author_factory.disambiguate_authors(pool_for_items)
 
         # Authors
         for author in self.authors:
-            author.pull_QID(self.author_pool)
-            self.item.add_claim("wdt:P50", author.QID)
+            if author.orcid:
+                author.pull_QID(self.author_pool)
+                if not author.QID:
+                    author.create()
+                self.item.add_claim("wdt:P50", author.QID)
+            else:
+                if author.name:
+                    self.item.add_claim("wdt:P2093", author.name)
 
-        # Maintainer
+        # Maintainer (unchanged behavior: still an item via P126)
         self.maintainer.pull_QID(self.author_pool)
+        if not self.maintainer.QID:
+            self.maintainer.create()
         self.item.add_claim("wdt:P126", self.maintainer.QID)
 
         # Licenses
         if self.license_data:
-            claims = self.process_claims(self.license_data, 'wdt:P275', 'wdt:P9767')
+            claims = self.process_claims(self.license_data, "wdt:P275", "wdt:P9767")
             self.item.add_claims(claims)
 
         # Dependencies
         if self.dependencies:
-            claims = self.process_claims(self.dependencies, 'wdt:P1547', 'wdt:P348')
+            claims = self.process_claims(self.dependencies, "wdt:P1547", "wdt:P348")
             self.item.add_claims(claims)
 
         # Imports
         if self.imports:
             prop_nr = self.api.get_local_id_by_label("imports", "property")
-            claims = self.process_claims(self.imports, prop_nr, 'wdt:P348')
+            claims = self.process_claims(self.imports, prop_nr, "wdt:P348")
             self.item.add_claims(claims)
 
         # Related publications and sources
         cites_work = "wdt:P2860"
-        for publications in [self.crossref_publications, self.arxiv_publications, self.zenodo_resources]:
+        for publications in [
+            self.crossref_publications,
+            self.arxiv_publications,
+            self.zenodo_resources,
+        ]:
             for publication in publications:
                 for author in publication.authors:
                     author.pull_QID(self.author_pool)
@@ -298,7 +317,8 @@ class RPackage:
 
         # Wikidata QID
         wikidata_QID = self.get_wikidata_QID()
-        if wikidata_QID: self.item.add_claim("Wikidata QID", wikidata_QID)
+        if wikidata_QID:
+            self.item.add_claim("Wikidata QID", wikidata_QID)
 
         return self
 
@@ -317,32 +337,46 @@ class RPackage:
           str: ID of the updated R package.
         """
         # Logic to determine if 'Author' is the class or the module containing the class
-        if hasattr(Author, 'Author') and not isinstance(Author, type):
+        if hasattr(Author, "Author") and not isinstance(Author, type):
             author_factory = Author.Author
         else:
             author_factory = Author
 
         if not callable(author_factory):
-            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+            raise TypeError(
+                f"Could not resolve a callable Author class. Check your imports."
+            )
 
         if self.pull():
             # Obtain current Authors
-            current_authors = self.item.get_value('wdt:P50')
+            current_authors = self.item.get_value("wdt:P50")
             for author_qid in current_authors:
                 author_item = self.api.item.get(entity_id=author_qid)
-                author_label = str(author_item.labels.get('en'))
+                author_label = str(author_item.labels.get("en"))
                 current_author = Author(self.api, name=author_label)
                 current_author._QID = author_qid
                 self.author_pool += [current_author]
-                
+
             # Disambiguate Authors and create corresponding Author items
-            self.author_pool = author_factory.disambiguate_authors(self.author_pool)
+            pool_for_items = []
+            for a in self.author_pool:
+                if a.orcid or a.QID or a is self.maintainer:
+                    pool_for_items.append(a)
+
+            self.author_pool = author_factory.disambiguate_authors(pool_for_items)
 
             # GUID to remove
             remove_guid = []
-            props_to_delete = ['wdt:P50', 'wdt:P275', 'wdt:P1547', 'imports', 'wdt:P2860']
+            props_to_delete = [
+                "wdt:P50",
+                "wdt:P2093",
+                "wdt:P275",
+                "wdt:P1547",
+                "imports",
+                "wdt:P2860",
+            ]
             for prop_str in props_to_delete:
-                prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
+                prop_nr = self.api.get_local_id_by_label(prop_str, "property")
                 for claim in self.item.claims.get(prop_nr):
                     remove_guid.append(claim.id)
 
@@ -352,34 +386,41 @@ class RPackage:
             # Restart item state
             self.exists()
 
-            if self.item.descriptions.values.get('en') != self.description:
+            if self.item.descriptions.values.get("en") != self.description:
                 description = self.description
                 if self.label == self.description:
                     description += " (R Package)"
-                self.item.descriptions.set(
-                    language="en",
-                    value=description
-                )
+                self.item.descriptions.set(language="en", value=description)
 
             # Long description
-            self.item.add_claim("description", self.long_description, action="replace_all")
+            self.item.add_claim(
+                "description", self.long_description, action="replace_all"
+            )
 
             # Last update date
-            self.item.add_claim("wdt:P5017", f"+{self.date}T00:00:00Z", action="replace_all")
+            self.item.add_claim(
+                "wdt:P5017", f"+{self.date}T00:00:00Z", action="replace_all"
+            )
 
             # Software version identifiers
             for version, publication_date in self.versions:
                 qualifier = [self.api.get_claim("wdt:P577", publication_date)]
                 self.item.add_claim("wdt:P348", version, qualifiers=qualifier)
-            
+
             if self.version:
                 qualifier = [self.api.get_claim("wdt:P577", f"+{self.date}T00:00:00Z")]
-                self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)            
+                self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
             # Authors
             for author in self.authors:
-                author.pull_QID(self.author_pool)
-                self.item.add_claim("wdt:P50", author.QID)
+                if author.orcid:
+                    author.pull_QID(self.author_pool)
+                    if not author.QID:
+                        author.create()
+                    self.item.add_claim("wdt:P50", author.QID)
+                else:
+                    if author.name:
+                        self.item.add_claim("wdt:P2093", author.name)
 
             # Maintainer
             self.maintainer.pull_QID(self.author_pool)
@@ -387,23 +428,27 @@ class RPackage:
 
             # Licenses
             if self.license_data:
-                claims = self.process_claims(self.license_data, 'wdt:P275', 'wdt:P9767')
+                claims = self.process_claims(self.license_data, "wdt:P275", "wdt:P9767")
                 self.item.add_claims(claims)
 
             # Dependencies
             if self.dependencies:
-                claims = self.process_claims(self.dependencies, 'wdt:P1547', 'wdt:P348')
+                claims = self.process_claims(self.dependencies, "wdt:P1547", "wdt:P348")
                 self.item.add_claims(claims)
 
             # Imports
             if self.imports:
                 prop_nr = self.api.get_local_id_by_label("imports", "property")
-                claims = self.process_claims(self.imports, prop_nr, 'wdt:P348')
-                self.item.add_claims(claims)            
+                claims = self.process_claims(self.imports, prop_nr, "wdt:P348")
+                self.item.add_claims(claims)
 
             # Related publications and sources
             cites_work = "wdt:P2860"
-            for publications in [self.crossref_publications, self.arxiv_publications, self.zenodo_resources]:
+            for publications in [
+                self.crossref_publications,
+                self.arxiv_publications,
+                self.zenodo_resources,
+            ]:
                 for publication in publications:
                     for author in publication.authors:
                         author.pull_QID(self.author_pool)
@@ -415,25 +460,26 @@ class RPackage:
 
             # Wikidata QID
             wikidata_QID = self.get_wikidata_QID()
-            if wikidata_QID: self.item.add_claim("Wikidata QID", wikidata_QID, action="replace_all")
+            if wikidata_QID:
+                self.item.add_claim("Wikidata QID", wikidata_QID, action="replace_all")
 
             package = self.write()
-                    
+
             if package:
                 print(f"Package with QID updated: {package['QID']}.")
             else:
                 print(f"Package could not be updated.")
 
     def process_claims(self, data, prop_nr, qualifier_nr=None):
-
         claims = []
         for value, qualifier_value in data:
             qualifier_prop_nr = (
-                'wdt:P2699' if qualifier_value.startswith('https') else qualifier_nr
+                "wdt:P2699" if qualifier_value.startswith("https") else qualifier_nr
             )
             qualifier = (
                 [self.api.get_claim(qualifier_prop_nr, qualifier_value)]
-                if qualifier_value else []
+                if qualifier_value
+                else []
             )
             claims.append(self.api.get_claim(prop_nr, value, qualifiers=qualifier))
         return claims
@@ -449,25 +495,31 @@ class RPackage:
           List:
             List containing the wikibase IDs of mentioned publications.
         """
-        doi_references = re.findall('<doi:(.*?)>', description)
-        arxiv_references = re.findall('<arXiv:(.*?)>', description)
-        zenodo_references = re.findall('<zenodo:(.*?)>', description)
+        doi_references = re.findall("<doi:(.*?)>", description)
+        arxiv_references = re.findall("<arXiv:(.*?)>", description)
+        zenodo_references = re.findall("<zenodo:(.*?)>", description)
 
-        doi_references = list(map(lambda x: x[:-1] if x.endswith('.') else x, doi_references))
-        arxiv_references = list(map(lambda x: x[:-1] if x.endswith('.') else x, arxiv_references))
-        zenodo_references = list(map(lambda x: x[:-1] if x.endswith('.') else x, zenodo_references))
+        doi_references = list(
+            map(lambda x: x[:-1] if x.endswith(".") else x, doi_references)
+        )
+        arxiv_references = list(
+            map(lambda x: x[:-1] if x.endswith(".") else x, arxiv_references)
+        )
+        zenodo_references = list(
+            map(lambda x: x[:-1] if x.endswith(".") else x, zenodo_references)
+        )
 
         crossref_references = []
 
         for doi in doi_references:
             doi = doi.strip().upper()
-            if re.search('10.48550/', doi):
-                arxiv_id = doi.replace(":",".")
-                arxiv_id = arxiv_id.replace('10.48550/arxiv.', '')
+            if re.search("10.48550/", doi):
+                arxiv_id = doi.replace(":", ".")
+                arxiv_id = arxiv_id.replace("10.48550/arxiv.", "")
                 arxiv_references.append(arxiv_id.strip())
-            elif re.search('10.5281/', doi):
-                zenodo_id = doi.replace(":",".")
-                zenodo_id = doi.replace('10.5281/zenodo.', '')
+            elif re.search("10.5281/", doi):
+                zenodo_id = doi.replace(":", ".")
+                zenodo_id = doi.replace("10.5281/zenodo.", "")
                 zenodo_references.append(zenodo_id.strip())
             else:
                 crossref_references.append(doi)
@@ -478,14 +530,14 @@ class RPackage:
             self.crossref_publications.append(publication)
 
         for arxiv_id in arxiv_references:
-            arxiv_id = arxiv_id.replace(":",".")
+            arxiv_id = arxiv_id.replace(":", ".")
             publication = self.arxiv.new_publication(arxiv_id)
             if publication.title != "Error":
                 self.author_pool += publication.authors
                 self.arxiv_publications.append(publication)
 
         for zenodo_id in zenodo_references:
-            zenodo_id = zenodo_id.replace(":",".")
+            zenodo_id = zenodo_id.replace(":", ".")
             publication = self.zenodo.new_resource(zenodo_id)
             self.author_pool += publication.authors
             self.zenodo_resources.append(publication)
@@ -527,10 +579,16 @@ class RPackage:
         if "License" in package_df.columns:
             package_df["License"] = package_df["License"].apply(self.parse_license)
         if "Author" in package_df.columns:
-            package_df["Author"] = str(table_html.find("td", text="Author:").find_next_sibling("td")).replace('\n', '').replace('\r', '')
+            package_df["Author"] = (
+                str(table_html.find("td", text="Author:").find_next_sibling("td"))
+                .replace("\n", "")
+                .replace("\r", "")
+            )
             package_df["Author"] = package_df["Author"].apply(self.parse_authors)
         if "Maintainer" in package_df.columns:
-            package_df["Maintainer"] = package_df["Maintainer"].apply(self.parse_maintainer)
+            package_df["Maintainer"] = package_df["Maintainer"].apply(
+                self.parse_maintainer
+            )
         return package_df
 
     def parse_software(self, software_str: str) -> List[Tuple[str, str]]:
@@ -617,9 +675,7 @@ class RPackage:
             ):
                 license_list.append(licenses[i])
                 i += 1
-            elif re.findall(r"\[", licenses[i]) and not re.findall(
-                r"\]", licenses[i]
-            ):
+            elif re.findall(r"\[", licenses[i]) and not re.findall(r"\]", licenses[i]):
                 j = i + 1
                 license_aux = licenses[i]
                 closed = False
@@ -676,7 +732,9 @@ class RPackage:
 
             license_str = license_str.strip()
             if license_str in ["file LICENSE", "file LICENCE"]:
-                license_qualifier = f"https://cran.r-project.org/web/packages/{self.label}/LICENSE"
+                license_qualifier = (
+                    f"https://cran.r-project.org/web/packages/{self.label}/LICENSE"
+                )
 
             license_QID = self.get_license_QID(license_str)
             license_tuples.append((license_QID, license_qualifier))
@@ -704,22 +762,25 @@ class RPackage:
             (Dict): Dictionary of authors and corresponding ORCID ID, if provided.
         """
         # Logic to determine if 'Author' is the class or the module containing the class
-        if hasattr(Author, 'Author') and not isinstance(Author, type):
+        if hasattr(Author, "Author") and not isinstance(Author, type):
             author_factory = Author.Author
         else:
             author_factory = Author
 
         if not callable(author_factory):
-            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+            raise TypeError(
+                f"Could not resolve a callable Author class. Check your imports."
+            )
 
-        td_match = re.match(r'<td>(.*?)</td>', x)
-        if td_match: x = td_match.groups()[0]
+        td_match = re.match(r"<td>(.*?)</td>", x)
+        if td_match:
+            x = td_match.groups()[0]
 
-        x = re.sub("<img alt.*?a>", "", x) # Delete img tags
-        x = re.sub(r"\(.*?\)", "", x) # Delete text in brackets
-        x = re.sub(r'"', "", x) # Delete quotation marks
-        x = re.sub("\t", "", x) # Delete tabs
-        x = re.sub("ORCID iD", "", x) # Delete orcid id refs
+        x = re.sub("<img alt.*?a>", "", x)  # Delete img tags
+        x = re.sub(r"\(.*?\)", "", x)  # Delete text in brackets
+        x = re.sub(r'"', "", x)  # Delete quotation marks
+        x = re.sub("\t", "", x)  # Delete tabs
+        x = re.sub("ORCID iD", "", x)  # Delete orcid id refs
         author_list = re.findall(r".*?\]", x)
 
         authors = []
@@ -737,7 +798,9 @@ class RPackage:
                         author = re.sub(r"^\s?,", "", author)
                         author = re.sub(r"^\s?and\s?", "", author)
                         author = re.sub(
-                            r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "", author
+                            r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
+                            "",
+                            author,
                         )
                         author = author.strip()
                         multiple_words = author.split(" ")
@@ -749,7 +812,9 @@ class RPackage:
             authors_and = x.split(" and ")
             if len(authors_and) > len(authors_comma):
                 author = re.sub(
-                    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", "", authors_and[0]
+                    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
+                    "",
+                    authors_and[0],
                 )
             else:
                 author = re.sub(
@@ -775,15 +840,18 @@ class RPackage:
             (str): Name of the maintainer
         """
         # Logic to determine if 'Author' is the class or the module containing the class
-        if hasattr(Author, 'Author') and not isinstance(Author, type):
+        if hasattr(Author, "Author") and not isinstance(Author, type):
             author_factory = Author.Author
         else:
             author_factory = Author
 
         if not callable(author_factory):
-            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+            raise TypeError(
+                f"Could not resolve a callable Author class. Check your imports."
+            )
 
-        if pd.isna(name): return name
+        if pd.isna(name):
+            return name
 
         quotes = re.match(r'"(.*?)"', name)
         if quotes:
@@ -792,7 +860,7 @@ class RPackage:
         name = re.sub(r"<.*?>", "", name)
         name = re.sub(r"\(.*?\)", "", name)
         name = name.strip()
-        name = name.split(',')
+        name = name.split(",")
         maintainer = author_factory(self.api, name=name[0])
         self.author_pool += [maintainer]
         return maintainer
@@ -812,6 +880,7 @@ class RPackage:
         Returns:
             (str): Wikidata item ID.
         """
+
         def get_license(label: str) -> str:
             license_item = self.api.item.new()
             license_item.labels.set(language="en", value=label)
@@ -819,7 +888,7 @@ class RPackage:
 
         license_mapping = {
             "ACM": get_license("ACM Software License Agreement"),
-            "AGPL":"wd:Q28130012",
+            "AGPL": "wd:Q28130012",
             "AGPL-3": "wd:Q27017232",
             "Apache License": "wd:Q616526",
             "Apache License 2.0": "wd:Q13785927",
@@ -894,49 +963,53 @@ class RPackage:
         """
         results = search_entities(
             search_string=self.label,
-            mediawiki_api_url='https://www.wikidata.org/w/api.php'
-            )
+            mediawiki_api_url="https://www.wikidata.org/w/api.php",
+        )
 
         for result in results:
             item = self.api.item.get(
-                entity_id=result,
-                mediawiki_api_url='https://www.wikidata.org/w/api.php'
-                )
-            if 'P31' in item.claims.get_json().keys():
-                instance_claims = item.claims.get('P31')
+                entity_id=result, mediawiki_api_url="https://www.wikidata.org/w/api.php"
+            )
+            if "P31" in item.claims.get_json().keys():
+                instance_claims = item.claims.get("P31")
                 if instance_claims:
                     for claim in instance_claims:
                         claim = claim.get_json()
-                        if claim['mainsnak']['datatype'] == "wikibase-item":
+                        if claim["mainsnak"]["datatype"] == "wikibase-item":
                             # If instance of R package
-                            if 'datavalue' in claim['mainsnak'].keys():
-                                if claim['mainsnak']['datavalue']['value']['id'] == "Q73539779":
+                            if "datavalue" in claim["mainsnak"].keys():
+                                if (
+                                    claim["mainsnak"]["datavalue"]["value"]["id"]
+                                    == "Q73539779"
+                                ):
                                     return result
-                                
+
     def get_versions(self):
         url = f"https://cran.r-project.org/src/contrib/Archive/{self.label}"
 
         try:
             page = requests.get(url)
-            soup = BeautifulSoup(page.content, 'lxml')
+            soup = BeautifulSoup(page.content, "lxml")
         except:
             log.warning(f"Version page for package {self.label} not found.")
         else:
-            if soup.find_all('table'):
-                table = soup.find_all('table')[0]
+            if soup.find_all("table"):
+                table = soup.find_all("table")[0]
                 versions_df = pd.read_html(StringIO(str(table)))
                 versions_df = versions_df[0]
-                versions_df = versions_df.drop(columns=['Unnamed: 0', 'Size', 'Description'])
-                versions_df = versions_df.drop(index= [0, 1])
-                
+                versions_df = versions_df.drop(
+                    columns=["Unnamed: 0", "Size", "Description"]
+                )
+                versions_df = versions_df.drop(index=[0, 1])
+
                 for _, row in versions_df.iterrows():
-                    name = row['Name']
-                    publication_date = row['Last modified']
+                    name = row["Name"]
+                    publication_date = row["Last modified"]
                     if isinstance(name, str):
-                        version = re.sub(f'{self.label}_', '', name)
-                        version = re.sub('.tar.gz', '', version)
-                        
+                        version = re.sub(f"{self.label}_", "", name)
+                        version = re.sub(".tar.gz", "", version)
+
                         publication_date = publication_date.split()[0]
                         publication_date = f"+{publication_date}T00:00:00Z"
-                        
+
                         self.versions.append((version, publication_date))

@@ -270,7 +270,7 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     try:
         payload, all_ok = import_cran_sync(packages)
     except LoginError as e:
-        log.error("Wikibase login failed - can not import CRAN package.")
+        log.error("Wikibase login failed - can not import CRAN package. (Hint: can be from WIKIDATA_USER or CRAN_USER credentials.")
         return 0
 
     print(json.dumps(payload))

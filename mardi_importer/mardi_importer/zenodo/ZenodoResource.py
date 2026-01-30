@@ -223,42 +223,21 @@ class ZenodoResource():
         
         # Authors
         if update:
-            # Delete all authors and keep just the new
-            author_prop_nr = self.api.get_local_id_by_label("wdt:P50", "property")
-            original_claims = item.claims.get(author_prop_nr)
+             # Remove all existing P50 and P2093 claims
+            author_item_prop = self.api.get_local_id_by_label("wdt:P50", "property")
+            author_string_prop = self.api.get_local_id_by_label("wdt:P2093", "property")
 
-            new_authors = []
-            for creator in self.metadata['creators']:
-                name = creator.get('name')
-                orcid = creator.get('orcid')
-                affiliation = creator.get('affiliation')
-                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
-                new_authors.append(author)
+            for prop in (author_item_prop, author_string_prop):
+                old_claims = item.claims.get(prop)
+                if old_claims:
+                    for c in old_claims:
+                        c.remove()
 
-            author_QID = self.__preprocess_authors()
-            new_authors_QID = []
-            authors_to_remove_QID = []
-            for autor in self.authors:
-                if autor in new_authors:
-                    new_authors_QID.append(autor.QID)
-                else:
-                    authors_to_remove_QID.append(autor.QID)
-
-            claims = []
-            for author in new_authors_QID:
-                claims.append(self.api.get_claim("wdt:P50", author))
-            item.add_claims(claims)
-
-            for author in authors_to_remove_QID:
-                for claim in original_claims:
-                    if claim.mainsnak.datavalue['value']['id'] == author:
-                        claim.remove()
+            # Add new author claims
+            item.add_claims(self.__preprocess_authors())
 
         else:
-            author_QID = self.__preprocess_authors()
-            claims = []
-            for author in author_QID:
-                claims.append(self.api.get_claim("wdt:P50", author))
+            claims = self.__preprocess_authors()
             item.add_claims(claims)
 
         # Zenodo ID & DOI
@@ -314,17 +293,24 @@ class ZenodoResource():
     def __preprocess_authors(self) -> List[str]:
         """Processes the author information of each publication.
 
-        Create the author if it does not exist already as an 
+        Create the author if it does not exist already as an
         entity in wikibase.
-            
+
+        If an author has no ORCID and no existing QID, store the author as
+        an author name string (P2093) instead of creating an author item.
+
         Returns:
-          List[str]: 
-            QIDs corresponding to each author.
+        List:
+            Author claims to be added (P50 entity claims and/or P2093 string claims).
         """
-        author_QID = []
+        claims = []
         for author in self.authors:
-            if not author.QID:
-                author.create()
-            author_QID.append(author.QID)
-        return author_QID
+            if author.orcid or author.QID:
+                if not author.QID:
+                    author.create()
+                claims.append(self.api.get_claim("wdt:P50", author.QID))
+            else:
+                if author.name:
+                    claims.append(self.api.get_claim("wdt:P2093", author.name))
+        return claims
         

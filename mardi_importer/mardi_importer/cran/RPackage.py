@@ -247,16 +247,31 @@ class RPackage:
             qualifier = [self.api.get_claim("wdt:P577", f"+{self.date}T00:00:00Z")]
             self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
-        # Disambiguate Authors and create corresponding Author items
-        self.author_pool = Author.disambiguate_authors(self.author_pool)
+        pool_for_items = []
+        for a in self.author_pool:
+            if a.orcid or a is self.maintainer:
+                pool_for_items.append(a)
+
+        self.author_pool = (
+            Author.disambiguate_authors(pool_for_items)
+            if pool_for_items else []
+        )
 
         # Authors
         for author in self.authors:
-            author.pull_QID(self.author_pool)
-            self.item.add_claim("wdt:P50", author.QID)
+            if author.orcid:
+                author.pull_QID(self.author_pool)
+                if not author.QID:
+                    author.create()
+                self.item.add_claim("wdt:P50", author.QID)
+            else:
+                if author.name:
+                    self.item.add_claim("wdt:P2093", author.name)
 
-        # Maintainer
+        # Maintainer (unchanged behavior: still an item via P126)
         self.maintainer.pull_QID(self.author_pool)
+        if not self.maintainer.QID:
+            self.maintainer.create()
         self.item.add_claim("wdt:P126", self.maintainer.QID)
 
         # Licenses
@@ -318,11 +333,19 @@ class RPackage:
                 self.author_pool += [current_author]
                 
             # Disambiguate Authors and create corresponding Author items
-            self.author_pool = Author.disambiguate_authors(self.author_pool)
+            pool_for_items = []
+            for a in self.author_pool:
+                if a.orcid or a.QID or a is self.maintainer:
+                    pool_for_items.append(a)
+
+            self.author_pool = (
+                Author.disambiguate_authors(pool_for_items)
+                if pool_for_items else []
+            )
 
             # GUID to remove
             remove_guid = []
-            props_to_delete = ['wdt:P50', 'wdt:P275', 'wdt:P1547', 'imports', 'wdt:P2860']
+            props_to_delete = ['wdt:P50','wdt:P2093', 'wdt:P275', 'wdt:P1547', 'imports', 'wdt:P2860']
             for prop_str in props_to_delete:
                 prop_nr = self.api.get_local_id_by_label(prop_str, 'property')
                 for claim in self.item.claims.get(prop_nr):
@@ -360,8 +383,14 @@ class RPackage:
 
             # Authors
             for author in self.authors:
-                author.pull_QID(self.author_pool)
-                self.item.add_claim("wdt:P50", author.QID)
+                if author.orcid:
+                    author.pull_QID(self.author_pool)
+                    if not author.QID:
+                        author.create()
+                    self.item.add_claim("wdt:P50", author.QID)
+                else:
+                    if author.name:
+                        self.item.add_claim("wdt:P2093", author.name)
 
             # Maintainer
             self.maintainer.pull_QID(self.author_pool)

@@ -5,7 +5,6 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
-from prefect.deployments import run_deployment
 
 from mardi_importer import Importer
 from mardi_importer.cran.RPackage import RPackage
@@ -219,6 +218,8 @@ def trigger_wikidata_async(
     Returns:
         Payload with flow run metadata.
     """
+    from prefect.deployments import run_deployment
+
     flow_run = run_deployment(
         name=workflow_name,
         parameters={"action": "import/wikidata", "qids": qids},
@@ -248,6 +249,8 @@ def trigger_doi_async(
         Payload with flow run metadata.
     """
     doi_list = [doi.upper() for doi in dois]
+    from prefect.deployments import run_deployment
+
     flow_run = run_deployment(
         name=workflow_name,
         parameters={"action": "import/doi", "dois": doi_list},

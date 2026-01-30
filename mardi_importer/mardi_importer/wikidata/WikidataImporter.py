@@ -27,6 +27,7 @@ from wikibaseintegrator.datatypes import (
 
 from mardi_importer.logger.logging_utils import get_logger_safe
 from wikibaseintegrator.wbi_exceptions import ModificationFailed
+from wikibaseintegrator.wbi_login import LoginError
 
 WIKIDATA_API_URL = "https://www.wikidata.org/w/api.php"
 
@@ -65,6 +66,10 @@ class WikidataImporter:
             importer_api_url=os.environ.get("IMPORTER_API_URL"),
             user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)",
         )
+
+        if self.api.login is None:
+            self.log.error("Authentication failed when creating MardiClient")
+            raise LoginError("Authentication failed")
 
         self.setup()
         WikidataImporter._initialized = True

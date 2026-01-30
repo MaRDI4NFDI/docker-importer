@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import requests
+from wikibaseintegrator.wbi_login import LoginError
 
 from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
@@ -258,12 +259,20 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     Returns:
         Process exit code.
     """
+
+    log.info(f"Starting CRAN import for {args.packages}")
+
     packages = normalize_list(args.packages)
     if not packages:
         print(json.dumps({"error": "missing package"}))
         return 2
 
-    payload, all_ok = import_cran_sync(packages)
+    try:
+        payload, all_ok = import_cran_sync(packages)
+    except LoginError as e:
+        log.error("Wikibase login failed - can not import CRAN package.")
+        return 0
+
     print(json.dumps(payload))
     return 0 if all_ok else 1
 

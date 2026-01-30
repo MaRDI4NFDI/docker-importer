@@ -179,7 +179,7 @@ class TestImportService(unittest.TestCase):
     def test_trigger_wikidata_async(self) -> None:
         """Return flow metadata after triggering a Wikidata workflow."""
         flow_run = SimpleNamespace(deployment_id="d1", id="r1", flow_id="f1")
-        with patch("services.import_service.run_deployment", return_value=flow_run):
+        with patch("prefect.deployments.run_deployment", return_value=flow_run):
             payload = import_service.trigger_wikidata_async(["Q1"])
 
         self.assertEqual(payload["deployment_id"], "d1")
@@ -188,7 +188,7 @@ class TestImportService(unittest.TestCase):
     def test_trigger_doi_async(self) -> None:
         """Return flow metadata after triggering a DOI workflow."""
         flow_run = SimpleNamespace(deployment_id="d1", id="r1", flow_id="f1")
-        with patch("services.import_service.run_deployment", return_value=flow_run):
+        with patch("prefect.deployments.run_deployment", return_value=flow_run):
             payload = import_service.trigger_doi_async(["10.1/ABC"])
 
         self.assertEqual(payload["deployment_id"], "d1")

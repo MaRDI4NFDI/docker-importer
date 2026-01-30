@@ -90,7 +90,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response["status"], "healthy")
         self.assertEqual(response["service"], "docker-importer")
 
-    @patch("services.import_service.run_deployment")
+    @patch("prefect.deployments.run_deployment")
     def test_import_wikidata_async_success(self, mock_run) -> None:
         """Test successful async Wikidata import trigger."""
         mock_run.return_value = Mock(deployment_id="dep1", id="run1", flow_id="flow1")
@@ -108,7 +108,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(response["error"], "missing qids")
 
-    @patch("services.import_service.run_deployment")
+    @patch("prefect.deployments.run_deployment")
     def test_import_wikidata_async_trigger_error(self, mock_run) -> None:
         """Test async Wikidata import with trigger failure."""
         mock_run.side_effect = RuntimeError("Prefect error")
@@ -207,7 +207,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(status, 500)
         self.assertEqual(response["error"], "prefect api error")
 
-    @patch("services.import_service.run_deployment")
+    @patch("prefect.deployments.run_deployment")
     def test_import_doi_async_success(self, mock_run) -> None:
         """Test successful async DOI import trigger."""
         mock_run.return_value = Mock(deployment_id="dep2", id="run2", flow_id="flow2")

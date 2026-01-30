@@ -225,6 +225,15 @@ class RPackage:
 
     def insert_claims(self):
 
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, 'Author') and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+
         # Instance of: R package
         self.item.add_claim("wdt:P31", "wd:Q73539779")
 
@@ -248,7 +257,7 @@ class RPackage:
             self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
         # Disambiguate Authors and create corresponding Author items
-        self.author_pool = Author.disambiguate_authors(self.author_pool)
+        self.author_pool = author_factory.disambiguate_authors(self.author_pool)
 
         # Authors
         for author in self.authors:
@@ -307,6 +316,15 @@ class RPackage:
         Returns:
           str: ID of the updated R package.
         """
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, 'Author') and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+
         if self.pull():
             # Obtain current Authors
             current_authors = self.item.get_value('wdt:P50')
@@ -318,7 +336,7 @@ class RPackage:
                 self.author_pool += [current_author]
                 
             # Disambiguate Authors and create corresponding Author items
-            self.author_pool = Author.disambiguate_authors(self.author_pool)
+            self.author_pool = author_factory.disambiguate_authors(self.author_pool)
 
             # GUID to remove
             remove_guid = []
@@ -685,6 +703,15 @@ class RPackage:
         Returns:
             (Dict): Dictionary of authors and corresponding ORCID ID, if provided.
         """
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, 'Author') and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+
         td_match = re.match(r'<td>(.*?)</td>', x)
         if td_match: x = td_match.groups()[0]
 
@@ -716,7 +743,7 @@ class RPackage:
                         multiple_words = author.split(" ")
                         if len(multiple_words) > 1:
                             if author:
-                                authors.append(Author(self.api, author, orcid))
+                                authors.append(author_factory(self.api, author, orcid))
         else:
             authors_comma = x.split(", ")
             authors_and = x.split(" and ")
@@ -733,7 +760,7 @@ class RPackage:
             if len(author.split(" ")) > 5 or re.findall(r"[@\(\)\[\]&]", author):
                 author = ""
             if author:
-                authors.append(Author(self.api, author))
+                authors.append(author_factory(self.api, author))
         self.author_pool += authors
         return authors
 
@@ -747,6 +774,15 @@ class RPackage:
         Returns:
             (str): Name of the maintainer
         """
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, 'Author') and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(f"Could not resolve a callable Author class. Check your imports.")
+
         if pd.isna(name): return name
 
         quotes = re.match(r'"(.*?)"', name)
@@ -757,7 +793,7 @@ class RPackage:
         name = re.sub(r"\(.*?\)", "", name)
         name = name.strip()
         name = name.split(',')
-        maintainer = Author(self.api, name=name[0])
+        maintainer = author_factory(self.api, name=name[0])
         self.author_pool += [maintainer]
         return maintainer
 

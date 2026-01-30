@@ -5,7 +5,7 @@ from mardiclient import MardiClient
 from dataclasses import dataclass, field
 from habanero import Crossref
 from httpx import HTTPStatusError
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from mardi_importer import Importer
 from mardi_importer.utils import Author
@@ -322,11 +322,7 @@ class CrossrefPublication():
             elif len(self.year) > 0:
                 item.add_claim("wdt:P577", f"+{self.year}-00-00T00:00:00Z", precision=9)
 
-            author_QID = self.__preprocess_authors()
-            author_claims = []
-            for author in author_QID:
-                author_claims.append(self.api.get_claim("wdt:P50", author))
-
+            author_claims = self.__preprocess_authors()
             log.debug(
                 "crossref author_claims types=%s values=%s",
                 [type(c).__name__ for c in author_claims],
@@ -358,28 +354,35 @@ class CrossrefPublication():
             log.warning(f"Publication with DOI: {self.doi} could not be created.")
             return None
 
-    def __preprocess_authors(self) -> List[str]:
-        """Processes the author information of each publication. 
+    def __preprocess_authors(self) -> List[Any]:
+        """Processes the author information of each publication.
 
-        Create the author if it does not exist already as an 
-        entity in wikibase.
-            
+        Create the author if it does not exist already as an
+        entity in wikibase. If an author has no ORCID and no existing
+        QID, save the author as an author name string instead.
+
         Returns:
-          List[str]: 
-            QIDs corresponding to each author.
+        List[Any]:
+            Author claims to be added to the publication item (wdt:P50 for
+            author entities, wdt:P2093 for author name strings).
         """
-        author_QID = []
+        claims = []
 
         log = get_logger_safe(__name__)
         log.debug(f"Start preprocessing authors for: {self.authors}")
 
         for author in self.authors:
-            if not author.QID:
-                log.debug(f"Creating author item for: {author}")
-                author.create()
-                log.debug(f"Created author with QID: {author.QID}")
-            author_QID.append(author.QID)
-        return author_QID
+            if author.orcid or author.QID:
+                if not author.QID:
+                    log.debug(f"Creating author item for: {author}")
+                    author.create()
+                    log.debug(f"Created author with QID: {author.QID}")
+                claims.append(self.api.get_claim("wdt:P50", author))
+            else:
+                #if it does not exist yet and there is not orcid, it should be a name string
+                if author.name:
+                    claims.append(self.api.get_claim("wdt:P2093", author.name))
+        return claims
 
     def __preprocess_journal(self):
         item = self.api.item.new()

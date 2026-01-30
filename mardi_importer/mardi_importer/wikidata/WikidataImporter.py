@@ -68,8 +68,9 @@ class WikidataImporter:
         )
 
         if self.api.login is None:
-            self.log.error("Authentication failed when creating MardiClient")
-            raise LoginError("Authentication failed")
+            user = os.environ.get("WIKIDATA_USER")
+            self.log.error(f"Authentication failed when creating MardiClient (user '{user}')")
+            raise LoginError(f"Authentication failed (user '{user}')")
 
         self.setup()
         WikidataImporter._initialized = True

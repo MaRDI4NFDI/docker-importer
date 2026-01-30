@@ -211,6 +211,7 @@ def _install_wikibaseintegrator_stub() -> None:
     datatypes_module = types.ModuleType("wikibaseintegrator.datatypes")
     exceptions_module = types.ModuleType("wikibaseintegrator.wbi_exceptions")
     helpers_module = types.ModuleType("wikibaseintegrator.wbi_helpers")
+    login_module = types.ModuleType("wikibaseintegrator.wbi_login")
 
     class Claim:
         pass
@@ -286,6 +287,9 @@ def _install_wikibaseintegrator_stub() -> None:
     class ModificationFailed(Exception):
         pass
 
+    class LoginError(Exception):
+        pass
+
     def _noop(*_args, **_kwargs):
         return None
 
@@ -318,6 +322,7 @@ def _install_wikibaseintegrator_stub() -> None:
     datatypes_module.Time = Time
 
     exceptions_module.ModificationFailed = ModificationFailed
+    login_module.LoginError = LoginError
 
     helpers_module.search_entities = _noop
     helpers_module.remove_claims = _noop
@@ -330,6 +335,9 @@ def _install_wikibaseintegrator_stub() -> None:
     wbi_module.datatypes = datatypes_module
     wbi_module.wbi_exceptions = exceptions_module
     wbi_module.wbi_helpers = helpers_module
+    wbi_module.wbi_login = login_module
+
+    wbi_module.__path__ = []
 
     sys.modules["wikibaseintegrator"] = wbi_module
     sys.modules["wikibaseintegrator.models"] = models_module
@@ -338,6 +346,7 @@ def _install_wikibaseintegrator_stub() -> None:
     sys.modules["wikibaseintegrator.datatypes"] = datatypes_module
     sys.modules["wikibaseintegrator.wbi_exceptions"] = exceptions_module
     sys.modules["wikibaseintegrator.wbi_helpers"] = helpers_module
+    sys.modules["wikibaseintegrator.wbi_login"] = login_module
 
 
 _install_wikibaseintegrator_stub()

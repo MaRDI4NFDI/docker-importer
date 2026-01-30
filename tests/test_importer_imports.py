@@ -11,6 +11,10 @@ def _install_wbi_helpers_stub() -> None:
 
     wbi = types.ModuleType("wikibaseintegrator")
     helpers = types.ModuleType("wikibaseintegrator.wbi_helpers")
+    login = types.ModuleType("wikibaseintegrator.wbi_login")
+
+    class LoginError(Exception):
+        pass
 
     def _noop(*_args, **_kwargs):
         return None
@@ -20,8 +24,13 @@ def _install_wbi_helpers_stub() -> None:
     helpers.merge_items = _noop
     helpers.execute_sparql_query = _noop
 
+    login.LoginError = LoginError
+
+    wbi.__path__ = []
+
     sys.modules["wikibaseintegrator"] = wbi
     sys.modules["wikibaseintegrator.wbi_helpers"] = helpers
+    sys.modules["wikibaseintegrator.wbi_login"] = login
 
 
 _install_wbi_helpers_stub()

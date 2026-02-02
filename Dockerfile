@@ -70,6 +70,9 @@ RUN echo "from .contentmath import ContentMath" \
 # Copy configurations to the image
 COPY config /config
 
+# Copy VERSION file to project root
+COPY VERSION /VERSION
+
 # entry point
 WORKDIR /app
 CMD ["gunicorn", "-w", "2", "--timeout", "300", "-b", "0.0.0.0:8000", "flask_app.app:app"]

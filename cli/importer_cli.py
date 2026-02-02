@@ -20,6 +20,7 @@ from services.import_service import (
     trigger_doi_async,
     trigger_wikidata_async,
 )
+from services.version import get_version
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -270,7 +271,9 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     try:
         payload, all_ok = import_cran_sync(packages)
     except LoginError as e:
-        log.error("Wikibase login failed - can not import CRAN package. (Hint: can be from WIKIDATA_USER or CRAN_USER credentials.")
+        log.error(
+            "Wikibase login failed - can not import CRAN package. (Hint: can be from WIKIDATA_USER or CRAN_USER credentials."
+        )
         return 0
 
     print(json.dumps(payload))
@@ -285,6 +288,11 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         description="CLI for docker-importer workflows and imports."
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"version: {get_version()}",
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -347,7 +355,7 @@ def main() -> int:
 
     print_mardi_logo()
     _load_secrets()
-    log.info("Starting importer CLI")
+    log.info(f"Starting importer CLI - version {get_version()}")
 
     parser = build_parser()
     args = parser.parse_args()

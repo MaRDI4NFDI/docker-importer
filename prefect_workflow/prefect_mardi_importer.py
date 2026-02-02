@@ -11,6 +11,8 @@ from prefect.artifacts import Artifact
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 
+from services.version import get_version
+
 
 @task(retries=1, retry_delay_seconds=30)
 def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
@@ -46,13 +48,13 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
     # Note: This can take a while.
 
     log.debug("Creating source handler arxiv")
-    arxiv = Importer.create_source('arxiv')
+    arxiv = Importer.create_source("arxiv")
 
     log.debug("Creating source handler zenode")
-    zenodo = Importer.create_source('zenodo')
+    zenodo = Importer.create_source("zenodo")
 
     log.debug("Creating source handler crossref")
-    crossref = Importer.create_source('crossref')
+    crossref = Importer.create_source("crossref")
 
     log.debug("Creating source handlers done")
 
@@ -74,7 +76,9 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
                 publication = zenodo.new_resource(zenodo_id)
                 log.info("zenodo recognized")
             else:
-                log.warning(f"did not recognize 'ARXIV' or 'ZENODO' in doi {doi_upper}, trying crossref")
+                log.warning(
+                    f"did not recognize 'ARXIV' or 'ZENODO' in doi {doi_upper}, trying crossref"
+                )
                 publication = crossref.new_publication(doi)
                 log.info("crossref recognized")
 
@@ -83,14 +87,18 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
 
             if result:
                 log.info(f"Imported item {result} for doi {doi}.")
-                results[doi] = {"qid": result,"status": "success"}
+                results[doi] = {"qid": result, "status": "success"}
             else:
                 log.info(f"doi {doi} was not found, not imported.")
-                results[doi] = {"qid": None,"status": "not_found", "error": "DOI was not found."}
+                results[doi] = {
+                    "qid": None,
+                    "status": "not_found",
+                    "error": "DOI was not found.",
+                }
                 all_ok = False
-        except Exception as e: 
+        except Exception as e:
             log.error("importing doi failed: %s", e, exc_info=True)
-            results[doi] = {"qid": None,"status": "error", "error": str(e)}
+            results[doi] = {"qid": None, "status": "error", "error": str(e)}
             all_ok = False
 
     result = {
@@ -170,12 +178,17 @@ def prefect_mardi_importer_flow(
     qids: Optional[List[str]] = None,
     dois: Optional[List[str]] = None,
 ) -> Union[Dict[str, Any], State]:
-
     log = get_run_logger()
     qids = qids or []
     dois = dois or []
 
-    log.info("Flow triggered with action=%s qids_count=%d dois_count=%d", action, len(qids), len(dois))
+    log.info("version: %s", get_version())
+    log.info(
+        "Flow triggered with action=%s qids_count=%d dois_count=%d",
+        action,
+        len(qids),
+        len(dois),
+    )
 
     ctx = get_run_context()
     flow_run_id = str(ctx.flow_run.id)
@@ -216,11 +229,7 @@ def prefect_mardi_importer_flow(
     # Mark flow failed if not all items have been imported
     if not result.get("all_imported", True):
         log.error("Batch processing contained errors. Marking flow as failed.")
-        return Failed(
-            message="Partial import failure detected.",
-            data=response_payload
-        )
+        return Failed(message="Partial import failure detected.", data=response_payload)
 
     # Return pointers for later programmatic retrieval
     return response_payload
-

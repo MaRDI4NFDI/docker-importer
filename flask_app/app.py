@@ -16,6 +16,7 @@ from services.import_service import (
     trigger_doi_async,
     trigger_wikidata_async,
 )
+from services.version import get_version
 
 
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,12 @@ def health():
         Flask response tuple with service status.
     """
     return jsonify(build_health_payload()), 200
+
+
+@app.get("/version")
+def version():
+    """Return the service version from the VERSION file."""
+    return jsonify({"version": get_version()}), 200
 
 
 @app.post("/import/wikidata_async")

@@ -58,6 +58,30 @@ curl::
   }
 
 
+GET /version
+~~~~~~~~~~~~
+
+Returns the current service version from the root ``VERSION`` file.
+
+**Request**
+
+Browser::
+
+  http://localhost:3333/version
+
+curl::
+
+  curl -sS http://localhost:3333/version | jq .
+
+**Response (200)**
+
+.. code-block:: json
+
+  {
+    "version": "0.0.1"
+  }
+
+
 GET /import/workflow_status
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

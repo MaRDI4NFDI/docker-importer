@@ -51,5 +51,12 @@ module`. To view the docs, open the file :code:`docs/_build/html/index.html`.
 Usage
 =====
 
-TODO
+Version
+-------
+
+The current release version is stored in the root ``VERSION`` file. It is
+available via:
+
+- CLI: ``python -m cli.importer_cli --version``
+- Flask: ``GET /version``
 

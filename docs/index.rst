@@ -17,6 +17,7 @@ Table of contents
    :caption: Manual
 
    main
+   cli
    flask_endpoints
    tech
 

@@ -71,7 +71,7 @@ RUN echo "from .contentmath import ContentMath" \
 COPY config /config
 
 # Copy VERSION file to project root
-COPY VERSION /VERSION
+COPY VERSION /app/VERSION
 
 # entry point
 WORKDIR /app

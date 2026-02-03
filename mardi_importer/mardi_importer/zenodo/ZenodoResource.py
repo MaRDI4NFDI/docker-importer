@@ -146,7 +146,11 @@ class ZenodoResource:
     @property
     def resource_type(self):
         if not self._resource_type:
-            resource_type = self.metadata["resource_type"]["title"]
+            resource_type_data = self.metadata.get("resource_type", {})
+            resource_type = resource_type_data.get("title")
+            if not resource_type:
+                return self._resource_type
+
             if resource_type == "Dataset":
                 self._resource_type = "wd:Q1172284"
                 self._mardi_type = "MaRDI dataset profile"

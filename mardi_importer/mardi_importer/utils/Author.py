@@ -147,6 +147,9 @@ class Author:
 
     @classmethod
     def disambiguate_authors(cls, authors):
+        # Return empty input immediately
+        if not authors:
+            return []
         disambiguated_authors = [authors[0]]
         for author in authors:
             if author not in disambiguated_authors:

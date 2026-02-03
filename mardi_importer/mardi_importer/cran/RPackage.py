@@ -264,7 +264,11 @@ class RPackage:
             if a.orcid or a is self.maintainer:
                 pool_for_items.append(a)
 
+<<<<<<< HEAD
         self.author_pool = author_factory.disambiguate_authors(pool_for_items)
+=======
+        self.author_pool = Author.disambiguate_authors(pool_for_items)
+>>>>>>> 77dba2c (handle empty author list)
 
         # Authors
         for author in self.authors:

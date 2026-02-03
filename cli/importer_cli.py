@@ -13,9 +13,6 @@ from services.import_service import (
     build_health_payload,
     get_workflow_result,
     get_workflow_status,
-    import_cran_sync,
-    import_doi_sync,
-    import_wikidata_sync,
     normalize_list,
     trigger_doi_async,
     trigger_wikidata_async,
@@ -199,9 +196,14 @@ def cmd_import_wikidata(args: argparse.Namespace) -> int:
         print(json.dumps({"error": "missing qids"}))
         return 2
 
-    payload, all_ok = import_wikidata_sync(qids)
+    from services.import_service import import_wikidata_sync
+    from mardi_importer.dryrun import run_import_with_optional_dryrun
+
+    payload, exit_code = run_import_with_optional_dryrun(
+        import_func=import_wikidata_sync, args=args, qids=qids
+    )
     print(json.dumps(payload))
-    return 0 if all_ok else 1
+    return exit_code
 
 
 def cmd_import_doi_async(args: argparse.Namespace) -> int:
@@ -246,9 +248,14 @@ def cmd_import_doi(args: argparse.Namespace) -> int:
         print(json.dumps({"error": "missing doi"}))
         return 2
 
-    payload, all_ok = import_doi_sync(dois)
+    from services.import_service import import_doi_sync
+    from mardi_importer.dryrun import run_import_with_optional_dryrun
+
+    payload, exit_code = run_import_with_optional_dryrun(
+        import_func=import_doi_sync, args=args, dois=dois
+    )
     print(json.dumps(payload))
-    return 0 if all_ok else 1
+    return exit_code
 
 
 def cmd_import_cran(args: argparse.Namespace) -> int:
@@ -260,6 +267,8 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     Returns:
         Process exit code.
     """
+    from services.import_service import import_cran_sync
+    from mardi_importer.dryrun import run_import_with_optional_dryrun
 
     log.info(f"Starting CRAN import for {args.packages}")
 
@@ -269,15 +278,38 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
         return 2
 
     try:
-        payload, all_ok = import_cran_sync(packages)
+        payload, exit_code = run_import_with_optional_dryrun(
+            import_func=import_cran_sync, args=args, packages=packages
+        )
+        print(json.dumps(payload))
+        return exit_code
     except LoginError as e:
         log.error(
             "Wikibase login failed - can not import CRAN package. (Hint: can be from WIKIDATA_USER or CRAN_USER credentials."
         )
         return 0
 
-    print(json.dumps(payload))
-    return 0 if all_ok else 1
+
+def add_csv_dryrun_args(subparser):
+    """Add CSV dry-run arguments to a subparser.
+
+    This helper reduces code duplication when defining CLI arguments
+    for commands that support CSV dry-run mode.
+
+    Args:
+        subparser: The argparse subparser to add arguments to.
+    """
+    subparser.add_argument(
+        "--csv-only",
+        action="store_true",
+        dest="csv_only",
+        help="Dry-run mode: capture all writes to CSV without touching Wikibase or DB.",
+    )
+    subparser.add_argument(
+        "--csv-path",
+        dest="csv_path",
+        help="Path for the dry-run CSV file (default: auto-generated with timestamp).",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -325,6 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
         "import-wikidata", help="Import Wikidata entities synchronously."
     )
     sub.add_argument("--qids", nargs="*", help="QIDs list or comma-separated.")
+    add_csv_dryrun_args(sub)
     sub.set_defaults(func=cmd_import_wikidata)
 
     sub = subparsers.add_parser("import-doi-async", help="Trigger Prefect DOI import.")
@@ -333,6 +366,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = subparsers.add_parser("import-doi", help="Import DOI synchronously.")
     sub.add_argument("--dois", nargs="*", help="DOIs list or comma-separated.")
+    add_csv_dryrun_args(sub)
     sub.set_defaults(func=cmd_import_doi)
 
     sub = subparsers.add_parser(
@@ -341,6 +375,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument(
         "--packages", nargs="*", help="CRAN package list or comma-separated."
     )
+    add_csv_dryrun_args(sub)
     sub.set_defaults(func=cmd_import_cran)
 
     return parser

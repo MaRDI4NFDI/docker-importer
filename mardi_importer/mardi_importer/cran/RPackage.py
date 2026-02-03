@@ -525,7 +525,7 @@ class RPackage:
                 crossref_references.append(doi)
 
         for doi in crossref_references:
-            publication = self.crossref.new_publication(doi.upper(), create_empty=True)
+            publication = self.crossref.new_publication(doi.upper())
             self.author_pool += publication.authors
             self.crossref_publications.append(publication)
 

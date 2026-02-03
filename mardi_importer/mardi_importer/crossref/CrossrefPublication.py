@@ -39,7 +39,7 @@ class CrossrefPublication:
     month: str = ""
     year: str = ""
     preprint: bool = False
-    create_empty: bool = False
+    crossref_ok: bool = False
     identical: str = ""
     QID: str = None
     api: Optional[MardiClient] = None
@@ -47,7 +47,6 @@ class CrossrefPublication:
     def __post_init__(self):
         log = get_logger_safe(__name__)
 
-        self.crossref_ok = False
         if self.api is None:
             self.api = Importer.get_api("crossref")
         item = self.api.item.new()
@@ -275,7 +274,7 @@ class CrossrefPublication:
         log = get_logger_safe(__name__)
         log.debug("Start creating wiki item for crossref publication")
 
-        if not self.crossref_ok and not self.create_empty:
+        if not self.crossref_ok:
             log.warning(f"Skipping creation, DOI {self.doi} not found in Crossref.")
             return None
         item = self.api.item.new()

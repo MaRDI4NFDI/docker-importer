@@ -1,5 +1,5 @@
-mardi_importer.integrator module
-================================
+Integrator Module API
+=======================
 
 mardi_importer.integrator.MardiIntegrator module
 ------------------------------------------------

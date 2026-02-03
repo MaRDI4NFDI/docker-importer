@@ -1,5 +1,5 @@
-Importer CLI
-============
+Command-Line Interface (CLI) Guide
+==================================
 
 The CLI wraps common importer and Prefect actions. It is intended for manual
 invocation and quick checks.

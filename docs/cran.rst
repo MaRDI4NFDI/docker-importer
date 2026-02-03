@@ -1,5 +1,5 @@
-CRAN module
-===========
+Importer Module for CRAN
+========================
 
 This module imports R packages published at the Comprehensive R Archive Network `(CRAN) <https://cran.r-project.org/>`_. 
 

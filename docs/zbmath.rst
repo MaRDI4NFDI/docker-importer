@@ -1,5 +1,5 @@
-mardi_importer.zbmath module
-============================
+Importer Module for zbMATH
+==========================
 
 mardi_importer.zbmath.ZBMathSource module
 -----------------------------------------

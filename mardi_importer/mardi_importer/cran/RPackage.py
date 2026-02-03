@@ -277,7 +277,7 @@ class RPackage:
                 if author.name:
                     self.item.add_claim("wdt:P2093", author.name)
 
-        # Maintainer (unchanged behavior: still an item via P126)
+        # Maintainer
         self.maintainer.pull_QID(self.author_pool)
         if not self.maintainer.QID:
             self.maintainer.create()

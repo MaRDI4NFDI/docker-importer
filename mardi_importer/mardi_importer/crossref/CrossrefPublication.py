@@ -237,7 +237,7 @@ class CrossrefPublication:
 
                 if not callable(author_factory):
                     raise TypeError(
-                        f"Could not resolve a callable Author class. Check your imports."
+                        "Could not resolve a callable Author class. Check your imports."
                     )
 
                 if "author" in metadata.keys():

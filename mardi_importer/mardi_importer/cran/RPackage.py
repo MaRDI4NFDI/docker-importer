@@ -234,7 +234,7 @@ class RPackage:
 
         if not callable(author_factory):
             raise TypeError(
-                f"Could not resolve a callable Author class. Check your imports."
+                "Could not resolve a callable Author class. Check your imports."
             )
 
         # Instance of: R package
@@ -344,7 +344,7 @@ class RPackage:
 
         if not callable(author_factory):
             raise TypeError(
-                f"Could not resolve a callable Author class. Check your imports."
+                "Could not resolve a callable Author class. Check your imports."
             )
 
         if self.pull():
@@ -769,7 +769,7 @@ class RPackage:
 
         if not callable(author_factory):
             raise TypeError(
-                f"Could not resolve a callable Author class. Check your imports."
+                "Could not resolve a callable Author class. Check your imports."
             )
 
         td_match = re.match(r"<td>(.*?)</td>", x)
@@ -847,7 +847,7 @@ class RPackage:
 
         if not callable(author_factory):
             raise TypeError(
-                f"Could not resolve a callable Author class. Check your imports."
+                "Could not resolve a callable Author class. Check your imports."
             )
 
         if pd.isna(name):

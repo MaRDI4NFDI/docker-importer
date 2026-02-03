@@ -281,7 +281,7 @@ class Arxiv:
 
         if not callable(author_factory):
             raise TypeError(
-                f"Could not resolve a callable Author class. Check your imports."
+                "Could not resolve a callable Author class. Check your imports."
             )
 
         author_split = name.lower().split(" ")

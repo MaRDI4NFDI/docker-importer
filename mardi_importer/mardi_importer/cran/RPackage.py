@@ -183,7 +183,7 @@ class RPackage:
                 self.get_versions()
             else:
                 log.warning(
-                    f"Metadata table not found in CRAN. Package has probably been archived."
+                    "Metadata table not found in CRAN. Package has probably been archived."
                 )
             return self
 

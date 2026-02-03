@@ -397,7 +397,7 @@ class ArxivPublication:
         if self.QID:
             # Get authors.
             item = self.api.item.get(self.QID)
-            author_QID = item.get_value("wdt:P50")
+            author_QID = item.get_value("wdt:P50") or []
             for QID in author_QID:
                 author_item = self.api.item.get(entity_id=QID)
                 name = str(author_item.labels.get("en"))

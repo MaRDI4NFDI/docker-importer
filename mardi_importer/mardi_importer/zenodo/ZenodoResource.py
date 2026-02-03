@@ -133,7 +133,7 @@ class ZenodoResource:
             )
 
         if not self._authors:
-            for creator in self.metadata["creators"]:
+            for creator in self.metadata.get("creators", []):
                 name = creator.get("name")
                 orcid = creator.get("orcid")
                 affiliation = creator.get("affiliation")

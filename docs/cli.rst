@@ -34,6 +34,7 @@ Check Prefect flow status or results::
 
   python -m cli.importer_cli import-workflow-status --id <flow-run-id>
   python -m cli.importer_cli import-workflow-result --id <flow-run-id>
+  python -m cli.importer_cli import-workflow-runs
 
 Run synchronous imports::
 

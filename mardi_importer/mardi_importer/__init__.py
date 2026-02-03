@@ -7,7 +7,6 @@ from .crossref import CrossrefSource
 from .polydb import PolyDBSource
 from .zbmath import ZBMathSource
 from .zenodo import ZenodoSource
-from . import dryrun
 
 Importer.register("cran", CRANSource, "CRAN_USER", "CRAN_PASS")
 Importer.register("polydb", PolyDBSource, "POLYDB_USER", "POLYDB_PASS")

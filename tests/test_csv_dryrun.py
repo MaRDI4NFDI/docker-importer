@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from mardi_importer.dryrun import (
+from cli.dryrun import (
     CSVRecorder,
     is_dry_run_active,
     csv_dry_run,

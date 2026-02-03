@@ -203,9 +203,7 @@ def cmd_import_workflow_runs(_args: argparse.Namespace) -> int:
         return 0
     except requests.HTTPError as exc:
         log.error("Prefect returned HTTP error: %s", exc, exc_info=True)
-        print(
-            json.dumps({"error": "could not fetch flow runs", "details": str(exc)})
-        )
+        print(json.dumps({"error": "could not fetch flow runs", "details": str(exc)}))
         return 1
     except Exception as exc:
         log.error("Failed to query Prefect flow runs: %s", exc, exc_info=True)
@@ -228,7 +226,7 @@ def cmd_import_wikidata(args: argparse.Namespace) -> int:
         return 2
 
     from services.import_service import import_wikidata_sync
-    from mardi_importer.dryrun import run_import_with_optional_dryrun
+    from cli.dryrun import run_import_with_optional_dryrun
 
     payload, exit_code = run_import_with_optional_dryrun(
         import_func=import_wikidata_sync, args=args, qids=qids
@@ -280,7 +278,7 @@ def cmd_import_doi(args: argparse.Namespace) -> int:
         return 2
 
     from services.import_service import import_doi_sync
-    from mardi_importer.dryrun import run_import_with_optional_dryrun
+    from cli.dryrun import run_import_with_optional_dryrun
 
     payload, exit_code = run_import_with_optional_dryrun(
         import_func=import_doi_sync, args=args, dois=dois
@@ -299,7 +297,7 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
         Process exit code.
     """
     from services.import_service import import_cran_sync
-    from mardi_importer.dryrun import run_import_with_optional_dryrun
+    from cli.dryrun import run_import_with_optional_dryrun
 
     log.info(f"Starting CRAN import for {args.packages}")
 

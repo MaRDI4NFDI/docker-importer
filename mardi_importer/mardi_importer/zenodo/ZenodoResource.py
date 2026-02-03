@@ -9,10 +9,13 @@ import urllib.request, json, re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-CLEANR = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});') # used to parse out html tags
+CLEANR = re.compile(
+    "<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});"
+)  # used to parse out html tags
+
 
 @dataclass
-class ZenodoResource():
+class ZenodoResource:
     zenodo_id: str
     title: str = None
     _description: str = None
@@ -23,46 +26,58 @@ class ZenodoResource():
     _license: str = None
     _version: str = None
     _communities: List[Community] = field(default_factory=list)
-    _projects: List[Project] = field(default_factory = list)
+    _projects: List[Project] = field(default_factory=list)
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
     wdi: WikidataImporter = None
     api: Optional[MardiClient] = None
 
     def __post_init__(self):
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, "Author") and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(
+                "Could not resolve a callable Author class. Check your imports."
+            )
+
         if self.api is None:
-            self.api = Importer.get_api('zenodo')
+            self.api = Importer.get_api("zenodo")
         if self.wdi is None:
             self.wdi = WikidataImporter()
-        with urllib.request.urlopen(f"https://zenodo.org/api/records/{self.zenodo_id}") as url:
+        with urllib.request.urlopen(
+            f"https://zenodo.org/api/records/{self.zenodo_id}"
+        ) as url:
             json_data = json.load(url)
-            self.metadata = json_data['metadata']
+            self.metadata = json_data["metadata"]
         if self.metadata:
-            self.title = self.metadata['title']
+            self.title = self.metadata["title"]
 
-        zenodo_id = 'wdt:P4901'
+        zenodo_id = "wdt:P4901"
 
         QID_results = self.api.search_entity_by_value(zenodo_id, self.zenodo_id)
-        if QID_results: self.QID = QID_results[0]
+        if QID_results:
+            self.QID = QID_results[0]
 
         if self.QID:
             # Get authors.
             item = self.api.item.get(self.QID)
-            author_QID = item.get_value('wdt:P50')
+            author_QID = item.get_value("wdt:P50")
             for QID in author_QID:
                 author_item = self.api.item.get(entity_id=QID)
-                name = str(author_item.labels.get('en'))
-                orcid = author_item.get_value('wdt:P496')
+                name = str(author_item.labels.get("en"))
+                orcid = author_item.get_value("wdt:P496")
                 orcid = orcid[0] if orcid else None
                 aliases = []
-                if author_item.aliases.get('en'):
-                    for alias in author_item.aliases.get('en'):
+                if author_item.aliases.get("en"):
+                    for alias in author_item.aliases.get("en"):
                         aliases.append(str(alias))
-                author = Author(self.api,
-                                name=name,
-                                orcid=orcid,
-                                _aliases=aliases,
-                                _QID=QID)
+                author = author_factory(
+                    self.api, name=name, orcid=orcid, _aliases=aliases, _QID=QID
+                )
                 self._authors.append(author)
             return self.QID
 
@@ -71,49 +86,71 @@ class ZenodoResource():
         desc_long = ""
         if "description" in self.metadata.keys():
             desc_long = self.metadata["description"]
-            desc_long = re.sub(CLEANR, '', desc_long) # parse out html tags from the description
-            desc_long = re.sub(r'\n|\\N|\t|\\T', ' ', desc_long) # parse out tabs and new lines
-            desc_long = re.sub(r'^\s+|\s+$', '', desc_long) # parse out leading and trailing white space
+            desc_long = re.sub(
+                CLEANR, "", desc_long
+            )  # parse out html tags from the description
+            desc_long = re.sub(
+                r"\n|\\N|\t|\\T", " ", desc_long
+            )  # parse out tabs and new lines
+            desc_long = re.sub(
+                r"^\s+|\s+$", "", desc_long
+            )  # parse out leading and trailing white space
         if re.match("\w+", desc_long):
             self._description = desc_long
         return self._description
 
-
     @property
     def publication_date(self):
         if not self._publication_date:
-            if re.match("\d{4}-\d{2}-\d{2}",self.metadata['publication_date']):
-                publication_date = f"{self.metadata['publication_date']}T00:00:00Z"
-                self._publication_date = publication_date
+            pub_date = self.metadata.get("publication_date")
+            if pub_date and re.match(r"\d{4}-\d{2}-\d{2}", pub_date):
+                self._publication_date = f"{pub_date}T00:00:00Z"
         return self._publication_date
-    
+
     @property
     def license(self):
-        if not self._license and ('license' in self.metadata.keys()):
-            self._license = self.metadata['license']
-        return self._license 
+        if not self._license and ("license" in self.metadata.keys()):
+            self._license = self.metadata["license"]
+        return self._license
 
     @property
     def version(self):
-        if not self._version and ('version' in self.metadata.keys()):
-            self._version = self.metadata['version']
+        if not self._version and ("version" in self.metadata.keys()):
+            self._version = self.metadata["version"]
         return self._version
 
     @property
     def authors(self):
+        # Logic to determine if 'Author' is the class or the module containing the class
+        if hasattr(Author, "Author") and not isinstance(Author, type):
+            author_factory = Author.Author
+        else:
+            author_factory = Author
+
+        if not callable(author_factory):
+            raise TypeError(
+                "Could not resolve a callable Author class. Check your imports."
+            )
+
         if not self._authors:
-            for creator in self.metadata['creators']:
-                name = creator.get('name')
-                orcid = creator.get('orcid')
-                affiliation = creator.get('affiliation')
-                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
+            for creator in self.metadata.get("creators", []):
+                name = creator.get("name")
+                orcid = creator.get("orcid")
+                affiliation = creator.get("affiliation")
+                author = author_factory(
+                    self.api, name=name, orcid=orcid, affiliation=affiliation
+                )
                 self._authors.append(author)
         return self._authors
 
     @property
     def resource_type(self):
         if not self._resource_type:
-            resource_type = self.metadata['resource_type']['title']
+            resource_type_data = self.metadata.get("resource_type", {})
+            resource_type = resource_type_data.get("title")
+            if not resource_type:
+                return self._resource_type
+
             if resource_type == "Dataset":
                 self._resource_type = "wd:Q1172284"
                 self._mardi_type = "MaRDI dataset profile"
@@ -144,14 +181,16 @@ class ZenodoResource():
     @property
     def communities(self):
         if not self._communities and "communities" in self.metadata.keys():
-            #if "communities" in self.metadata.keys():
-                for communityCur in self.metadata["communities"]:
-                    community_id = communityCur.get("id")
-                    if community_id == "mathplus":
-                        community = Community(api = self.api, wdi=self.wdi, community_id = community_id)
-                        self._communities.append(community)
+            # if "communities" in self.metadata.keys():
+            for communityCur in self.metadata["communities"]:
+                community_id = communityCur.get("id")
+                if community_id == "mathplus":
+                    community = Community(
+                        api=self.api, wdi=self.wdi, community_id=community_id
+                    )
+                    self._communities.append(community)
         return self._communities
-    
+
     @property
     def projects(self):
         community = None
@@ -160,15 +199,23 @@ class ZenodoResource():
                 if communityCur.community_id == "mathplus":
                     community = communityCur
                     break
-        if not self._projects and community and self.metadata.get("related_identifiers"):
+        if (
+            not self._projects
+            and community
+            and self.metadata.get("related_identifiers")
+        ):
             for related_ids in self.metadata.get("related_identifiers"):
-                #print("identifier: " + related_ids["identifier"])
+                # print("identifier: " + related_ids["identifier"])
                 if related_ids["identifier"] in Project.get_project_ids():
-                    project = Project(api = self.api, community = community, project_id = related_ids["identifier"])
+                    project = Project(
+                        api=self.api,
+                        community=community,
+                        project_id=related_ids["identifier"],
+                    )
                     self._projects.append(project)
         return self._projects
 
-    def exists(self):        
+    def exists(self):
         if self.QID:
             return self.QID
 
@@ -177,23 +224,23 @@ class ZenodoResource():
         zenodo_item = self.api.item.new()
         zenodo_item.labels.set(language="en", value=self.title)
 
-        zenodo_id = zenodo_item.is_instance_of_with_property("wd:Q1172284", "wdt:P4901", self.zenodo_id)
+        zenodo_id = zenodo_item.is_instance_of_with_property(
+            "wd:Q1172284", "wdt:P4901", self.zenodo_id
+        )
         new_item = self.api.item.get(entity_id=zenodo_id)
-        
-        if self.license['id'] == "cc-by-4.0":
+
+        if self.license["id"] == "cc-by-4.0":
             new_item.add_claim("wdt:P275", "wd:Q20007257")
-        elif self.license['id'] == "cc-by-sa-4.0":
+        elif self.license["id"] == "cc-by-sa-4.0":
             new_item.add_claim("wdt:P275", "wd:Q18199165")
-        elif self.license['id'] == "cc-by-nc-sa-4.0":
+        elif self.license["id"] == "cc-by-nc-sa-4.0":
             new_item.add_claim("wdt:P275", "wd:Q42553662")
-        elif self.license['id'] == "mit-license":
+        elif self.license["id"] == "mit-license":
             new_item.add_claim("wdt:P275", "wd:Q334661")
 
-        return new_item.write()  
-   
+        return new_item.write()
 
-    def create(self, update = False):
-
+    def create(self, update=False):
         if not update:
             if self.QID:
                 return self.QID
@@ -201,130 +248,123 @@ class ZenodoResource():
             update_claim = "append_or_replace"
         else:
             item = self.api.item.get(entity_id=self.QID)
-            update_claim = "replace_all"    
-        
+            update_claim = "replace_all"
+
         if self.title:
             item.labels.set(language="en", value=self.title)
 
         if self.resource_type and self.resource_type != "wd:Q37866906":
-                desc = f"{self.metadata['resource_type']['title']} published at Zenodo repository. "
-                item.add_claim('wdt:P31', self.resource_type, action = update_claim)
+            desc = f"{self.metadata['resource_type']['title']} published at Zenodo repository. "
+            item.add_claim("wdt:P31", self.resource_type, action=update_claim)
         else:
             desc = "Resource published at Zenodo repository. "
         item.descriptions.set(language="en", value=desc)
 
         if self.description:
             prop_nr = self.api.get_local_id_by_label("description", "property")
-            item.add_claim(prop_nr, self.description, action = update_claim)
-   
+            item.add_claim(prop_nr, self.description, action=update_claim)
+
         # Publication date
         if self.publication_date:
-            item.add_claim('wdt:P577', self.publication_date, action = update_claim)
-        
+            item.add_claim("wdt:P577", self.publication_date, action=update_claim)
+
         # Authors
         if update:
-            # Delete all authors and keep just the new
-            author_prop_nr = self.api.get_local_id_by_label("wdt:P50", "property")
-            original_claims = item.claims.get(author_prop_nr)
+            # Remove all existing P50 and P2093 claims
+            author_item_prop = self.api.get_local_id_by_label("wdt:P50", "property")
+            author_string_prop = self.api.get_local_id_by_label("wdt:P2093", "property")
 
-            new_authors = []
-            for creator in self.metadata['creators']:
-                name = creator.get('name')
-                orcid = creator.get('orcid')
-                affiliation = creator.get('affiliation')
-                author = Author(self.api, name=name, orcid=orcid, affiliation=affiliation)
-                new_authors.append(author)
+            for prop in (author_item_prop, author_string_prop):
+                old_claims = item.claims.get(prop)
+                if old_claims:
+                    for c in old_claims:
+                        c.remove()
 
-            author_QID = self.__preprocess_authors()
-            new_authors_QID = []
-            authors_to_remove_QID = []
-            for autor in self.authors:
-                if autor in new_authors:
-                    new_authors_QID.append(autor.QID)
-                else:
-                    authors_to_remove_QID.append(autor.QID)
-
-            claims = []
-            for author in new_authors_QID:
-                claims.append(self.api.get_claim("wdt:P50", author))
-            item.add_claims(claims)
-
-            for author in authors_to_remove_QID:
-                for claim in original_claims:
-                    if claim.mainsnak.datavalue['value']['id'] == author:
-                        claim.remove()
+            # Add new author claims
+            item.add_claims(self.__preprocess_authors())
 
         else:
-            author_QID = self.__preprocess_authors()
-            claims = []
-            for author in author_QID:
-                claims.append(self.api.get_claim("wdt:P50", author))
+            claims = self.__preprocess_authors()
             item.add_claims(claims)
 
         # Zenodo ID & DOI
         if self.zenodo_id:
-            item.add_claim('wdt:P4901', self.zenodo_id, action = update_claim)
+            item.add_claim("wdt:P4901", self.zenodo_id, action=update_claim)
             doi = f"10.5281/zenodo.{self.zenodo_id}"
-            item.add_claim('wdt:P356', doi.upper(), action = update_claim)
+            item.add_claim("wdt:P356", doi.upper(), action=update_claim)
 
         # License
         if self.license:
-            if self.license['id'] == "cc-by-4.0":
-                item.add_claim("wdt:P275", "wd:Q20007257", action = update_claim)
-            elif self.license['id'] == "cc-by-sa-4.0":
-                item.add_claim("wdt:P275", "wd:Q18199165", action = update_claim)
-            elif self.license['id'] == "cc-by-nc-sa-4.0":
-                item.add_claim("wdt:P275", "wd:Q42553662", action = update_claim)
-            elif self.license['id'] == "mit-license":
-                item.add_claim("wdt:P275", "wd:Q334661", action = update_claim)
+            if self.license["id"] == "cc-by-4.0":
+                item.add_claim("wdt:P275", "wd:Q20007257", action=update_claim)
+            elif self.license["id"] == "cc-by-sa-4.0":
+                item.add_claim("wdt:P275", "wd:Q18199165", action=update_claim)
+            elif self.license["id"] == "cc-by-nc-sa-4.0":
+                item.add_claim("wdt:P275", "wd:Q42553662", action=update_claim)
+            elif self.license["id"] == "mit-license":
+                item.add_claim("wdt:P275", "wd:Q334661", action=update_claim)
 
         if self.version:
             if self.resource_type:
-                if self.resource_type == "wd:Q1172284": #dataset
-                    prop_nr = self.api.get_local_id_by_label("dataset version identifier", "property")
-                    item.add_claim(prop_nr, self.version, action = update_claim)
-                elif self.resource_type == "wd:Q7397": #software:
-                    item.add_claim("wdt:P348", self.version, action = update_claim)
+                if self.resource_type == "wd:Q1172284":  # dataset
+                    prop_nr = self.api.get_local_id_by_label(
+                        "dataset version identifier", "property"
+                    )
+                    item.add_claim(prop_nr, self.version, action=update_claim)
+                elif self.resource_type == "wd:Q7397":  # software:
+                    item.add_claim("wdt:P348", self.version, action=update_claim)
 
         # Communities
         if self.communities:
             for community in self.communities:
                 prop_nr = self.api.get_local_id_by_label("community", "property")
-                item.add_claim(prop_nr, community.QID, action = update_claim)
+                item.add_claim(prop_nr, community.QID, action=update_claim)
 
         # Projects
         if self.projects:
             for project in self.projects:
                 project.create()
-                prop_nr = self.api.get_local_id_by_label("Internal Project ID", "property")
-                item.add_claim(prop_nr, project.QID, action = update_claim)
+                prop_nr = self.api.get_local_id_by_label(
+                    "Internal Project ID", "property"
+                )
+                item.add_claim(prop_nr, project.QID, action=update_claim)
 
         if self._mardi_type:
-            item.add_claim('MaRDI profile type', self._mardi_type, action = update_claim)
-        
+            item.add_claim("MaRDI profile type", self._mardi_type, action=update_claim)
+
         self.QID = item.write().id
 
         if self.QID:
-            print(f"Zenodo resource with Zenodo id: {self.zenodo_id} created with ID {self.QID}.")
+            print(
+                f"Zenodo resource with Zenodo id: {self.zenodo_id} created with ID {self.QID}."
+            )
             return self.QID
         else:
-            print(f"Zenodo resource with Zenodo id: {self.zenodo_id} could not be created.")
+            print(
+                f"Zenodo resource with Zenodo id: {self.zenodo_id} could not be created."
+            )
             return None
 
     def __preprocess_authors(self) -> List[str]:
         """Processes the author information of each publication.
 
-        Create the author if it does not exist already as an 
+        Create the author if it does not exist already as an
         entity in wikibase.
-            
+
+        If an author has no ORCID and no existing QID, store the author as
+        an author name string (P2093) instead of creating an author item.
+
         Returns:
-          List[str]: 
-            QIDs corresponding to each author.
+        List:
+            Author claims to be added (P50 entity claims and/or P2093 string claims).
         """
-        author_QID = []
+        claims = []
         for author in self.authors:
-            if not author.QID:
-                author.create()
-            author_QID.append(author.QID)
-        return author_QID
-        
+            if author.orcid or author.QID:
+                if not author.QID:
+                    author.create()
+                claims.append(self.api.get_claim("wdt:P50", author.QID))
+            else:
+                if author.name:
+                    claims.append(self.api.get_claim("wdt:P2093", author.name))
+        return claims

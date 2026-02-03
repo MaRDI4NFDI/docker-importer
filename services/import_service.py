@@ -1,6 +1,7 @@
 import base64
 import logging
 import re
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
@@ -203,6 +204,63 @@ def get_workflow_result(
         },
         200,
     )
+
+
+def get_workflow_runs_last_24_hours(
+    prefect_api_url: str,
+    prefect_api_auth_string: str | None,
+) -> list[dict]:
+    """Fetch Prefect flow runs from the last 24 hours.
+
+    Args:
+        prefect_api_url: Base Prefect API URL.
+        prefect_api_auth_string: Optional "user:pass" string for Basic Auth.
+
+    Returns:
+        List of flow run payloads.
+    """
+    log.info("Fetching workflow runs from the last 24 hours.")
+    time_24_hours_ago = datetime.utcnow() - timedelta(hours=24)
+    time_24_hours_ago_str = time_24_hours_ago.isoformat() + "Z"
+
+    query = """
+        query {
+            flow_runs(
+                where: {
+                    _and: [
+                        { start_time: { _gte: "%s" } },
+                        { state: { _neq: "SCHEDULED" } }
+                    ]
+                }
+                order_by: { start_time: DESC }
+            ) {
+                id
+                name
+                state {
+                    type
+                    name
+                }
+                start_time
+                end_time
+            }
+        }
+    """ % time_24_hours_ago_str
+
+    try:
+        response_data = prefect_request(
+            prefect_api_url,
+            prefect_api_auth_string,
+            "/query",
+            payload={"query": query},
+        )
+        flow_runs = response_data.get("data", {}).get("flow_runs", [])
+        return flow_runs
+    except requests.HTTPError as exc:
+        log.error("Prefect returned HTTP error: %s", exc, exc_info=True)
+        raise
+    except Exception as exc:
+        log.error("Failed to query Prefect flow runs: %s", exc, exc_info=True)
+        raise
 
 
 def trigger_wikidata_async(

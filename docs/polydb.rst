@@ -1,5 +1,5 @@
-mardi_importer.polydb module
-============================
+Importer Module for PolyDB
+==========================
 
 mardi_importer.polydb.PolyDBSource module
 -----------------------------------------

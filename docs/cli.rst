@@ -1,5 +1,5 @@
-Importer CLI
-============
+Command-Line Interface (CLI) Guide
+==================================
 
 The CLI wraps common importer and Prefect actions. It is intended for manual
 invocation and quick checks.
@@ -34,6 +34,7 @@ Check Prefect flow status or results::
 
   python -m cli.importer_cli import-workflow-status --id <flow-run-id>
   python -m cli.importer_cli import-workflow-result --id <flow-run-id>
+  python -m cli.importer_cli import-workflow-runs
 
 Run synchronous imports::
 

@@ -1,4 +1,4 @@
-Importer diagram
-================
+Architecture Diagram
+====================
 
 .. image:: activity.drawio.svg

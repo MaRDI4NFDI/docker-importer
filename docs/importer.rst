@@ -1,5 +1,5 @@
-mardi_importer.importer module
-==============================
+Importer Module API
+=====================
 
 mardi_importer.importer.Importer module
 ---------------------------------------

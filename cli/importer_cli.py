@@ -12,6 +12,7 @@ from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
     get_workflow_result,
+    get_workflow_runs_last_24_hours,
     get_workflow_status,
     normalize_list,
     trigger_doi_async,
@@ -178,6 +179,36 @@ def cmd_import_workflow_result(args: argparse.Namespace) -> int:
         return 1
     except Exception as exc:
         log.error("Failed to query Prefect artifact: %s", exc, exc_info=True)
+        print(json.dumps({"error": "prefect api error", "details": str(exc)}))
+        return 1
+
+
+def cmd_import_workflow_runs(_args: argparse.Namespace) -> int:
+    """Fetch Prefect flow runs from the last 24 hours.
+
+    Args:
+        _args: Parsed CLI arguments (unused).
+
+    Returns:
+        Process exit code.
+    """
+    log.info("Fetching workflow runs from the last 24 hours.")
+
+    try:
+        result = get_workflow_runs_last_24_hours(
+            PREFECT_API_URL,
+            PREFECT_API_AUTH_STRING,
+        )
+        print(json.dumps(result))
+        return 0
+    except requests.HTTPError as exc:
+        log.error("Prefect returned HTTP error: %s", exc, exc_info=True)
+        print(
+            json.dumps({"error": "could not fetch flow runs", "details": str(exc)})
+        )
+        return 1
+    except Exception as exc:
+        log.error("Failed to query Prefect flow runs: %s", exc, exc_info=True)
         print(json.dumps({"error": "prefect api error", "details": str(exc)}))
         return 1
 
@@ -352,6 +383,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Artifact key prefix (default: mardi-importer-result-).",
     )
     sub.set_defaults(func=cmd_import_workflow_result)
+
+    sub = subparsers.add_parser(
+        "import-workflow-runs", help="Get Prefect flow runs from the last 24 hours."
+    )
+    sub.set_defaults(func=cmd_import_workflow_runs)
 
     sub = subparsers.add_parser(
         "import-wikidata", help="Import Wikidata entities synchronously."

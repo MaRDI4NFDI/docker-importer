@@ -102,9 +102,9 @@ class ZenodoResource:
     @property
     def publication_date(self):
         if not self._publication_date:
-            if re.match("\d{4}-\d{2}-\d{2}", self.metadata["publication_date"]):
-                publication_date = f"{self.metadata['publication_date']}T00:00:00Z"
-                self._publication_date = publication_date
+            pub_date = self.metadata.get("publication_date")
+            if pub_date and re.match(r"\d{4}-\d{2}-\d{2}", pub_date):
+                self._publication_date = f"{pub_date}T00:00:00Z"
         return self._publication_date
 
     @property

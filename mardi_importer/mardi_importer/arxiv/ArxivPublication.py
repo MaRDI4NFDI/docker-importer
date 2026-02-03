@@ -514,7 +514,7 @@ class ArxivPublication:
         """
         claims = []
         for author in self.authors:
-            if author.orcid or author.QID:
+            if author.orcid or author.arxiv_id or author.QID:
                 if not author.QID:
                     author.create()
                 claims.append(self.api.get_claim("wdt:P50", author.QID))

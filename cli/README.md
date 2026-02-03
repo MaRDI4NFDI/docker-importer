@@ -42,6 +42,41 @@ python -m cli.importer_cli import-cran --packages dplyr ggplot2
 python -m cli.importer_cli import-cran --packages "dplyr,ggplot2"
 ```
 
+### CSV Dry-run mode (simulation without writes)
+
+The `--csv-only` flag simulates an import without actually writing to Wikibase or the database. 
+All would-be writes are captured to a CSV file instead.
+
+Required environment variables:
+```bash
+export SPARQL_ENDPOINT_URL=http://staging-wdqs:9999/bigdata/namespace/wdq/sparql
+export WIKIBASE_URL=http://staging-wikibase-apache
+```
+
+Examples:
+```bash
+# DOI import dry-run
+python -m cli.importer_cli import-doi --dois 10.1234/example --csv-only
+python -m cli.importer_cli import-doi --dois 10.1234/example --csv-only --csv-path /tmp/dryrun.csv
+
+# Wikidata import dry-run
+python -m cli.importer_cli import-wikidata --qids Q42 --csv-only
+
+# CRAN import dry-run
+python -m cli.importer_cli import-cran --packages dplyr --csv-only --csv-path /tmp/cran_dryrun.csv
+```
+
+The CSV output includes:
+- `timestamp`: ISO8601 timestamp of each operation
+- `entity_type`: item, property, author, etc.
+- `source`: crossref, arxiv, zenodo, cran, wikidata
+- `external_id`: Original identifier (DOI, arXiv ID, etc.)
+- `labels`, `descriptions`, `claims`: Entity data as JSON
+- `stub_id`: Generated ID (Q_STUB_1, P_STUB_1, etc.)
+- `parent_stub_id`: For nested entities (e.g., author of publication)
+- `operation`: create, already_exists, or update
+- `existing_qid`: QID if entity already exists (SPARQL lookup)
+
 ### Prefect flow run status
 
 ```bash

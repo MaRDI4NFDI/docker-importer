@@ -152,6 +152,37 @@ def patch_for_lookup_aware_dry_run() -> dict:
 
     WikidataImporter.query = patched_query
 
+    # 6. Patch WikidataImporter.__init__ to skip DB setup in dry-run
+    _originals["WikidataImporter.__init__"] = WikidataImporter.__init__
+
+    def patched_init(self, *args, **kwargs):
+        # Check if we're in dry-run mode before doing anything
+        if _dry_run_active.get():
+            # Minimal initialization without DB connections
+            self.languages = kwargs.get("languages", ["en", "de", "mul"])
+            self.api = None  # Will be set later if needed
+            self.engine = None
+            self.engine_simplified = None
+            self.setup_complete = False
+            return
+        # Normal initialization
+        return _originals["WikidataImporter.__init__"](self, *args, **kwargs)
+
+    WikidataImporter.__init__ = patched_init
+
+    # 7. Patch WikidataImporter.setup() to be no-op in dry-run
+    if hasattr(WikidataImporter, "setup"):
+        _originals["WikidataImporter.setup"] = WikidataImporter.setup
+
+        def patched_setup(self):
+            if _dry_run_active.get():
+                # No-op - don't create DB connections
+                self.setup_complete = True
+                return
+            return _originals["WikidataImporter.setup"](self)
+
+        WikidataImporter.setup = patched_setup
+
     return _originals
 
 

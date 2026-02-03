@@ -389,7 +389,7 @@ class CrossrefPublication:
                     log.debug(f"Creating author item for: {author}")
                     author.create()
                     log.debug(f"Created author with QID: {author.QID}")
-                claims.append(self.api.get_claim("wdt:P50", author))
+                claims.append(self.api.get_claim("wdt:P50", author.QID))
             else:
                 # if it does not exist yet and there is not orcid, it should be a name string
                 if author.name:

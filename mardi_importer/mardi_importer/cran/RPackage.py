@@ -519,7 +519,7 @@ class RPackage:
                 arxiv_references.append(arxiv_id.strip())
             elif re.search("10.5281/", doi):
                 zenodo_id = doi.replace(":", ".")
-                zenodo_id = doi.replace("10.5281/zenodo.", "")
+                zenodo_id = zenodo_id.replace("10.5281/zenodo.", "")
                 zenodo_references.append(zenodo_id.strip())
             else:
                 crossref_references.append(doi)

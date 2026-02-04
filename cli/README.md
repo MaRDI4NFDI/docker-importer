@@ -72,7 +72,7 @@ The CSV output includes:
 - `source`: crossref, arxiv, zenodo, cran, wikidata
 - `external_id`: Original identifier (DOI, arXiv ID, etc.)
 - `labels`, `descriptions`, `claims`: Entity data as JSON
-- `stub_id`: Generated ID (Q_STUB_1, P_STUB_1, etc.)
+- `stub_id`: Generated ID (Q0001, P0001, etc.)
 - `parent_stub_id`: For nested entities (e.g., author of publication)
 - `operation`: create, already_exists, or update
 - `existing_qid`: QID if entity already exists (SPARQL lookup)

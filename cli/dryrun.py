@@ -356,10 +356,10 @@ class CSVRecorder:
         """Generate a sequential stub ID."""
         if entity_type == "property":
             self._prop_counter += 1
-            return f"P_STUB_{self._prop_counter}"
+            return f"P000{self._prop_counter}"
         else:
             self._item_counter += 1
-            return f"Q_STUB_{self._item_counter}"
+            return f"Q000{self._item_counter}"
 
     def _intercept_item_write(self, item, *args, **kwargs) -> MagicMock:
         """Intercept MardiItem.write() call and log to CSV."""

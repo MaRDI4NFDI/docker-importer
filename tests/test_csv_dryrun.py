@@ -42,7 +42,7 @@ class TestLookupAwareDryRun(unittest.TestCase):
                     labels={"en": "Test"},
                     descriptions={},
                     claims={},
-                    stub_id="Q_STUB_1",
+                    stub_id="Q0001",
                     operation="already_exists",
                     existing_qid="Q12345",
                 )
@@ -103,7 +103,7 @@ class TestOperationTypes(unittest.TestCase):
                     labels={"en": "New Item"},
                     descriptions={},
                     claims={},
-                    stub_id="Q_STUB_1",
+                    stub_id="Q0001",
                     operation="create",
                     existing_qid="",
                 )
@@ -127,7 +127,7 @@ class TestOperationTypes(unittest.TestCase):
                     labels={"en": "Existing Item"},
                     descriptions={},
                     claims={},
-                    stub_id="Q_STUB_2",
+                    stub_id="Q0002",
                     operation="already_exists",
                     existing_qid="Q54321",
                 )
@@ -151,7 +151,7 @@ class TestOperationTypes(unittest.TestCase):
                     labels={"en": "Updated Item"},
                     descriptions={},
                     claims={"P31": ["Q5"]},
-                    stub_id="Q_STUB_3",
+                    stub_id="Q0003",
                     operation="update",
                     existing_qid="Q42",
                 )
@@ -235,7 +235,7 @@ class TestIntegration(unittest.TestCase):
                     labels={"en": "Jane Doe"},
                     descriptions={},
                     claims={"P496": "0000-0001-2345-6789"},
-                    stub_id="Q_STUB_1",
+                    stub_id="Q0001",
                     operation="create",
                     parent_stub_id="Q100",  # Child of the publication
                 )

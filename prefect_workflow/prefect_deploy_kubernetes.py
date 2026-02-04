@@ -25,9 +25,9 @@ if __name__ == "__main__":
         work_pool_name="K8WorkerPool",
         parameters={
             # Must match flow signature
-            "action": "import/wikidata",
-            # Default example; Flask will override on trigger
-            "qids": ["Q42"],
+            "action": "not_set",
+            # Default value; Flask will override on trigger
+            "qids": [],
         },
         job_variables={
             "image": "ghcr.io/mardi4nfdi/docker-importer:main",

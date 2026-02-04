@@ -1,5 +1,5 @@
-mardi-importer — HTTP Endpoints
-===================================
+Web API Endpoints
+=============
 
 Base URL
 --------
@@ -178,6 +178,37 @@ If you know the flow run id and use Basic Auth on Prefect::
 
   curl -u "admin:pass" \
     "http://prefect-mardi.zib.de/api/artifacts/mardi-importer-result-16e267d3-61d0-4484-b8ad-1af9221a969c/latest" | jq .
+
+
+GET /import/workflow_runs
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Returns information about Prefect flow runs from the last 24 hours (excluding ``SCHEDULED``).
+
+**Request**
+
+curl::
+
+  curl -sS "http://localhost:3333/import/workflow_runs" | jq .
+
+**Response (200)**
+
+Response includes many additional Prefect fields not shown here.
+
+.. code-block:: json
+
+  [
+    {
+      "id": "c3faea1b-e118-461f-9a42-9111763097e7",
+      "name": "important-grouse",
+      "state_type": "COMPLETED",
+      "start_time": "2026-02-02T11:00:01.766235Z",
+      "parameters": {
+        "qids": ["Q26708"],
+        "action": "import/wikidata"
+      }
+    }
+  ]
 
 
 POST /import/wikidata

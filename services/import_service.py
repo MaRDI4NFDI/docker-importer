@@ -1,6 +1,7 @@
 import base64
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
@@ -203,6 +204,46 @@ def get_workflow_result(
         },
         200,
     )
+
+
+def get_workflow_runs_last_24_hours(
+    prefect_api_url: str,
+    prefect_api_auth_string: str | None,
+) -> list[dict]:
+    """
+    Fetch Prefect flow runs from the last 24 hours (excluding SCHEDULED).
+    Works with Prefect Server/OSS REST API (/api/flow_runs/filter).
+    """
+    log.info("Fetching workflow runs from the last 24 hours.")
+
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    since_str = since.isoformat().replace("+00:00", "Z")
+
+    url = prefect_api_url.rstrip("/") + "/flow_runs/filter"
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if prefect_api_auth_string:
+        user, pwd = prefect_api_auth_string.split(":", 1)
+        auth = (user, pwd)
+
+    payload = {
+        "sort": "START_TIME_DESC",
+        "limit": 200,  # adjust as needed
+        "offset": 0,
+        "flow_runs": {
+            "operator": "and_",
+            "start_time": {"after_": since_str},
+            "state": {
+                "operator": "and_",
+                "type": {"not_any_": ["SCHEDULED"]},
+            },
+        },
+    }
+
+    resp = requests.post(url, headers=headers, json=payload, auth=auth, timeout=30)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def trigger_wikidata_async(

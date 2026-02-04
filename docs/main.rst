@@ -1,11 +1,11 @@
-Introduction
-============
+Getting Started
+===============
 
 What is this about?
 
 
 Installation
-============
+------------
 
 Without Docker
 --------------
@@ -48,8 +48,6 @@ local installation. The modules have to be installed and findable by :code:`impo
 module`. To view the docs, open the file :code:`docs/_build/html/index.html`.
 
 
-Usage
-=====
 
 Version
 -------

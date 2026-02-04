@@ -277,6 +277,7 @@ class CSVRecorder:
         "labels",
         "descriptions",
         "claims",
+        "claims_easy",
         "stub_id",
         "parent_stub_id",
         "operation",
@@ -356,16 +357,80 @@ class CSVRecorder:
         """Generate a sequential stub ID."""
         if entity_type == "property":
             self._prop_counter += 1
-            return f"P000{self._prop_counter}"
+            return f"P000{self._prop_counter:03d}"
         else:
             self._item_counter += 1
-            return f"Q000{self._item_counter}"
+            return f"Q000{self._item_counter:03d}"
+
+    def _simplify_claims(self, claims: Dict) -> Dict:
+        """Create a human-readable version of the claims dictionary."""
+        simplified = {}
+        if not isinstance(claims, dict):
+            return simplified
+
+        for prop_id, statements in claims.items():
+            if not isinstance(statements, list):
+                continue
+
+            values = []
+            for statement in statements:
+                if not isinstance(statement, dict):
+                    continue
+
+                mainsnak = statement.get("mainsnak")
+                if not isinstance(mainsnak, dict):
+                    continue
+
+                datavalue = mainsnak.get("datavalue")
+                if not isinstance(datavalue, dict):
+                    continue
+
+                value_data = datavalue.get("value")
+                if value_data is None:
+                    continue
+
+                datatype = mainsnak.get("datatype")
+
+                simple_value = None
+                if datatype == "wikibase-item":
+                    if isinstance(value_data, dict):
+                        simple_value = value_data.get("id")
+                elif datatype in ("string", "external-id"):
+                    simple_value = value_data
+                elif datatype == "time":
+                    if isinstance(value_data, dict):
+                        simple_value = value_data.get("time")
+                elif datatype == "quantity":
+                    if isinstance(value_data, dict):
+                        amount = value_data.get("amount")
+                        unit = value_data.get("unit", "1")
+                        if unit == "1":
+                            simple_value = amount
+                        else:
+                            unit_qid = unit.split("/")[-1]
+                            simple_value = f"{amount} {unit_qid}"
+                elif datatype == "monolingualtext":
+                    if isinstance(value_data, dict):
+                        simple_value = (
+                            f"({value_data.get('language')}) {value_data.get('text')}"
+                        )
+                else:
+                    simple_value = str(value_data)
+
+                if simple_value is not None:
+                    values.append(simple_value)
+
+            if values:
+                simplified[prop_id] = values[0] if len(values) == 1 else values
+
+        return simplified
 
     def _intercept_item_write(self, item, *args, **kwargs) -> MagicMock:
         """Intercept MardiItem.write() call and log to CSV."""
         stub_id = self._generate_stub_id("item")
         entity_data = self._extract_entity_data(item)
         source, external_id = self._detect_source_and_id(item, entity_data)
+        claims_easy = self._simplify_claims(entity_data.get("claims", {}))
 
         self._add_record(
             entity_type=entity_data.get("type", "item"),
@@ -374,6 +439,7 @@ class CSVRecorder:
             labels=entity_data.get("labels", {}),
             descriptions=entity_data.get("descriptions", {}),
             claims=entity_data.get("claims", {}),
+            claims_easy=claims_easy,
             stub_id=stub_id,
             operation="create" if kwargs.get("as_new") else "update",
         )
@@ -386,6 +452,7 @@ class CSVRecorder:
         """Intercept MardiProperty.write() call and log to CSV."""
         stub_id = self._generate_stub_id("property")
         entity_data = self._extract_entity_data(prop)
+        claims_easy = self._simplify_claims(entity_data.get("claims", {}))
 
         self._add_record(
             entity_type="property",
@@ -394,6 +461,7 @@ class CSVRecorder:
             labels=entity_data.get("labels", {}),
             descriptions=entity_data.get("descriptions", {}),
             claims={},
+            claims_easy=claims_easy,
             stub_id=stub_id,
             operation="create" if kwargs.get("as_new") else "update",
         )
@@ -508,6 +576,7 @@ class CSVRecorder:
         labels: Dict,
         descriptions: Dict,
         claims: Dict,
+        claims_easy: Dict,
         stub_id: str,
         operation: str = "create",
         parent_stub_id: str = "",
@@ -522,6 +591,7 @@ class CSVRecorder:
             "labels": json.dumps(labels),
             "descriptions": json.dumps(descriptions),
             "claims": json.dumps(claims) if isinstance(claims, dict) else str(claims),
+            "claims_easy": json.dumps(claims_easy),
             "stub_id": stub_id,
             "parent_stub_id": parent_stub_id,
             "operation": operation,
@@ -547,6 +617,7 @@ class CSVRecorder:
             "claims": json.dumps(
                 {"local_id": local_id, "has_all_claims": has_all_claims}
             ),
+            "claims_easy": "{}",
             "stub_id": "",
             "parent_stub_id": "",
             "operation": operation,

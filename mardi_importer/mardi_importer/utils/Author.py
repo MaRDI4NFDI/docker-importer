@@ -213,5 +213,8 @@ class Author:
         if self.arxiv_id:
             self._item.add_claim("wdt:P4594", self.arxiv_id)
 
+        # MaRDI profile
+        self._item.add_claim("MaRDI profile type", "MaRDI person profile")
+
         self._QID = self._item.write().id
         return self.QID

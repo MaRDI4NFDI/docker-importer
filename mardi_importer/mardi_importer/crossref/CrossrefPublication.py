@@ -347,6 +347,7 @@ class CrossrefPublication:
 
             item.add_claims(author_claims)
 
+            item.add_claim("MaRDI profile type", "MaRDI publication profile")
             if not self.QID:
                 self.QID = item.write().id
         else:
@@ -355,6 +356,7 @@ class CrossrefPublication:
             scholarly_article = "wd:Q13442814"
             item.add_claim("wdt:P31", scholarly_article)
             item.add_claim("wdt:P356", self.doi)
+            item.add_claim("MaRDI profile type", "MaRDI publication profile")
 
             if not self.QID:
                 self.QID = item.write().id

@@ -443,6 +443,9 @@ class ArxivPublication:
             # Arxiv ID
             item.add_claim("wdt:P818", self.arxiv_id)
 
+            # profile page
+            item.add_claim("MaRDI profile type", "MaRDI publication profile")
+
             # Arxiv classification
             category_claims = []
             pattern_msc = re.compile(r"\d\d(?:-(?:XX|\d\d)|[A-Z](?:xx|\d\d))")

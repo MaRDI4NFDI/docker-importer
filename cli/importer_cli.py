@@ -12,7 +12,7 @@ from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
     get_workflow_result,
-    get_workflow_runs_last_24_hours,
+    get_workflow_runs_last_n_hours,
     get_workflow_status,
     import_cran_sync,
     import_doi_sync,
@@ -198,9 +198,10 @@ def cmd_import_workflow_runs(_args: argparse.Namespace) -> int:
     log.info("Fetching workflow runs from the last 24 hours.")
 
     try:
-        result = get_workflow_runs_last_24_hours(
+        result = get_workflow_runs_last_n_hours(
             PREFECT_API_URL,
             PREFECT_API_AUTH_STRING,
+            72
         )
         print(json.dumps(result))
         return 0

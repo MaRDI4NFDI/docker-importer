@@ -206,17 +206,18 @@ def get_workflow_result(
     )
 
 
-def get_workflow_runs_last_24_hours(
+def get_workflow_runs_last_n_hours(
     prefect_api_url: str,
     prefect_api_auth_string: str | None,
+    hours: int,
 ) -> list[dict]:
     """
-    Fetch Prefect flow runs from the last 24 hours (excluding SCHEDULED).
+    Fetch Prefect flow runs from the last n hours (excluding SCHEDULED).
     Works with Prefect Server/OSS REST API (/api/flow_runs/filter).
     """
-    log.info("Fetching workflow runs from the last 24 hours.")
+    log.info(f"Fetching workflow runs from the last {hours} hours.")
 
-    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     since_str = since.isoformat().replace("+00:00", "Z")
 
     url = prefect_api_url.rstrip("/") + "/flow_runs/filter"

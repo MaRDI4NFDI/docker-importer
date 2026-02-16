@@ -105,6 +105,7 @@ class ZBMathSource(ADataSource):
         self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("Person", "item")[0]
 
     def pull(self):
+        #self.write_subset_dump(file=)
         #self.write_data_dump()
         self.process_data()
 
@@ -115,6 +116,54 @@ class ZBMathSource(ADataSource):
             x = x.replace("\t", " ")
             new_values.append(x)
         return("\t".join(new_values) + "\n")
+
+    def write_subset_dump(self, file):
+        """
+        Overrides abstract method.
+        This method queries the zbMath API to get a data dump of all records,
+        optionally between from_date and until_date
+        """
+        url = "https://api.zbmath.org/v1/document/"
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        self.raw_dump_path = self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt"
+        with open(file,"r") as f:
+            de_numbers = f.read().splitlines()
+        headers = ['biographic_references', 'contributors', 'database', 'datestamp', 'document_type', 'editorial_contributions', 'id', 'identifier', 'keywords', 'language', 'license', 'links', 'msc', 'references', 'source', 'states', 'title', 'year', 'zbmath_url']
+        with open(self.raw_dump_path, "a+") as f:
+            f.write("\t".join(headers) + "\n")
+            max_retries = 5
+            for de in de_numbers:
+                retries = 0
+                while retries <= max_retries:
+                    try:
+                        response = requests.get(url + de)
+                        if response.status_code == 200:
+                            data=response.json()
+                            if not data["result"]:
+                                break
+                            if list(data["result"].keys()) != headers:
+                                    print(f"wrong headers in {data['result']}")
+                                    break
+                            f.write(self.get_line(data["result"].values()))
+                            f.flush()
+                            os.fsync(f)
+                            break
+                        elif response.status_code == 502 and retries < max_retries:
+                            print("Encountered 502 error, retrying...")
+                            retries += 1
+                            sleep(5)
+                        else:
+                            print(f"Failed to retrieve data: {response.status_code}")
+                            break
+                    except (IncompleteRead, ChunkedEncodingError, ProtocolError) as e:
+                        print(f"Exception occurred: {e}")
+                        retries += 1
+                        sleep(30)
+                    except Exception as e:
+                        print(f"An unexpected error occurred: {e}")
+                        break
+                else:
+                    print(f"Max retries reached for {de}")
 
     def write_data_dump(self):
         """

@@ -131,42 +131,39 @@ class ZBMathSource(ADataSource):
         headers = ['biographic_references', 'contributors', 'database', 'datestamp', 'document_type', 'editorial_contributions', 'id', 'identifier', 'keywords', 'language', 'license', 'links', 'msc', 'references', 'source', 'states', 'title', 'year', 'zbmath_url']
         with open(self.raw_dump_path, "a+") as f:
             f.write("\t".join(headers) + "\n")
-            retries = 0
             max_retries = 5
             for de in de_numbers:
-                try:
-                    response = requests.get(url + de)
-                    if response.status_code == 200:
-                        retries = 0
-                        data=response.json()
-                        if not data["result"]:
-                            break
-                        if list(data["result"].keys()) != headers:
-                                print(f"wrong headers in {r}")
+                retries = 0
+                while retries <= max_retries:
+                    try:
+                        response = requests.get(url + de)
+                        if response.status_code == 200:
+                            data=response.json()
+                            if not data["result"]:
                                 break
-                        f.write(self.get_line(data["result"].values()))
-                        f.flush()
-                        os.fsync(f)
-                    elif response.status_code == 502 and retries < max_retries:
-                        print("Encountered 502 error, retrying...")
-                        retries += 1
-                        sleep(5)
-                        continue
-                    else:
-                        print(f"Failed to retrieve data: {response.status_code}")
-                        break
-                except (IncompleteRead, ChunkedEncodingError, ProtocolError) as e:
-                    print(f"Exception occurred: {e}")
-                    if retries < max_retries:
+                            if list(data["result"].keys()) != headers:
+                                    print(f"wrong headers in {data['result']}")
+                                    break
+                            f.write(self.get_line(data["result"].values()))
+                            f.flush()
+                            os.fsync(f)
+                            break
+                        elif response.status_code == 502 and retries < max_retries:
+                            print("Encountered 502 error, retrying...")
+                            retries += 1
+                            sleep(5)
+                        else:
+                            print(f"Failed to retrieve data: {response.status_code}")
+                            break
+                    except (IncompleteRead, ChunkedEncodingError, ProtocolError) as e:
+                        print(f"Exception occurred: {e}")
                         retries += 1
                         sleep(30)
-                        continue
-                    else:
-                        print("Max retries reached for Exception.")
+                    except Exception as e:
+                        print(f"An unexpected error occurred: {e}")
                         break
-                except Exception as e:
-                    print(f"An unexpected error occurred: {e}")
-                    break
+                else:
+                    print(f"Max retries reached for {de}")
 
     def write_data_dump(self):
         """

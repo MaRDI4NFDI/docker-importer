@@ -29,7 +29,11 @@ def normalize_list(value: Any) -> list[str]:
     if value is None:
         return []
     if isinstance(value, list):
-        return [str(v).strip() for v in value if str(v).strip()]
+        parts = []
+        for v in value:
+            parts.extend(re.split(r"[,\s]+", str(v).strip()))
+        #because re.split can produce empty strings
+        return [p for p in parts if p]
     if isinstance(value, str):
         return [v.strip() for v in re.split(r"[,\s]+", value) if v.strip()]
     return [str(value).strip()]

@@ -18,6 +18,7 @@ from ast import literal_eval
 
 from mardi_importer.base import ADataSource
 from .ZBMathPublication import ZBMathPublication
+from .ZBMathConfigParser import ZBMathConfigParser
 from .ZBMathAuthor import ZBMathAuthor
 from .ZBMathJournal import ZBMathJournal
 from .misc import get_tag, get_info_from_doi
@@ -30,13 +31,6 @@ class ZBMathSource(ADataSource):
         self,
         user,
         password,
-        out_dir,
-        tags,
-        from_date=None,
-        until_date=None,
-        raw_dump_path=None,
-        processed_dump_path=None,
-        split_id=None,
     ):  # , path
         """
         Args:
@@ -52,6 +46,16 @@ class ZBMathSource(ADataSource):
         # software_df = pd.read_csv(path)
         # self.software_list = software_df['Software'].tolist()
         super().__init__(user, password)
+
+        conf_path = "/config/import_config.config"
+        conf = ZBMathConfigParser(conf_path).parse_config()
+        out_dir = conf["out_dir"]
+        tags = conf["tags"]
+        from_date = conf["from_date"]
+        until_date = conf["until_date"]
+        raw_dump_path = conf["raw_dump_path"]
+        split_id = conf["split_id"]
+        processed_dump_path = conf["processed_dump_path"]
 
         if out_dir[-1] != "/":
             out_dir = out_dir + "/"
@@ -80,6 +84,7 @@ class ZBMathSource(ADataSource):
         self.internal_tags = ["author_id", "source", "classifications", "links"]
         self.existing_authors = {}
         self.existing_journals = {}
+        self.setup()
 
     def setup(self):
         """Create all necessary properties and entities for zbMath"""
@@ -100,9 +105,9 @@ class ZBMathSource(ADataSource):
         self.label_id_dict["review_prop"] = self.api.get_local_id_by_label("review text", "property")
         self.label_id_dict["mardi_profile_type_prop"] = self.api.get_local_id_by_label("MaRDI profile type", "property")
         self.label_id_dict["mardi_publication_profile_item"] = self.api.get_local_id_by_label(
-            "Publication", "item"
+            "MaRDI publication profile", "item"
         )[0]
-        self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("Person", "item")[0]
+        self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("MaRDI person profile", "item")[0]
 
     def pull(self):
         #self.write_subset_dump(file=)
@@ -269,7 +274,7 @@ class ZBMathSource(ADataSource):
                 "de_number\t"
                 + "creation_date\t"
                 + ("\t").join(self.tags)
-                + "_text\treview_sign\treviewer_id\n"
+                + "\n"
                 )
             
             #df = pd.read_csv(self.raw_dump_path, sep = "\t")

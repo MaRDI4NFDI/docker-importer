@@ -3,7 +3,7 @@ output_directory = /path/to/output/dir/
 [ZBMath]
 ; values that do not apply should be set to None
 tags = author, author_ids, document_title, source, classifications, language, links,
-    keywords, doi, publication_year, serial, zbl_id, review_text, review_sign, reviewer_id
+    keywords, doi, publication_year, serial, zbl_id, references, review_text, review_sign, reviewer_id
 raw_dump_path = None
 processed_dump_path = None
 split_id = None

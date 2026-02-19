@@ -18,9 +18,9 @@ def main(**args):
     pull = True
     push = True
 
-    if args["mode"] == "ZBMath":
+    if args["mode"] == "zbmath":
         pull = False
-
+        source.setup()
     source = Importer.create_source(args["mode"])
     if pull:
         source.pull()

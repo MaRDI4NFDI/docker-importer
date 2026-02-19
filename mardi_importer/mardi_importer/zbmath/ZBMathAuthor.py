@@ -1,6 +1,7 @@
 from wikibaseintegrator.wbi_helpers import execute_sparql_query, merge_items
 from mardi_importer import Importer
 
+@dataclass
 class ZBMathAuthor:
     """
     Class to merge zbMath author items in the local wikibase instance.
@@ -23,8 +24,8 @@ class ZBMathAuthor:
         self.QID = None
         self.zbmath_author_id = zbmath_author_id.strip()
         self.label_id_dict = label_id_dict
+        self.api = Importer.get_api('zbmath')
         self.item = self.init_item()
-        self.api = None
     
     def __post_init__(self):
         if self.api is None:

@@ -20,7 +20,7 @@ def main(**args):
 
     if args["mode"] == "zbmath":
         pull = False
-        source.setup()
+
     source = Importer.create_source(args["mode"])
     if pull:
         source.pull()

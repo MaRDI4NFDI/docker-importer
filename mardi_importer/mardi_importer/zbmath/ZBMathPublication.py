@@ -1,7 +1,6 @@
 from .misc import search_item_by_property
 from mardi_importer import Importer
 
-@dataclass
 class ZBMathPublication:
     """Class to manage zbMath publication items in the local Wikibase instance.
     Attributes:

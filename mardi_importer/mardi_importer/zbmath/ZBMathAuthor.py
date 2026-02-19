@@ -1,7 +1,6 @@
 from wikibaseintegrator.wbi_helpers import execute_sparql_query, merge_items
 from mardi_importer import Importer
 
-@dataclass
 class ZBMathAuthor:
     """
     Class to merge zbMath author items in the local wikibase instance.

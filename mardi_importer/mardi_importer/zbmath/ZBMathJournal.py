@@ -1,6 +1,5 @@
 from mardi_importer import Importer
 
-@dataclass
 class ZBMathJournal:
     """Class to manage zbMath journal items in the local Wikibase instance.
 

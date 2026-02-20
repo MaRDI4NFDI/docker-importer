@@ -1,0 +1,850 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importer Module for CRAN &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Importer Module API" href="importer.html" />
+    <link rel="prev" title="Launcher script" href="scripts.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flask_endpoints.html">Web API Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Launcher script</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Importer Module for CRAN</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.cran.CRANSource">mardi_importer.cran.CRANSource class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.cran.CRANSource.CRANSource"><code class="docutils literal notranslate"><span class="pre">CRANSource</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.CRANSource.CRANSource.packages"><code class="docutils literal notranslate"><span class="pre">CRANSource.packages</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.CRANSource.CRANSource.setup"><code class="docutils literal notranslate"><span class="pre">CRANSource.setup()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.CRANSource.CRANSource.pull"><code class="docutils literal notranslate"><span class="pre">CRANSource.pull()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.CRANSource.CRANSource.push"><code class="docutils literal notranslate"><span class="pre">CRANSource.push()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.cran.RPackage">mardi_importer.cran.RPackage class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage"><code class="docutils literal notranslate"><span class="pre">RPackage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.date"><code class="docutils literal notranslate"><span class="pre">RPackage.date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.label"><code class="docutils literal notranslate"><span class="pre">RPackage.label</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.description"><code class="docutils literal notranslate"><span class="pre">RPackage.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.long_description"><code class="docutils literal notranslate"><span class="pre">RPackage.long_description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.url"><code class="docutils literal notranslate"><span class="pre">RPackage.url</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.version"><code class="docutils literal notranslate"><span class="pre">RPackage.version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.versions"><code class="docutils literal notranslate"><span class="pre">RPackage.versions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.author"><code class="docutils literal notranslate"><span class="pre">RPackage.author</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.license"><code class="docutils literal notranslate"><span class="pre">RPackage.license</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.dependency"><code class="docutils literal notranslate"><span class="pre">RPackage.dependency</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.imports"><code class="docutils literal notranslate"><span class="pre">RPackage.imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.maintainer"><code class="docutils literal notranslate"><span class="pre">RPackage.maintainer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage._QID"><code class="docutils literal notranslate"><span class="pre">RPackage._QID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">RPackage.date</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">RPackage.label</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id2"><code class="docutils literal notranslate"><span class="pre">RPackage.description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id3"><code class="docutils literal notranslate"><span class="pre">RPackage.long_description</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id4"><code class="docutils literal notranslate"><span class="pre">RPackage.url</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id5"><code class="docutils literal notranslate"><span class="pre">RPackage.version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id6"><code class="docutils literal notranslate"><span class="pre">RPackage.versions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.authors"><code class="docutils literal notranslate"><span class="pre">RPackage.authors</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.license_data"><code class="docutils literal notranslate"><span class="pre">RPackage.license_data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.dependencies"><code class="docutils literal notranslate"><span class="pre">RPackage.dependencies</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id7"><code class="docutils literal notranslate"><span class="pre">RPackage.imports</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#id8"><code class="docutils literal notranslate"><span class="pre">RPackage.maintainer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.author_pool"><code class="docutils literal notranslate"><span class="pre">RPackage.author_pool</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.crossref_publications"><code class="docutils literal notranslate"><span class="pre">RPackage.crossref_publications</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.arxiv_publications"><code class="docutils literal notranslate"><span class="pre">RPackage.arxiv_publications</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.zenodo_resources"><code class="docutils literal notranslate"><span class="pre">RPackage.zenodo_resources</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.api"><code class="docutils literal notranslate"><span class="pre">RPackage.api</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.wdi"><code class="docutils literal notranslate"><span class="pre">RPackage.wdi</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.crossref"><code class="docutils literal notranslate"><span class="pre">RPackage.crossref</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.arxiv"><code class="docutils literal notranslate"><span class="pre">RPackage.arxiv</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.zenodo"><code class="docutils literal notranslate"><span class="pre">RPackage.zenodo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.QID"><code class="docutils literal notranslate"><span class="pre">RPackage.QID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.item"><code class="docutils literal notranslate"><span class="pre">RPackage.item</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.exists"><code class="docutils literal notranslate"><span class="pre">RPackage.exists()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.is_updated"><code class="docutils literal notranslate"><span class="pre">RPackage.is_updated()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.pull"><code class="docutils literal notranslate"><span class="pre">RPackage.pull()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.create"><code class="docutils literal notranslate"><span class="pre">RPackage.create()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.write"><code class="docutils literal notranslate"><span class="pre">RPackage.write()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.insert_claims"><code class="docutils literal notranslate"><span class="pre">RPackage.insert_claims()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.update"><code class="docutils literal notranslate"><span class="pre">RPackage.update()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.process_claims"><code class="docutils literal notranslate"><span class="pre">RPackage.process_claims()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_publications"><code class="docutils literal notranslate"><span class="pre">RPackage.parse_publications()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.get_last_update"><code class="docutils literal notranslate"><span class="pre">RPackage.get_last_update()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.clean_package_list"><code class="docutils literal notranslate"><span class="pre">RPackage.clean_package_list()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_software"><code class="docutils literal notranslate"><span class="pre">RPackage.parse_software()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_license"><code class="docutils literal notranslate"><span class="pre">RPackage.parse_license()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_authors"><code class="docutils literal notranslate"><span class="pre">RPackage.parse_authors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_maintainer"><code class="docutils literal notranslate"><span class="pre">RPackage.parse_maintainer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.get_license_QID"><code class="docutils literal notranslate"><span class="pre">RPackage.get_license_QID()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.get_wikidata_QID"><code class="docutils literal notranslate"><span class="pre">RPackage.get_wikidata_QID()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.get_versions"><code class="docutils literal notranslate"><span class="pre">RPackage.get_versions()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrator.html">Integrator Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Importer Module for CRAN</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/cran.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="importer-module-for-cran">
+<h1>Importer Module for CRAN<a class="headerlink" href="#importer-module-for-cran" title="Link to this heading"></a></h1>
+<p>This module imports R packages published at the Comprehensive R Archive Network <a class="reference external" href="https://cran.r-project.org/">(CRAN)</a>.</p>
+<p>Specifically, it reads the table of <a class="reference external" href="https://cran.r-project.org/web/packages/available_packages_by_date.html">packages ordered by date of publication</a>.
+This table contains for each  R package the <strong>package name</strong>, <strong>title</strong> and <strong>date of publication</strong>. Based on the <strong>package name</strong>,
+each package url can be accessed from:</p>
+<p><code class="docutils literal notranslate"><span class="pre">https://cran.r-project.org/web/packages/&lt;package_name&gt;/index.html</span></code></p>
+<p>Several attributes are listed for each package. Among them, the following attributes are imported, when present, to the MaRDI knowledge graph:</p>
+<dl class="field-list">
+<dt class="field-odd">Version<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Version of the package.</p>
+</dd>
+<dt class="field-even">Depends<span class="colon">:</span></dt>
+<dd class="field-even"><p>Software and package dependencies, including other R packages.</p>
+</dd>
+<dt class="field-odd">Published<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Date of publication.</p>
+</dd>
+<dt class="field-even">Author<span class="colon">:</span></dt>
+<dd class="field-even"><p>Authors of the package are to be indicated according to the <a class="reference external" href="https://cran.r-project.org/web/packages/policies.html">CRAN Repository Policy</a> with the abbreviation [aut]. Given that this guideline is not always implemented, it is not always
+possible to properly parse the authors.</p>
+<p>When no abbrevations describing the role of each individual are included, just the first listed author is imported.</p>
+</dd>
+<dt class="field-odd">License<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://svn.r-project.org/R/trunk/share/licenses/license.db">List of accepted licenses</a>.</p>
+</dd>
+<dt class="field-even">Maintainer<span class="colon">:</span></dt>
+<dd class="field-even"><p>Software maintainer (Generally one of the authors).</p>
+</dd>
+</dl>
+<section id="module-mardi_importer.cran.CRANSource">
+<span id="mardi-importer-cran-cransource-class"></span><h2>mardi_importer.cran.CRANSource class<a class="headerlink" href="#module-mardi_importer.cran.CRANSource" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.cran.CRANSource.CRANSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mardi_importer.cran.CRANSource.</span></span><span class="sig-name descname"><span class="pre">CRANSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/CRANSource.html#CRANSource"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.CRANSource.CRANSource" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ADataSource</span></code></p>
+<p>Processes data from the Comprehensive R Archive Network.</p>
+<p>Metadata for each R package is scrapped from the CRAN Repository. Each
+Wikibase item corresponding to each R package is subsequently updated
+or created, in case of a new package.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.CRANSource.CRANSource.packages">
+<span class="sig-name descname"><span class="pre">packages</span></span><a class="headerlink" href="#mardi_importer.cran.CRANSource.CRANSource.packages" title="Link to this definition"></a></dt>
+<dd><p>Dataframe with <strong>package name</strong>, <strong>title</strong> and <strong>date of publication</strong> for
+each package in CRAN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Pandas dataframe</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.CRANSource.CRANSource.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/CRANSource.html#CRANSource.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.CRANSource.CRANSource.setup" title="Link to this definition"></a></dt>
+<dd><p>Create all necessary properties and entities for CRAN</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.CRANSource.CRANSource.pull">
+<span class="sig-name descname"><span class="pre">pull</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/CRANSource.html#CRANSource.pull"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.CRANSource.CRANSource.pull" title="Link to this definition"></a></dt>
+<dd><p>Reads <strong>date</strong>, <strong>package name</strong> and <strong>title</strong> from the CRAN Repository URL.</p>
+<p>The result is saved as a pandas dataframe in the attribute <strong>packages</strong>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Attribute <code class="docutils literal notranslate"><span class="pre">packages</span></code></p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Pandas dataframe</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.CRANSource.CRANSource.push">
+<span class="sig-name descname"><span class="pre">push</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/CRANSource.html#CRANSource.push"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.CRANSource.CRANSource.push" title="Link to this definition"></a></dt>
+<dd><p>Updates the MaRDI Wikibase entities corresponding to R packages.</p>
+<p>For each <strong>package name</strong> in the attribute <strong>packages</strong> checks
+if the date in CRAN coincides with the date in the MaRDI
+knowledge graph. If not, the package is updated. If the package
+is not found in the MaRDI knowledge graph, the corresponding
+item is created.</p>
+<p>It creates a <a class="reference internal" href="#module-mardi_importer.cran.RPackage" title="mardi_importer.cran.RPackage"><code class="xref py py-class docutils literal notranslate"><span class="pre">mardi_importer.cran.RPackage</span></code></a> instance
+for each package.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-mardi_importer.cran.RPackage">
+<span id="mardi-importer-cran-rpackage-class"></span><h2>mardi_importer.cran.RPackage class<a class="headerlink" href="#module-mardi_importer.cran.RPackage" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mardi_importer.cran.RPackage.</span></span><span class="sig-name descname"><span class="pre">RPackage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">date</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long_description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">versions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">authors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">py'&gt;]</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">license_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dependencies</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imports</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">maintainer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">author_pool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">py'&gt;]</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossref_publications</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">CrossrefPublication</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arxiv_publications</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ArxivPublication</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zenodo_resources</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ZenodoResource</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_QID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_item</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MardiItem</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MardiClient</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wdi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">WikidataImporter</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crossref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">CrossrefSource</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arxiv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ArxivSource</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zenodo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ZenodoSource</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to manage R package items in the local Wikibase instance.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.date">
+<span class="sig-name descname"><span class="pre">date</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.date" title="Link to this definition"></a></dt>
+<dd><p>Date of publication</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.label">
+<span class="sig-name descname"><span class="pre">label</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.label" title="Link to this definition"></a></dt>
+<dd><p>Package name</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.description">
+<span class="sig-name descname"><span class="pre">description</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.description" title="Link to this definition"></a></dt>
+<dd><p>Title of the R package</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.long_description">
+<span class="sig-name descname"><span class="pre">long_description</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.long_description" title="Link to this definition"></a></dt>
+<dd><p>Detailed description of the R package</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.url">
+<span class="sig-name descname"><span class="pre">url</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.url" title="Link to this definition"></a></dt>
+<dd><p>URL to the CRAN repository</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.version">
+<span class="sig-name descname"><span class="pre">version</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.version" title="Link to this definition"></a></dt>
+<dd><p>Version of the R package</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.versions">
+<span class="sig-name descname"><span class="pre">versions</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.versions" title="Link to this definition"></a></dt>
+<dd><p>Previous published versions</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Tuple[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.author">
+<span class="sig-name descname"><span class="pre">author</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.author" title="Link to this definition"></a></dt>
+<dd><p>Author(s) of the package</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.license">
+<span class="sig-name descname"><span class="pre">license</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.license" title="Link to this definition"></a></dt>
+<dd><p>Software license</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.dependency">
+<span class="sig-name descname"><span class="pre">dependency</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.dependency" title="Link to this definition"></a></dt>
+<dd><p>Dependencies to R and other packages</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.imports">
+<span class="sig-name descname"><span class="pre">imports</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.imports" title="Link to this definition"></a></dt>
+<dd><p>Imported R packages</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Tuple[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.maintainer">
+<span class="sig-name descname"><span class="pre">maintainer</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.maintainer" title="Link to this definition"></a></dt>
+<dd><p>Software maintainer</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage._QID">
+<span class="sig-name descname"><span class="pre">_QID</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage._QID" title="Link to this definition"></a></dt>
+<dd><p>Package QID</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">date</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">label</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-name descname"><span class="pre">description</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#id2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id3">
+<span class="sig-name descname"><span class="pre">long_description</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></span><a class="headerlink" href="#id3" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id4">
+<span class="sig-name descname"><span class="pre">url</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></span><a class="headerlink" href="#id4" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">version</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></span><a class="headerlink" href="#id5" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">versions</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#id6" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.authors">
+<span class="sig-name descname"><span class="pre">authors</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">py'&gt;]</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.authors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.license_data">
+<span class="sig-name descname"><span class="pre">license_data</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.license_data" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.dependencies">
+<span class="sig-name descname"><span class="pre">dependencies</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.dependencies" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id7">
+<span class="sig-name descname"><span class="pre">imports</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#id7" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id8">
+<span class="sig-name descname"><span class="pre">maintainer</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></span><a class="headerlink" href="#id8" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.author_pool">
+<span class="sig-name descname"><span class="pre">author_pool</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">py'&gt;]</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.author_pool" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.crossref_publications">
+<span class="sig-name descname"><span class="pre">crossref_publications</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">CrossrefPublication</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.crossref_publications" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.arxiv_publications">
+<span class="sig-name descname"><span class="pre">arxiv_publications</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ArxivPublication</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.arxiv_publications" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.zenodo_resources">
+<span class="sig-name descname"><span class="pre">zenodo_resources</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">ZenodoResource</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.zenodo_resources" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.api">
+<span class="sig-name descname"><span class="pre">api</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MardiClient</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.api" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.wdi">
+<span class="sig-name descname"><span class="pre">wdi</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">WikidataImporter</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.wdi" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.crossref">
+<span class="sig-name descname"><span class="pre">crossref</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">CrossrefSource</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.crossref" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.arxiv">
+<span class="sig-name descname"><span class="pre">arxiv</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ArxivSource</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.arxiv" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.zenodo">
+<span class="sig-name descname"><span class="pre">zenodo</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ZenodoSource</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.zenodo" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.QID">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">QID</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.QID" title="Link to this definition"></a></dt>
+<dd><p>Return the QID of the R package in the knowledge graph.</p>
+<p>Searches for an item with the package label in the Wikibase
+SQL tables and returns the QID if a matching result is found.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The entity QID representing the R package.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.item">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">item</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">MardiItem</span></span><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.item" title="Link to this definition"></a></dt>
+<dd><p>Return the Item representing the R package.</p>
+<p>Adds also the label and description of the package.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>MardiClient item</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>MardiItem</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.exists">
+<span class="sig-name descname"><span class="pre">exists</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.exists" title="Link to this definition"></a></dt>
+<dd><p>Checks if an item corresponding to the R package already exists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Entity ID</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.is_updated">
+<span class="sig-name descname"><span class="pre">is_updated</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.is_updated"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.is_updated" title="Link to this definition"></a></dt>
+<dd><p>Checks if the Item corresponding to the R package is up to date.</p>
+<p>Compares the last update property in the local knowledge graph with
+the publication date imported from CRAN.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>True</strong> if both dates coincide, <strong>False</strong> otherwise.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.pull">
+<span class="sig-name descname"><span class="pre">pull</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.pull"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.pull" title="Link to this definition"></a></dt>
+<dd><p>Imports metadata from CRAN corresponding to the R package.</p>
+<p>Imports <strong>Version</strong>, <strong>Dependencies</strong>, <strong>Imports**m **Authors</strong>,
+<strong>Maintainer</strong> and <strong>License</strong> and saves them as instance
+attributes.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.create">
+<span class="sig-name descname"><span class="pre">create</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.create"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.create" title="Link to this definition"></a></dt>
+<dd><p>Create a package in the Wikibase instance.</p>
+<p>This function pulls the package, inserts its claims, and writes
+it to the Wikibase instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.write" title="Link to this definition"></a></dt>
+<dd><p>Write the package item to the Wikibase instance.</p>
+<p>If the item has claims, it will be written to the Wikibase instance.
+If the item is successfully written, a dictionary with the QID of the
+item will be returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A dictionary with the QID of the written item if successful,
+or None otherwise.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[Dict[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.insert_claims">
+<span class="sig-name descname"><span class="pre">insert_claims</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.insert_claims"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.insert_claims" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.update">
+<span class="sig-name descname"><span class="pre">update</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.update" title="Link to this definition"></a></dt>
+<dd><p>Updates existing WB item with the imported metadata from CRAN.</p>
+<p>The metadata corresponding to the package is first pulled from CRAN and
+saved as instance attributes through <a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.pull" title="mardi_importer.cran.RPackage.RPackage.pull"><code class="xref py py-meth docutils literal notranslate"><span class="pre">pull()</span></code></a>. The statements that
+do not coincide with the locally saved information are updated or
+subsituted with the updated information.</p>
+<p>Uses <code class="xref py py-class docutils literal notranslate"><span class="pre">mardi_importer.wikibase.WBItem</span></code> to update the item
+corresponding to the R package.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ID of the updated R package.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.process_claims">
+<span class="sig-name descname"><span class="pre">process_claims</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prop_nr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualifier_nr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.process_claims"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.process_claims" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.parse_publications">
+<span class="sig-name descname"><span class="pre">parse_publications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">description</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.parse_publications"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.parse_publications" title="Link to this definition"></a></dt>
+<dd><p>Extracts the DOI identification of related publications.</p>
+<p>Identifies the DOI of publications that are mentioned using the
+format <em>doi:</em> or <em>arXiv:</em> in the long description of the
+R package.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List containing the wikibase IDs of mentioned publications.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.get_last_update">
+<span class="sig-name descname"><span class="pre">get_last_update</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.get_last_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.get_last_update" title="Link to this definition"></a></dt>
+<dd><p>Returns the package last update date saved in the Wikibase instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Last update date in format DD-MM-YYYY.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.clean_package_list">
+<span class="sig-name descname"><span class="pre">clean_package_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_html</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.clean_package_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.clean_package_list" title="Link to this definition"></a></dt>
+<dd><p>Processes raw imported data from CRAN to enable the creation of items.</p>
+<ul class="simple">
+<li><p>Package dependencies are splitted at the comma position.</p></li>
+<li><p>License information is processed using the <a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_license" title="mardi_importer.cran.RPackage.RPackage.parse_license"><code class="xref py py-meth docutils literal notranslate"><span class="pre">parse_license()</span></code></a> method.</p></li>
+<li><p>Author information is processed using the <a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_authors" title="mardi_importer.cran.RPackage.RPackage.parse_authors"><code class="xref py py-meth docutils literal notranslate"><span class="pre">parse_authors()</span></code></a> method.</p></li>
+<li><p>Maintainer information is processed using the <a class="reference internal" href="#mardi_importer.cran.RPackage.RPackage.parse_maintainer" title="mardi_importer.cran.RPackage.RPackage.parse_maintainer"><code class="xref py py-meth docutils literal notranslate"><span class="pre">parse_maintainer()</span></code></a> method.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>table_html</strong> – HTML code obtained with BeautifulSoup corresponding to the table
+containing the metadata of the R package imported from CRAN.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dataframe with processed data from a single R package including columns:
+<strong>Version</strong>, <strong>Author</strong>, <strong>License</strong>, <strong>Depends</strong>, <strong>Imports</strong>
+and <strong>Maintainer</strong>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(Pandas dataframe)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.parse_software">
+<span class="sig-name descname"><span class="pre">parse_software</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">software_str</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.parse_software"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.parse_software" title="Link to this definition"></a></dt>
+<dd><p>Processes the dependency and import information of each R package.</p>
+<p>This includes:
+- Extracting the version information of each dependency/import if provided.
+- Providing the Item QID given the dependency/import label.
+- Creating a new Item if the dependency/import is not found in the</p>
+<blockquote>
+<div><p>local knowledge graph.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of tuples including software QID and version.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>List[Tuple[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.parse_license">
+<span class="sig-name descname"><span class="pre">parse_license</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.parse_license"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.parse_license" title="Link to this definition"></a></dt>
+<dd><p>Splits string of licenses.</p>
+<p>Takes into account that licenses are often not uniformly listed.
+Characters |, + and , are used to separate licenses. Further
+details on each license are often included in square brackets.</p>
+<p>The concrete License is identified and linked to the corresponding
+item that has previously been imported from Wikidata. Further license
+information, when provided between round or square brackets, is added
+as a qualifier.</p>
+<p>If a file license is mentioned, the linked to the file license
+in CRAN is added as a qualifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>str</em>) – String imported from CRAN representing license
+information.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of license tuples. Each tuple contains the license QID
+as the first element and the license qualifier as the
+second element.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Tuple[str, str]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.parse_authors">
+<span class="sig-name descname"><span class="pre">parse_authors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.parse_authors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.parse_authors" title="Link to this definition"></a></dt>
+<dd><p>Splits the string corresponding to the authors into a dictionary.</p>
+<p>Author information in CRAN is not registered uniformly. This function
+parses the imported string and returns just the names of the individuals
+that can be unequivocally identified as authors (i.e. they are followed
+by the <em>[aut]</em> abbreviation).</p>
+<p>Generally, authors in CRAN are indicated with the abbreviation <em>[aut]</em>.
+When no abbreviations are included, only the first individual is imported
+to Wikibase (otherwise it can often not be established whether
+information after the first author refers to another individual,
+an institution, a funder, etc.)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>String</em>) – String imported from CRAN representing author
+information.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary of authors and corresponding ORCID ID, if provided.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(Dict)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.parse_maintainer">
+<span class="sig-name descname"><span class="pre">parse_maintainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.parse_maintainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.parse_maintainer" title="Link to this definition"></a></dt>
+<dd><p>Remove unnecessary information from maintainer string.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>str</em>) – String imported from CRAN which may contain e-mail
+address and comments within brackets</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Name of the maintainer</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(str)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.get_license_QID">
+<span class="sig-name descname"><span class="pre">get_license_QID</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">license_str</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.get_license_QID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.get_license_QID" title="Link to this definition"></a></dt>
+<dd><p>Returns the Wikidata item ID corresponding to a software license.</p>
+<p>The same license is often denominated in CRAN using differents names.
+This function returns the wikidata item ID corresponding to a single
+unique license that is referenced in CRAN under different names (e.g.
+<em>Artistic-2.0</em> and <em>Artistic License 2.0</em> both refer to the same
+license, corresponding to item <em>Q14624826</em>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>license_str</strong> (<em>str</em>) – String corresponding to a license imported from CRAN.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Wikidata item ID.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(str)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.get_wikidata_QID">
+<span class="sig-name descname"><span class="pre">get_wikidata_QID</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.get_wikidata_QID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.get_wikidata_QID" title="Link to this definition"></a></dt>
+<dd><p>Get the Wikidata QID for the R package.</p>
+<p>Searches for the R package in Wikidata using its label. Retrieves
+the QID of matching entities and checks if there is an instance of
+an R package. If so, returns the QID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The Wikidata QID of the R package if found, or None otherwise.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Optional[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.cran.RPackage.RPackage.get_versions">
+<span class="sig-name descname"><span class="pre">get_versions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/cran/RPackage.html#RPackage.get_versions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.cran.RPackage.RPackage.get_versions" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="scripts.html" class="btn btn-neutral float-left" title="Launcher script" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="importer.html" class="btn btn-neutral float-right" title="Importer Module API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

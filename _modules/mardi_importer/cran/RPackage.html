@@ -1,0 +1,1185 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.cran.RPackage &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../flask_endpoints.html">Web API Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cran.html">Importer Module for CRAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../integrator.html">Integrator Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">mardi_importer.cran.RPackage</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mardi_importer.cran.RPackage</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mardiclient</span><span class="w"> </span><span class="kn">import</span> <span class="n">MardiClient</span><span class="p">,</span> <span class="n">MardiItem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Importer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer.wikidata</span><span class="w"> </span><span class="kn">import</span> <span class="n">WikidataImporter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer.arxiv</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArxivSource</span><span class="p">,</span> <span class="n">ArxivPublication</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer.crossref</span><span class="w"> </span><span class="kn">import</span> <span class="n">CrossrefSource</span><span class="p">,</span> <span class="n">CrossrefPublication</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer.zenodo</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZenodoSource</span><span class="p">,</span> <span class="n">ZenodoResource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">Author</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wikibaseintegrator.wbi_helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">search_entities</span><span class="p">,</span> <span class="n">remove_claims</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">io</span><span class="w"> </span><span class="kn">import</span> <span class="n">StringIO</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">bs4</span><span class="w"> </span><span class="kn">import</span> <span class="n">BeautifulSoup</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;CRANlogger&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="RPackage">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RPackage</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class to manage R package items in the local Wikibase instance.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        date:</span>
+<span class="sd">          Date of publication</span>
+<span class="sd">        label:</span>
+<span class="sd">          Package name</span>
+<span class="sd">        description:</span>
+<span class="sd">          Title of the R package</span>
+<span class="sd">        long_description:</span>
+<span class="sd">          Detailed description of the R package</span>
+<span class="sd">        url:</span>
+<span class="sd">          URL to the CRAN repository</span>
+<span class="sd">        version:</span>
+<span class="sd">          Version of the R package</span>
+<span class="sd">        versions:</span>
+<span class="sd">          Previous published versions</span>
+<span class="sd">        author:</span>
+<span class="sd">          Author(s) of the package</span>
+<span class="sd">        license:</span>
+<span class="sd">          Software license</span>
+<span class="sd">        dependency:</span>
+<span class="sd">          Dependencies to R and other packages</span>
+<span class="sd">        imports:</span>
+<span class="sd">          Imported R packages</span>
+<span class="sd">        maintainer:</span>
+<span class="sd">          Software maintainer</span>
+<span class="sd">        _QID:</span>
+<span class="sd">          Package QID</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">date</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">long_description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">versions</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">authors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Author</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">license_data</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">dependencies</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">imports</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">maintainer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">author_pool</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Author</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">crossref_publications</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">CrossrefPublication</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">arxiv_publications</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ArxivPublication</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">zenodo_resources</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">ZenodoResource</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">_QID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">_item</span><span class="p">:</span> <span class="n">MardiItem</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">api</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">MardiClient</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">wdi</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">WikidataImporter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">crossref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">CrossrefSource</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">arxiv</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ArxivSource</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">zenodo</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ZenodoSource</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">api</span> <span class="o">=</span> <span class="n">Importer</span><span class="o">.</span><span class="n">get_api</span><span class="p">(</span><span class="s2">&quot;cran&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">wdi</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wdi</span> <span class="o">=</span> <span class="n">WikidataImporter</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">crossref</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crossref</span> <span class="o">=</span> <span class="n">Importer</span><span class="o">.</span><span class="n">create_source</span><span class="p">(</span><span class="s2">&quot;crossref&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">arxiv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">arxiv</span> <span class="o">=</span> <span class="n">Importer</span><span class="o">.</span><span class="n">create_source</span><span class="p">(</span><span class="s2">&quot;arxiv&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">zenodo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zenodo</span> <span class="o">=</span> <span class="n">Importer</span><span class="o">.</span><span class="n">create_source</span><span class="p">(</span><span class="s2">&quot;zenodo&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">QID</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the QID of the R package in the knowledge graph.</span>
+
+<span class="sd">        Searches for an item with the package label in the Wikibase</span>
+<span class="sd">        SQL tables and returns the QID if a matching result is found.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The entity QID representing the R package.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_QID</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">is_instance_of</span><span class="p">(</span><span class="s2">&quot;wd:Q73539779&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_QID</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">item</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MardiItem</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the Item representing the R package.</span>
+
+<span class="sd">        Adds also the label and description of the package.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            MardiItem: MardiClient item</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_item</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+            <span class="n">description</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+                <span class="n">description</span> <span class="o">+=</span> <span class="s2">&quot; (R Package)&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_item</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">description</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_item</span>
+
+<div class="viewcode-block" id="RPackage.exists">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.exists">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if an item corresponding to the R package already exists.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">          str: Entity ID</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">QID</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">QID</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">QID</span></div>
+
+
+<div class="viewcode-block" id="RPackage.is_updated">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.is_updated">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_updated</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if the Item corresponding to the R package is up to date.</span>
+
+<span class="sd">        Compares the last update property in the local knowledge graph with</span>
+<span class="sd">        the publication date imported from CRAN.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">          bool: **True** if both dates coincide, **False** otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">date</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_last_update</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="RPackage.pull">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.pull">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pull</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Imports metadata from CRAN corresponding to the R package.</span>
+
+<span class="sd">        Imports **Version**, **Dependencies**, **Imports**m **Authors**,</span>
+<span class="sd">        **Maintainer** and **License** and saves them as instance</span>
+<span class="sd">        attributes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;https://CRAN.R-project.org/package=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">page</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+            <span class="n">soup</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="s2">&quot;lxml&quot;</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> package not found in CRAN.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">soup</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">&quot;table&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span> <span class="o">=</span> <span class="n">soup</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">&quot;p&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parse_publications</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">long_description</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+                <span class="n">table</span> <span class="o">=</span> <span class="n">soup</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">&quot;table&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">package_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clean_package_list</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="s2">&quot;Version&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Version&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;Author&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">authors</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Author&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;License&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">license_data</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;License&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;Depends&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">dependencies</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Depends&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;Imports&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">imports</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Imports&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s2">&quot;Maintainer&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Maintainer&quot;</span><span class="p">]</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">get_versions</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Metadata table not found in CRAN. Package has probably been archived.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="RPackage.create">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.create">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a package in the Wikibase instance.</span>
+
+<span class="sd">        This function pulls the package, inserts its claims, and writes</span>
+<span class="sd">        it to the Wikibase instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">package</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pull</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">package</span><span class="p">:</span>
+            <span class="n">package</span> <span class="o">=</span> <span class="n">package</span><span class="o">.</span><span class="n">insert_claims</span><span class="p">()</span><span class="o">.</span><span class="n">write</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">package</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package created with QID: </span><span class="si">{</span><span class="n">package</span><span class="p">[</span><span class="s1">&#39;QID&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="c1"># print(&#39;package created&#39;)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package could not be created.&quot;</span><span class="p">)</span></div>
+
+            <span class="c1"># print(&#39;package not created&#39;)</span>
+
+<div class="viewcode-block" id="RPackage.write">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.write">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Write the package item to the Wikibase instance.</span>
+
+<span class="sd">        If the item has claims, it will be written to the Wikibase instance.</span>
+<span class="sd">        If the item is successfully written, a dictionary with the QID of the</span>
+<span class="sd">        item will be returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Optional[Dict[str, str]]:</span>
+<span class="sd">                A dictionary with the QID of the written item if successful,</span>
+<span class="sd">                or None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">claims</span><span class="p">:</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">write</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">item</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;QID&quot;</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">id</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="RPackage.insert_claims">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.insert_claims">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">insert_claims</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Logic to determine if &#39;Author&#39; is the class or the module containing the class</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="s2">&quot;Author&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span><span class="o">.</span><span class="n">Author</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">author_factory</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not resolve a callable Author class. Check your imports.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Instance of: R package</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P31&quot;</span><span class="p">,</span> <span class="s2">&quot;wd:Q73539779&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Programmed in: R</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P277&quot;</span><span class="p">,</span> <span class="s2">&quot;wd:Q206904&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Long description</span>
+        <span class="n">prop_nr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="s2">&quot;property&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="n">prop_nr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span><span class="p">)</span>
+
+        <span class="c1"># Last update date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P5017&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;+</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">date</span><span class="si">}</span><span class="s2">T00:00:00Z&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Software version identifiers</span>
+        <span class="k">for</span> <span class="n">version</span><span class="p">,</span> <span class="n">publication_date</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">versions</span><span class="p">:</span>
+            <span class="n">qualifier</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P577&quot;</span><span class="p">,</span> <span class="n">publication_date</span><span class="p">)]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P348&quot;</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">qualifiers</span><span class="o">=</span><span class="n">qualifier</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">:</span>
+            <span class="n">qualifier</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P577&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;+</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">date</span><span class="si">}</span><span class="s2">T00:00:00Z&quot;</span><span class="p">)]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P348&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">qualifiers</span><span class="o">=</span><span class="n">qualifier</span><span class="p">)</span>
+
+        <span class="n">pool_for_items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">orcid</span> <span class="ow">or</span> <span class="n">a</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="p">:</span>
+                <span class="n">pool_for_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">=</span> <span class="n">author_factory</span><span class="o">.</span><span class="n">disambiguate_authors</span><span class="p">(</span><span class="n">pool_for_items</span><span class="p">)</span>
+
+        <span class="c1"># Authors</span>
+        <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">authors</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">author</span><span class="o">.</span><span class="n">orcid</span><span class="p">:</span>
+                <span class="n">author</span><span class="o">.</span><span class="n">pull_QID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">author</span><span class="o">.</span><span class="n">QID</span><span class="p">:</span>
+                    <span class="n">author</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P50&quot;</span><span class="p">,</span> <span class="n">author</span><span class="o">.</span><span class="n">QID</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">author</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P2093&quot;</span><span class="p">,</span> <span class="n">author</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Maintainer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="o">.</span><span class="n">pull_QID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="o">.</span><span class="n">QID</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P126&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="o">.</span><span class="n">QID</span><span class="p">)</span>
+
+        <span class="c1"># Licenses</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_data</span><span class="p">:</span>
+            <span class="n">claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">license_data</span><span class="p">,</span> <span class="s2">&quot;wdt:P275&quot;</span><span class="p">,</span> <span class="s2">&quot;wdt:P9767&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claims</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span>
+
+        <span class="c1"># Dependencies</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dependencies</span><span class="p">:</span>
+            <span class="n">claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dependencies</span><span class="p">,</span> <span class="s2">&quot;wdt:P1547&quot;</span><span class="p">,</span> <span class="s2">&quot;wdt:P348&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claims</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span>
+
+        <span class="c1"># Imports</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">imports</span><span class="p">:</span>
+            <span class="n">prop_nr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="s2">&quot;imports&quot;</span><span class="p">,</span> <span class="s2">&quot;property&quot;</span><span class="p">)</span>
+            <span class="n">claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">imports</span><span class="p">,</span> <span class="n">prop_nr</span><span class="p">,</span> <span class="s2">&quot;wdt:P348&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claims</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span>
+
+        <span class="c1"># Related publications and sources</span>
+        <span class="n">cites_work</span> <span class="o">=</span> <span class="s2">&quot;wdt:P2860&quot;</span>
+        <span class="k">for</span> <span class="n">publications</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crossref_publications</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">arxiv_publications</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zenodo_resources</span><span class="p">,</span>
+        <span class="p">]:</span>
+            <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="n">publications</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="n">publication</span><span class="o">.</span><span class="n">authors</span><span class="p">:</span>
+                    <span class="n">author</span><span class="o">.</span><span class="n">pull_QID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">)</span>
+                <span class="n">publication</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="n">cites_work</span><span class="p">,</span> <span class="n">publication</span><span class="o">.</span><span class="n">QID</span><span class="p">)</span>
+
+        <span class="c1"># CRAN Project</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P5565&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+
+        <span class="c1"># Wikidata QID</span>
+        <span class="n">wikidata_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wikidata_QID</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">wikidata_QID</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;Wikidata QID&quot;</span><span class="p">,</span> <span class="n">wikidata_QID</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="RPackage.update">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.update">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates existing WB item with the imported metadata from CRAN.</span>
+
+<span class="sd">        The metadata corresponding to the package is first pulled from CRAN and</span>
+<span class="sd">        saved as instance attributes through :meth:`pull`. The statements that</span>
+<span class="sd">        do not coincide with the locally saved information are updated or</span>
+<span class="sd">        subsituted with the updated information.</span>
+
+<span class="sd">        Uses :class:`mardi_importer.wikibase.WBItem` to update the item</span>
+<span class="sd">        corresponding to the R package.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">          str: ID of the updated R package.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Logic to determine if &#39;Author&#39; is the class or the module containing the class</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="s2">&quot;Author&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span><span class="o">.</span><span class="n">Author</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">author_factory</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not resolve a callable Author class. Check your imports.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pull</span><span class="p">():</span>
+            <span class="c1"># Obtain current Authors</span>
+            <span class="n">current_authors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="s2">&quot;wdt:P50&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">author_qid</span> <span class="ow">in</span> <span class="n">current_authors</span><span class="p">:</span>
+                <span class="n">author_item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="n">author_qid</span><span class="p">)</span>
+                <span class="n">author_label</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">author_item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;en&quot;</span><span class="p">))</span>
+                <span class="n">current_author</span> <span class="o">=</span> <span class="n">Author</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">author_label</span><span class="p">)</span>
+                <span class="n">current_author</span><span class="o">.</span><span class="n">_QID</span> <span class="o">=</span> <span class="n">author_qid</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">+=</span> <span class="p">[</span><span class="n">current_author</span><span class="p">]</span>
+
+            <span class="c1"># Disambiguate Authors and create corresponding Author items</span>
+            <span class="n">pool_for_items</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">orcid</span> <span class="ow">or</span> <span class="n">a</span><span class="o">.</span><span class="n">QID</span> <span class="ow">or</span> <span class="n">a</span> <span class="ow">is</span> <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="p">:</span>
+                    <span class="n">pool_for_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">=</span> <span class="n">author_factory</span><span class="o">.</span><span class="n">disambiguate_authors</span><span class="p">(</span><span class="n">pool_for_items</span><span class="p">)</span>
+
+            <span class="c1"># GUID to remove</span>
+            <span class="n">remove_guid</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">props_to_delete</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="s2">&quot;wdt:P50&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;wdt:P2093&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;wdt:P275&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;wdt:P1547&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;imports&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;wdt:P2860&quot;</span><span class="p">,</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">prop_str</span> <span class="ow">in</span> <span class="n">props_to_delete</span><span class="p">:</span>
+                <span class="n">prop_nr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="n">prop_str</span><span class="p">,</span> <span class="s2">&quot;property&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">claim</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">prop_nr</span><span class="p">):</span>
+                    <span class="n">remove_guid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">claim</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">guid</span> <span class="ow">in</span> <span class="n">remove_guid</span><span class="p">:</span>
+                <span class="n">remove_claims</span><span class="p">(</span><span class="n">guid</span><span class="p">,</span> <span class="n">login</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">login</span><span class="p">,</span> <span class="n">is_bot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># Restart item state</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;en&quot;</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+                <span class="n">description</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+                    <span class="n">description</span> <span class="o">+=</span> <span class="s2">&quot; (R Package)&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">description</span><span class="p">)</span>
+
+            <span class="c1"># Long description</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span>
+                <span class="s2">&quot;description&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_description</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;replace_all&quot;</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Last update date</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span>
+                <span class="s2">&quot;wdt:P5017&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;+</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">date</span><span class="si">}</span><span class="s2">T00:00:00Z&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;replace_all&quot;</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Software version identifiers</span>
+            <span class="k">for</span> <span class="n">version</span><span class="p">,</span> <span class="n">publication_date</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">versions</span><span class="p">:</span>
+                <span class="n">qualifier</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P577&quot;</span><span class="p">,</span> <span class="n">publication_date</span><span class="p">)]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P348&quot;</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">qualifiers</span><span class="o">=</span><span class="n">qualifier</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">:</span>
+                <span class="n">qualifier</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P577&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;+</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">date</span><span class="si">}</span><span class="s2">T00:00:00Z&quot;</span><span class="p">)]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P348&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="n">qualifiers</span><span class="o">=</span><span class="n">qualifier</span><span class="p">)</span>
+
+            <span class="c1"># Authors</span>
+            <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">authors</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">author</span><span class="o">.</span><span class="n">orcid</span><span class="p">:</span>
+                    <span class="n">author</span><span class="o">.</span><span class="n">pull_QID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">author</span><span class="o">.</span><span class="n">QID</span><span class="p">:</span>
+                        <span class="n">author</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P50&quot;</span><span class="p">,</span> <span class="n">author</span><span class="o">.</span><span class="n">QID</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">author</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P2093&quot;</span><span class="p">,</span> <span class="n">author</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+            <span class="c1"># Maintainer</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="o">.</span><span class="n">pull_QID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P126&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">maintainer</span><span class="o">.</span><span class="n">QID</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;replace_all&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Licenses</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">license_data</span><span class="p">:</span>
+                <span class="n">claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">license_data</span><span class="p">,</span> <span class="s2">&quot;wdt:P275&quot;</span><span class="p">,</span> <span class="s2">&quot;wdt:P9767&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claims</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span>
+
+            <span class="c1"># Dependencies</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dependencies</span><span class="p">:</span>
+                <span class="n">claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dependencies</span><span class="p">,</span> <span class="s2">&quot;wdt:P1547&quot;</span><span class="p">,</span> <span class="s2">&quot;wdt:P348&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claims</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span>
+
+            <span class="c1"># Imports</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">imports</span><span class="p">:</span>
+                <span class="n">prop_nr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="s2">&quot;imports&quot;</span><span class="p">,</span> <span class="s2">&quot;property&quot;</span><span class="p">)</span>
+                <span class="n">claims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">imports</span><span class="p">,</span> <span class="n">prop_nr</span><span class="p">,</span> <span class="s2">&quot;wdt:P348&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claims</span><span class="p">(</span><span class="n">claims</span><span class="p">)</span>
+
+            <span class="c1"># Related publications and sources</span>
+            <span class="n">cites_work</span> <span class="o">=</span> <span class="s2">&quot;wdt:P2860&quot;</span>
+            <span class="k">for</span> <span class="n">publications</span> <span class="ow">in</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">crossref_publications</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">arxiv_publications</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">zenodo_resources</span><span class="p">,</span>
+            <span class="p">]:</span>
+                <span class="k">for</span> <span class="n">publication</span> <span class="ow">in</span> <span class="n">publications</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="n">publication</span><span class="o">.</span><span class="n">authors</span><span class="p">:</span>
+                        <span class="n">author</span><span class="o">.</span><span class="n">pull_QID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span><span class="p">)</span>
+                    <span class="n">publication</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="n">cites_work</span><span class="p">,</span> <span class="n">publication</span><span class="o">.</span><span class="n">QID</span><span class="p">)</span>
+
+            <span class="c1"># CRAN Project</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P5565&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;replace_all&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Wikidata QID</span>
+            <span class="n">wikidata_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wikidata_QID</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">wikidata_QID</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;Wikidata QID&quot;</span><span class="p">,</span> <span class="n">wikidata_QID</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;replace_all&quot;</span><span class="p">)</span>
+
+            <span class="n">package</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">()</span>
+
+            <span class="k">if</span> <span class="n">package</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package with QID updated: </span><span class="si">{</span><span class="n">package</span><span class="p">[</span><span class="s1">&#39;QID&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package could not be updated.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RPackage.process_claims">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.process_claims">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_claims</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">prop_nr</span><span class="p">,</span> <span class="n">qualifier_nr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">claims</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">value</span><span class="p">,</span> <span class="n">qualifier_value</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">qualifier_prop_nr</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;wdt:P2699&quot;</span> <span class="k">if</span> <span class="n">qualifier_value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;https&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">qualifier_nr</span>
+            <span class="p">)</span>
+            <span class="n">qualifier</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="n">qualifier_prop_nr</span><span class="p">,</span> <span class="n">qualifier_value</span><span class="p">)]</span>
+                <span class="k">if</span> <span class="n">qualifier_value</span>
+                <span class="k">else</span> <span class="p">[]</span>
+            <span class="p">)</span>
+            <span class="n">claims</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="n">prop_nr</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">qualifiers</span><span class="o">=</span><span class="n">qualifier</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">claims</span></div>
+
+
+<div class="viewcode-block" id="RPackage.parse_publications">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.parse_publications">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_publications</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">description</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extracts the DOI identification of related publications.</span>
+
+<span class="sd">        Identifies the DOI of publications that are mentioned using the</span>
+<span class="sd">        format *doi:* or *arXiv:* in the long description of the</span>
+<span class="sd">        R package.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">          List:</span>
+<span class="sd">            List containing the wikibase IDs of mentioned publications.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">doi_references</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;&lt;doi:(.*?)&gt;&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span>
+        <span class="n">arxiv_references</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;&lt;arXiv:(.*?)&gt;&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span>
+        <span class="n">zenodo_references</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;&lt;zenodo:(.*?)&gt;&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">)</span>
+
+        <span class="n">doi_references</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">x</span><span class="p">,</span> <span class="n">doi_references</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">arxiv_references</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">x</span><span class="p">,</span> <span class="n">arxiv_references</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">zenodo_references</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="n">x</span><span class="p">,</span> <span class="n">zenodo_references</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">crossref_references</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">doi</span> <span class="ow">in</span> <span class="n">doi_references</span><span class="p">:</span>
+            <span class="n">doi</span> <span class="o">=</span> <span class="n">doi</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;10.48550/&quot;</span><span class="p">,</span> <span class="n">doi</span><span class="p">):</span>
+                <span class="n">arxiv_id</span> <span class="o">=</span> <span class="n">doi</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">)</span>
+                <span class="n">arxiv_id</span> <span class="o">=</span> <span class="n">arxiv_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;10.48550/arxiv.&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="n">arxiv_references</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arxiv_id</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="k">elif</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;10.5281/&quot;</span><span class="p">,</span> <span class="n">doi</span><span class="p">):</span>
+                <span class="n">zenodo_id</span> <span class="o">=</span> <span class="n">doi</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">)</span>
+                <span class="n">zenodo_id</span> <span class="o">=</span> <span class="n">zenodo_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;10.5281/zenodo.&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="n">zenodo_references</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">zenodo_id</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">crossref_references</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">doi</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">doi</span> <span class="ow">in</span> <span class="n">crossref_references</span><span class="p">:</span>
+            <span class="n">publication</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crossref</span><span class="o">.</span><span class="n">new_publication</span><span class="p">(</span><span class="n">doi</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">+=</span> <span class="n">publication</span><span class="o">.</span><span class="n">authors</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">crossref_publications</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">arxiv_id</span> <span class="ow">in</span> <span class="n">arxiv_references</span><span class="p">:</span>
+            <span class="n">arxiv_id</span> <span class="o">=</span> <span class="n">arxiv_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">)</span>
+            <span class="n">publication</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">arxiv</span><span class="o">.</span><span class="n">new_publication</span><span class="p">(</span><span class="n">arxiv_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">publication</span><span class="o">.</span><span class="n">title</span> <span class="o">!=</span> <span class="s2">&quot;Error&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">+=</span> <span class="n">publication</span><span class="o">.</span><span class="n">authors</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">arxiv_publications</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">zenodo_id</span> <span class="ow">in</span> <span class="n">zenodo_references</span><span class="p">:</span>
+            <span class="n">zenodo_id</span> <span class="o">=</span> <span class="n">zenodo_id</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="s2">&quot;.&quot;</span><span class="p">)</span>
+            <span class="n">publication</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zenodo</span><span class="o">.</span><span class="n">new_resource</span><span class="p">(</span><span class="n">zenodo_id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">+=</span> <span class="n">publication</span><span class="o">.</span><span class="n">authors</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zenodo_resources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">publication</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="RPackage.get_last_update">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.get_last_update">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_last_update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the package last update date saved in the Wikibase instance.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: Last update date in format DD-MM-YYYY.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">last_update</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="s2">&quot;wdt:P5017&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">last_update</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">:</span><span class="mi">11</span><span class="p">]</span> <span class="k">if</span> <span class="n">last_update</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RPackage.clean_package_list">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.clean_package_list">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clean_package_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_html</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Processes raw imported data from CRAN to enable the creation of items.</span>
+
+<span class="sd">        - Package dependencies are splitted at the comma position.</span>
+<span class="sd">        - License information is processed using the :meth:`parse_license` method.</span>
+<span class="sd">        - Author information is processed using the :meth:`parse_authors` method.</span>
+<span class="sd">        - Maintainer information is processed using the :meth:`parse_maintainer` method.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            table_html:</span>
+<span class="sd">              HTML code obtained with BeautifulSoup corresponding to the table</span>
+<span class="sd">              containing the metadata of the R package imported from CRAN.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            (Pandas dataframe):</span>
+<span class="sd">              Dataframe with processed data from a single R package including columns:</span>
+<span class="sd">              **Version**, **Author**, **License**, **Depends**, **Imports**</span>
+<span class="sd">              and **Maintainer**.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">package_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_html</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">table_html</span><span class="p">)))</span>
+        <span class="n">package_df</span> <span class="o">=</span> <span class="n">package_df</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;Depends&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Depends&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Depends&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parse_software</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;Imports&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Imports&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Imports&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parse_software</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;License&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;License&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;License&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parse_license</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;Author&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Author&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">table_html</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;td&quot;</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Author:&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">find_next_sibling</span><span class="p">(</span><span class="s2">&quot;td&quot;</span><span class="p">))</span>
+                <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Author&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Author&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parse_authors</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;Maintainer&quot;</span> <span class="ow">in</span> <span class="n">package_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Maintainer&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">package_df</span><span class="p">[</span><span class="s2">&quot;Maintainer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parse_maintainer</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">package_df</span></div>
+
+
+<div class="viewcode-block" id="RPackage.parse_software">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.parse_software">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_software</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">software_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Processes the dependency and import information of each R package.</span>
+
+<span class="sd">        This includes:</span>
+<span class="sd">        - Extracting the version information of each dependency/import if provided.</span>
+<span class="sd">        - Providing the Item QID given the dependency/import label.</span>
+<span class="sd">        - Creating a new Item if the dependency/import is not found in the</span>
+<span class="sd">          local knowledge graph.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Tuple[str, str]]:</span>
+<span class="sd">                List of tuples including software QID and version.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">software_str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">software_list</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">software_str</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
+        <span class="n">software_tuples</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">software_string</span> <span class="ow">in</span> <span class="n">software_list</span><span class="p">:</span>
+            <span class="n">software_version</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;\((.*?)\)&quot;</span><span class="p">,</span> <span class="n">software_string</span><span class="p">)</span>
+            <span class="n">software_version</span> <span class="o">=</span> <span class="n">software_version</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">software_version</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+
+            <span class="n">software_name</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;\(.*?\)&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">software_string</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+            <span class="c1"># Instance of R package</span>
+            <span class="k">if</span> <span class="n">software_name</span> <span class="o">==</span> <span class="s2">&quot;R&quot;</span><span class="p">:</span>
+                <span class="c1"># Software = R</span>
+                <span class="n">software_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wdi</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;local_id&quot;</span><span class="p">,</span> <span class="s2">&quot;Q206904&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+                <span class="n">item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">software_name</span><span class="p">)</span>
+                <span class="n">software_id</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">is_instance_of</span><span class="p">(</span><span class="s2">&quot;wd:Q73539779&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">software_id</span><span class="p">:</span>
+                    <span class="c1"># Software = R package</span>
+                    <span class="n">software_QID</span> <span class="o">=</span> <span class="n">software_id</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Software = New instance of R package</span>
+                    <span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P31&quot;</span><span class="p">,</span> <span class="s2">&quot;wd:Q73539779&quot;</span><span class="p">)</span>
+                    <span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="s2">&quot;wdt:P277&quot;</span><span class="p">,</span> <span class="s2">&quot;wd:Q206904&quot;</span><span class="p">)</span>
+                    <span class="n">software_QID</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">write</span><span class="p">()</span><span class="o">.</span><span class="n">id</span>
+
+            <span class="n">software_tuples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">software_QID</span><span class="p">,</span> <span class="n">software_version</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">software_tuples</span></div>
+
+
+<div class="viewcode-block" id="RPackage.parse_license">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.parse_license">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_license</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Splits string of licenses.</span>
+
+<span class="sd">        Takes into account that licenses are often not uniformly listed.</span>
+<span class="sd">        Characters \|, + and , are used to separate licenses. Further</span>
+<span class="sd">        details on each license are often included in square brackets.</span>
+
+<span class="sd">        The concrete License is identified and linked to the corresponding</span>
+<span class="sd">        item that has previously been imported from Wikidata. Further license</span>
+<span class="sd">        information, when provided between round or square brackets, is added</span>
+<span class="sd">        as a qualifier.</span>
+
+<span class="sd">        If a file license is mentioned, the linked to the file license</span>
+<span class="sd">        in CRAN is added as a qualifier.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (str): String imported from CRAN representing license</span>
+<span class="sd">              information.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[Tuple[str, str]]:</span>
+<span class="sd">                List of license tuples. Each tuple contains the license QID</span>
+<span class="sd">                as the first element and the license qualifier as the</span>
+<span class="sd">                second element.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">license_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">licenses</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; | &quot;</span><span class="p">)</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">licenses</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[&quot;</span><span class="p">,</span> <span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span>
+                <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[&quot;</span><span class="p">,</span> <span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\]&quot;</span><span class="p">,</span> <span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="p">):</span>
+                <span class="n">license_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[&quot;</span><span class="p">,</span> <span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\]&quot;</span><span class="p">,</span> <span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">license_aux</span> <span class="o">=</span> <span class="n">licenses</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">closed</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">licenses</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">closed</span><span class="p">:</span>
+                    <span class="n">license_aux</span> <span class="o">+=</span> <span class="s2">&quot; | &quot;</span>
+                    <span class="n">license_aux</span> <span class="o">+=</span> <span class="n">licenses</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\]&quot;</span><span class="p">,</span> <span class="n">licenses</span><span class="p">[</span><span class="n">j</span><span class="p">]):</span>
+                        <span class="n">closed</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">license_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">license_aux</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">j</span>
+
+        <span class="n">split_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">license_list</span><span class="p">:</span>
+            <span class="n">items</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; + &quot;</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span>
+                    <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">and</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\]&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                <span class="p">):</span>
+                    <span class="n">split_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">elif</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\]&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                    <span class="n">j</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+                    <span class="n">items_aux</span> <span class="o">=</span> <span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">closed</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">closed</span><span class="p">:</span>
+                        <span class="n">items_aux</span> <span class="o">+=</span> <span class="s2">&quot; + &quot;</span>
+                        <span class="n">items_aux</span> <span class="o">+=</span> <span class="n">items</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\]&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">[</span><span class="n">j</span><span class="p">]):</span>
+                            <span class="n">closed</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">split_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">items_aux</span><span class="p">)</span>
+                    <span class="n">i</span> <span class="o">=</span> <span class="n">j</span>
+        <span class="n">license_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">split_list</span><span class="p">))</span>
+
+        <span class="n">license_tuples</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">license_str</span> <span class="ow">in</span> <span class="n">license_list</span><span class="p">:</span>
+            <span class="n">license_qualifier</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\(.*?\)&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">):</span>
+                <span class="n">qualifier_groups</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\((.*?)\)&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">)</span>
+                <span class="n">license_qualifier</span> <span class="o">=</span> <span class="n">qualifier_groups</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">license_aux</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\(.*?\)&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[.*?\]&quot;</span><span class="p">,</span> <span class="n">license_aux</span><span class="p">):</span>
+                    <span class="n">qualifier_groups</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[(.*?)\]&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">)</span>
+                    <span class="n">license_qualifier</span> <span class="o">=</span> <span class="n">qualifier_groups</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="n">license_str</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[.*?\]&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">license_aux</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">license_str</span> <span class="o">=</span> <span class="n">license_aux</span>
+            <span class="k">elif</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[.*?\]&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">):</span>
+                <span class="n">qualifier_groups</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[(.*?)\]&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">)</span>
+                <span class="n">license_qualifier</span> <span class="o">=</span> <span class="n">qualifier_groups</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">license_str</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[.*?\]&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">license_str</span><span class="p">)</span>
+
+            <span class="n">license_str</span> <span class="o">=</span> <span class="n">license_str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">license_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;file LICENSE&quot;</span><span class="p">,</span> <span class="s2">&quot;file LICENCE&quot;</span><span class="p">]:</span>
+                <span class="n">license_qualifier</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;https://cran.r-project.org/web/packages/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">/LICENSE&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">license_QID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_license_QID</span><span class="p">(</span><span class="n">license_str</span><span class="p">)</span>
+            <span class="n">license_tuples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">license_QID</span><span class="p">,</span> <span class="n">license_qualifier</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">license_tuples</span></div>
+
+
+<div class="viewcode-block" id="RPackage.parse_authors">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.parse_authors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_authors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Splits the string corresponding to the authors into a dictionary.</span>
+
+<span class="sd">        Author information in CRAN is not registered uniformly. This function</span>
+<span class="sd">        parses the imported string and returns just the names of the individuals</span>
+<span class="sd">        that can be unequivocally identified as authors (i.e. they are followed</span>
+<span class="sd">        by the *[aut]* abbreviation).</span>
+
+<span class="sd">        Generally, authors in CRAN are indicated with the abbreviation *[aut]*.</span>
+<span class="sd">        When no abbreviations are included, only the first individual is imported</span>
+<span class="sd">        to Wikibase (otherwise it can often not be established whether</span>
+<span class="sd">        information after the first author refers to another individual,</span>
+<span class="sd">        an institution, a funder, etc.)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (String): String imported from CRAN representing author</span>
+<span class="sd">              information.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (Dict): Dictionary of authors and corresponding ORCID ID, if provided.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Logic to determine if &#39;Author&#39; is the class or the module containing the class</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="s2">&quot;Author&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span><span class="o">.</span><span class="n">Author</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">author_factory</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not resolve a callable Author class. Check your imports.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">td_match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&lt;td&gt;(.*?)&lt;/td&gt;&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">td_match</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">td_match</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;&lt;img alt.*?a&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Delete img tags</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\(.*?\)&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Delete text in brackets</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;&quot;&#39;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Delete quotation marks</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Delete tabs</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;ORCID iD&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>  <span class="c1"># Delete orcid id refs</span>
+        <span class="n">author_list</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;.*?\]&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+        <span class="n">authors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">author_list</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">author</span> <span class="ow">in</span> <span class="n">author_list</span><span class="p">:</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[.*?\]&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">labels</span><span class="p">:</span>
+                    <span class="n">is_author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;aut&quot;</span><span class="p">,</span> <span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">is_author</span><span class="p">:</span>
+                        <span class="n">orcid</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\d</span><span class="si">{4}</span><span class="s2">-\d</span><span class="si">{4}</span><span class="s2">-\d</span><span class="si">{4}</span><span class="s2">-.</span><span class="si">{4}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">orcid</span><span class="p">:</span>
+                            <span class="n">orcid</span> <span class="o">=</span> <span class="n">orcid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&lt;a href=.*?&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+                        <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\[.*?\]&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+                        <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\s?,&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+                        <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^\s?and\s?&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">)</span>
+                        <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+                            <span class="sa">r</span><span class="s2">&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                            <span class="n">author</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="n">author</span> <span class="o">=</span> <span class="n">author</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                        <span class="n">multiple_words</span> <span class="o">=</span> <span class="n">author</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">multiple_words</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">author</span><span class="p">:</span>
+                                <span class="n">authors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">author_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">author</span><span class="p">,</span> <span class="n">orcid</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">authors_comma</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
+            <span class="n">authors_and</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; and &quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">authors_and</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">authors_comma</span><span class="p">):</span>
+                <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+                    <span class="sa">r</span><span class="s2">&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                    <span class="n">authors_and</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">author</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span>
+                    <span class="sa">r</span><span class="s2">&quot;[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                    <span class="n">authors_comma</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">author</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="ow">or</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[@\(\)\[\]&amp;]&quot;</span><span class="p">,</span> <span class="n">author</span><span class="p">):</span>
+                <span class="n">author</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">author</span><span class="p">:</span>
+                <span class="n">authors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">author_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">author</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">+=</span> <span class="n">authors</span>
+        <span class="k">return</span> <span class="n">authors</span></div>
+
+
+<div class="viewcode-block" id="RPackage.parse_maintainer">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.parse_maintainer">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_maintainer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove unnecessary information from maintainer string.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (str): String imported from CRAN which may contain e-mail</span>
+<span class="sd">                        address and comments within brackets</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (str): Name of the maintainer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Logic to determine if &#39;Author&#39; is the class or the module containing the class</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="s2">&quot;Author&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">Author</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span><span class="o">.</span><span class="n">Author</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">author_factory</span> <span class="o">=</span> <span class="n">Author</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">callable</span><span class="p">(</span><span class="n">author_factory</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Could not resolve a callable Author class. Check your imports.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">name</span>
+
+        <span class="n">quotes</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;&quot;(.*?)&quot;&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">quotes</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">quotes</span><span class="o">.</span><span class="n">groups</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">name</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;&lt;.*?&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\(.*?\)&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+        <span class="n">maintainer</span> <span class="o">=</span> <span class="n">author_factory</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">author_pool</span> <span class="o">+=</span> <span class="p">[</span><span class="n">maintainer</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">maintainer</span></div>
+
+
+<div class="viewcode-block" id="RPackage.get_license_QID">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.get_license_QID">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_license_QID</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">license_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the Wikidata item ID corresponding to a software license.</span>
+
+<span class="sd">        The same license is often denominated in CRAN using differents names.</span>
+<span class="sd">        This function returns the wikidata item ID corresponding to a single</span>
+<span class="sd">        unique license that is referenced in CRAN under different names (e.g.</span>
+<span class="sd">        *Artistic-2.0* and *Artistic License 2.0* both refer to the same</span>
+<span class="sd">        license, corresponding to item *Q14624826*).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            license_str (str): String corresponding to a license imported from CRAN.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            (str): Wikidata item ID.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_license</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="n">license_item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+            <span class="n">license_item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">label</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">license_item</span><span class="o">.</span><span class="n">is_instance_of</span><span class="p">(</span><span class="s2">&quot;wd:Q207621&quot;</span><span class="p">)</span>
+
+        <span class="n">license_mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;ACM&quot;</span><span class="p">:</span> <span class="n">get_license</span><span class="p">(</span><span class="s2">&quot;ACM Software License Agreement&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;AGPL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q28130012&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;AGPL-3&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q27017232&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Apache License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q616526&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Apache License 2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q13785927&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Apache License version 1.1&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q17817999&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Apache License version 2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q13785927&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Artistic-2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q14624826&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Artistic License 2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q14624826&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BSD 2-clause License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18517294&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BSD 3-clause License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18491847&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BSD_2_clause&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18517294&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BSD_3_clause&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18491847&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BSL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q2353141&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;BSL-1.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q2353141&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CC0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q6938433&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CC BY 4.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q20007257&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CC BY-SA 4.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18199165&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CC BY-NC 4.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q34179348&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CC BY-NC-SA 4.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q42553662&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CeCILL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q1052189&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CeCILL-2&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q19216649&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Common Public License Version 1.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q2477807&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CPL-1.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q2477807&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Creative Commons Attribution 4.0 International License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q20007257&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;EPL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q1281977&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;EUPL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q1376919&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;EUPL-1.1&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q1376919&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;file LICENCE&quot;</span><span class="p">:</span> <span class="n">get_license</span><span class="p">(</span><span class="s2">&quot;File License&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;file LICENSE&quot;</span><span class="p">:</span> <span class="n">get_license</span><span class="p">(</span><span class="s2">&quot;File License&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;FreeBSD&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q34236&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GNU Affero General Public License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q1131681&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GNU General Public License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q7603&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GNU General Public License version 2&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q10513450&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GNU General Public License version 3&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q10513445&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GPL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q7603&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GPL-2&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q10513450&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GPL-3&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q10513445&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LGPL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q192897&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LGPL-2&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q23035974&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LGPL-2.1&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18534390&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LGPL-3&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q18534393&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Lucent Public License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q6696468&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MIT&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q334661&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MIT License&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q334661&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mozilla Public License 1.1&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q26737735&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mozilla Public License 2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q25428413&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mozilla Public License Version 2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q25428413&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPL&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q308915&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPL version 1.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q26737738&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPL version 1.1&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q26737735&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPL version 2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q25428413&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPL-1.1&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q26737735&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;MPL-2.0&quot;</span><span class="p">:</span> <span class="s2">&quot;wd:Q25428413&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Unlimited&quot;</span><span class="p">:</span> <span class="n">get_license</span><span class="p">(</span><span class="s2">&quot;Unlimited License&quot;</span><span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="n">license_info</span> <span class="o">=</span> <span class="n">license_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">license_str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">license_info</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">license_info</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">license_info</span></div>
+
+
+<div class="viewcode-block" id="RPackage.get_wikidata_QID">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.get_wikidata_QID">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_wikidata_QID</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the Wikidata QID for the R package.</span>
+
+<span class="sd">        Searches for the R package in Wikidata using its label. Retrieves</span>
+<span class="sd">        the QID of matching entities and checks if there is an instance of</span>
+<span class="sd">        an R package. If so, returns the QID.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Optional[str]:</span>
+<span class="sd">                The Wikidata QID of the R package if found, or None otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="n">search_entities</span><span class="p">(</span>
+            <span class="n">search_string</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+            <span class="n">mediawiki_api_url</span><span class="o">=</span><span class="s2">&quot;https://www.wikidata.org/w/api.php&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                <span class="n">entity_id</span><span class="o">=</span><span class="n">result</span><span class="p">,</span> <span class="n">mediawiki_api_url</span><span class="o">=</span><span class="s2">&quot;https://www.wikidata.org/w/api.php&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;P31&quot;</span> <span class="ow">in</span> <span class="n">item</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">instance_claims</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;P31&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">instance_claims</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">claim</span> <span class="ow">in</span> <span class="n">instance_claims</span><span class="p">:</span>
+                        <span class="n">claim</span> <span class="o">=</span> <span class="n">claim</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="n">claim</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datatype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;wikibase-item&quot;</span><span class="p">:</span>
+                            <span class="c1"># If instance of R package</span>
+                            <span class="k">if</span> <span class="s2">&quot;datavalue&quot;</span> <span class="ow">in</span> <span class="n">claim</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                                <span class="k">if</span> <span class="p">(</span>
+                                    <span class="n">claim</span><span class="p">[</span><span class="s2">&quot;mainsnak&quot;</span><span class="p">][</span><span class="s2">&quot;datavalue&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+                                    <span class="o">==</span> <span class="s2">&quot;Q73539779&quot;</span>
+                                <span class="p">):</span>
+                                    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="RPackage.get_versions">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.RPackage.RPackage.get_versions">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_versions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;https://cran.r-project.org/src/contrib/Archive/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">page</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="n">soup</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="s2">&quot;lxml&quot;</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Version page for package </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> not found.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">soup</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">&quot;table&quot;</span><span class="p">):</span>
+                <span class="n">table</span> <span class="o">=</span> <span class="n">soup</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">&quot;table&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">versions_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_html</span><span class="p">(</span><span class="n">StringIO</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">table</span><span class="p">)))</span>
+                <span class="n">versions_df</span> <span class="o">=</span> <span class="n">versions_df</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">versions_df</span> <span class="o">=</span> <span class="n">versions_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+                    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Unnamed: 0&quot;</span><span class="p">,</span> <span class="s2">&quot;Size&quot;</span><span class="p">,</span> <span class="s2">&quot;Description&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">versions_df</span> <span class="o">=</span> <span class="n">versions_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+
+                <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">versions_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Name&quot;</span><span class="p">]</span>
+                    <span class="n">publication_date</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Last modified&quot;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="n">version</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+                        <span class="n">version</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;.tar.gz&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
+
+                        <span class="n">publication_date</span> <span class="o">=</span> <span class="n">publication_date</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">publication_date</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;+</span><span class="si">{</span><span class="n">publication_date</span><span class="si">}</span><span class="s2">T00:00:00Z&quot;</span>
+
+                        <span class="bp">self</span><span class="o">.</span><span class="n">versions</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">version</span><span class="p">,</span> <span class="n">publication_date</span><span class="p">))</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

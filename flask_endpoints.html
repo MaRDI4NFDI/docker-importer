@@ -1,0 +1,431 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web API Endpoints &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Architecture Diagram" href="tech.html" />
+    <link rel="prev" title="Command-Line Interface (CLI) Guide" href="cli.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="main.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Web API Endpoints</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#base-url">Base URL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-request-format">Common request format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#endpoints">Endpoints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#get-health">GET /health</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get-version">GET /version</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get-import-workflow-status">GET /import/workflow_status</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get-import-workflow-result">GET /import/workflow_result</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#get-import-workflow-runs">GET /import/workflow_runs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#post-import-wikidata">POST /import/wikidata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#post-import-wikidata-async">POST /import/wikidata_async</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#post-import-doi">POST /import/doi</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#post-import-doi-async">POST /import/doi_async</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cran.html">Importer Module for CRAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrator.html">Integrator Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Web API Endpoints</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/flask_endpoints.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="web-api-endpoints">
+<h1>Web API Endpoints<a class="headerlink" href="#web-api-endpoints" title="Link to this heading"></a></h1>
+<section id="base-url">
+<h2>Base URL<a class="headerlink" href="#base-url" title="Link to this heading"></a></h2>
+<p>Local (e.g. via Kubernetes port-forward):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">3333</span>
+</pre></div>
+</div>
+<p>This assumes a port-forward like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">kubectl</span> <span class="n">port</span><span class="o">-</span><span class="n">forward</span> <span class="o">-</span><span class="n">n</span> <span class="n">production</span> <span class="n">svc</span><span class="o">/</span><span class="n">importer</span> <span class="mi">3333</span><span class="p">:</span><span class="mi">80</span>
+</pre></div>
+</div>
+<p>All endpoints return JSON unless noted otherwise.</p>
+</section>
+<section id="common-request-format">
+<h2>Common request format<a class="headerlink" href="#common-request-format" title="Link to this heading"></a></h2>
+<p>For endpoints that accept JSON, send:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Content</span><span class="o">-</span><span class="n">Type</span><span class="p">:</span> <span class="n">application</span><span class="o">/</span><span class="n">json</span>
+</pre></div>
+</div>
+<p>In curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">H</span> <span class="s2">&quot;Content-Type: application/json&quot;</span>
+</pre></div>
+</div>
+<p>REMARK: if you are having a proxy server, you might want to try:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">--</span><span class="n">noproxy</span> <span class="s2">&quot;*&quot;</span> <span class="o">...</span>
+<span class="n">Example</span> <span class="k">for</span> <span class="n">the</span> <span class="n">health</span> <span class="n">endpoint</span><span class="p">:</span> <span class="n">curl</span> <span class="o">--</span><span class="n">noproxy</span> <span class="s2">&quot;*&quot;</span> <span class="o">-</span><span class="n">sS</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">3333</span><span class="o">/</span><span class="n">health</span>
+</pre></div>
+</div>
+</section>
+<section id="endpoints">
+<h2>Endpoints<a class="headerlink" href="#endpoints" title="Link to this heading"></a></h2>
+<section id="get-health">
+<h3>GET /health<a class="headerlink" href="#get-health" title="Link to this heading"></a></h3>
+<p>Health probe for liveness/readiness checks.</p>
+<p><strong>Request</strong></p>
+<p>Browser:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">3333</span><span class="o">/</span><span class="n">health</span>
+</pre></div>
+</div>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">3333</span><span class="o">/</span><span class="n">health</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (200)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;service&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mardi-importer-api&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="get-version">
+<h3>GET /version<a class="headerlink" href="#get-version" title="Link to this heading"></a></h3>
+<p>Returns the current service version from the root <code class="docutils literal notranslate"><span class="pre">VERSION</span></code> file.</p>
+<p><strong>Request</strong></p>
+<p>Browser:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">3333</span><span class="o">/</span><span class="n">version</span>
+</pre></div>
+</div>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">localhost</span><span class="p">:</span><span class="mi">3333</span><span class="o">/</span><span class="n">version</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (200)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.0.1&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="get-import-workflow-status">
+<h3>GET /import/workflow_status<a class="headerlink" href="#get-import-workflow-status" title="Link to this heading"></a></h3>
+<p>Returns the current Prefect state of a flow run.</p>
+<p><strong>Query params</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> (required): Prefect flow run id (UUID)</p></li>
+</ul>
+<p><strong>Request</strong></p>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="s2">&quot;http://localhost:3333/import/workflow_status?id=16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (200)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RUNNING&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;state_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Running&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-19T10:45:00.000Z&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If the run is completed, the endpoint may also include <code class="docutils literal notranslate"><span class="pre">result</span></code> (depending on Prefect configuration/API behavior).</p>
+<p><strong>Errors</strong></p>
+<ul class="simple">
+<li><p>400 if <code class="docutils literal notranslate"><span class="pre">id</span></code> missing</p></li>
+<li><p>404 if Prefect cannot find the flow run</p></li>
+<li><p>500 on other Prefect/API errors</p></li>
+</ul>
+</section>
+<section id="get-import-workflow-result">
+<h3>GET /import/workflow_result<a class="headerlink" href="#get-import-workflow-result" title="Link to this heading"></a></h3>
+<p>Fetches the stored Prefect artifact that contains the final batch-import result.</p>
+<p>This endpoint assumes your Prefect flow creates an artifact with key:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mardi</span><span class="o">-</span><span class="n">importer</span><span class="o">-</span><span class="n">result</span><span class="o">-&lt;</span><span class="n">FLOW_RUN_ID</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p><strong>Query params</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">id</span></code> (required): Prefect flow run id (UUID)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">key_prefix</span></code> (optional): artifact key prefix, default <code class="docutils literal notranslate"><span class="pre">mardi-importer-result-</span></code></p></li>
+</ul>
+<p><strong>Request</strong></p>
+<p>curl (flow run id only):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="s2">&quot;http://localhost:3333/import/workflow_result?id=16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response</strong></p>
+<ul class="simple">
+<li><p><strong>202</strong> if the flow run is not completed yet</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RUNNING&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flow run not completed yet&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>200</strong> when completed and artifact exists</p></li>
+</ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;COMPLETED&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;artifact_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bab18338-c069-4d29-9512-ba00e5df55c6&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mardi-importer-result-16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;created&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-01-19T10:47:12.345Z&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;qids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Q42&quot;</span><span class="p">,</span><span class="s2">&quot;Q1&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;Q42&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Q123&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;Q1&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;all_imported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><strong>404</strong> if the flow run is completed but artifact is not found (key mismatch or artifact not created)</p></li>
+</ul>
+<p><strong>Direct Prefect API debugging</strong></p>
+<p>If you know the flow run id and use Basic Auth on Prefect:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">u</span> <span class="s2">&quot;admin:pass&quot;</span> \
+  <span class="s2">&quot;http://prefect-mardi.zib.de/api/artifacts/mardi-importer-result-16e267d3-61d0-4484-b8ad-1af9221a969c/latest&quot;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+</section>
+<section id="get-import-workflow-runs">
+<h3>GET /import/workflow_runs<a class="headerlink" href="#get-import-workflow-runs" title="Link to this heading"></a></h3>
+<p>Returns information about Prefect flow runs from the last 24 hours (excluding <code class="docutils literal notranslate"><span class="pre">SCHEDULED</span></code>).</p>
+<p><strong>Request</strong></p>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="s2">&quot;http://localhost:3333/import/workflow_runs&quot;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (200)</strong></p>
+<p>Response includes many additional Prefect fields not shown here.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;c3faea1b-e118-461f-9a42-9111763097e7&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;important-grouse&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;state_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;COMPLETED&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;start_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-02-02T11:00:01.766235Z&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;parameters&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;qids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Q26708&quot;</span><span class="p">],</span>
+<span class="w">      </span><span class="nt">&quot;action&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;import/wikidata&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="post-import-wikidata">
+<h3>POST /import/wikidata<a class="headerlink" href="#post-import-wikidata" title="Link to this heading"></a></h3>
+<p>Runs the Wikidata import synchronously in the Flask process (no Prefect).</p>
+<p><strong>Request</strong></p>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="o">-</span><span class="n">X</span> <span class="n">POST</span> <span class="s2">&quot;http://localhost:3333/import/wikidata&quot;</span> \
+  <span class="o">-</span><span class="n">H</span> <span class="s2">&quot;Content-Type: application/json&quot;</span> \
+  <span class="o">-</span><span class="n">d</span> <span class="s1">&#39;{&quot;qids&quot;:[&quot;Q42&quot;,&quot;Q1&quot;]}&#39;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (200)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;qids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Q42&quot;</span><span class="p">,</span><span class="s2">&quot;Q1&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;Q42&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Q123&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;Q1&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;all_imported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Errors</strong></p>
+<ul class="simple">
+<li><p>400 if <code class="docutils literal notranslate"><span class="pre">qids</span></code> missing</p></li>
+</ul>
+</section>
+<section id="post-import-wikidata-async">
+<h3>POST /import/wikidata_async<a class="headerlink" href="#post-import-wikidata-async" title="Link to this heading"></a></h3>
+<p>Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).</p>
+<p>This endpoint accepts a JSON request body.</p>
+<p><strong>Request</strong></p>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="o">-</span><span class="n">X</span> <span class="n">POST</span> <span class="s2">&quot;http://localhost:3333/import/wikidata_async&quot;</span> \
+  <span class="o">-</span><span class="n">H</span> <span class="s2">&quot;Content-Type: application/json&quot;</span> \
+  <span class="o">-</span><span class="n">d</span> <span class="s1">&#39;{&quot;qids&quot;:[&quot;Q42&quot;,&quot;Q1&quot;]}&#39;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (202)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accepted&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Wikidata import process started in background&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;deployment_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;flow_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;qids_queued&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Q42&quot;</span><span class="p">,</span><span class="s2">&quot;Q1&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Errors</strong></p>
+<ul class="simple">
+<li><p>400 if <code class="docutils literal notranslate"><span class="pre">qids</span></code> missing</p></li>
+<li><p>500 if triggering the Prefect deployment fails</p></li>
+</ul>
+</section>
+<section id="post-import-doi">
+<h3>POST /import/doi<a class="headerlink" href="#post-import-doi" title="Link to this heading"></a></h3>
+<p>Imports publications/resources given DOIs (or special pseudo-DOIs for arXiv/Zenodo per project logic).</p>
+<p><strong>Request</strong></p>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="o">-</span><span class="n">X</span> <span class="n">POST</span> <span class="s2">&quot;http://localhost:3333/import/doi&quot;</span> \
+  <span class="o">-</span><span class="n">H</span> <span class="s2">&quot;Content-Type: application/json&quot;</span> \
+  <span class="o">-</span><span class="n">d</span> <span class="s1">&#39;{&quot;dois&quot;:[&quot;10.1000/xyz123&quot;,&quot;ARXIV.2101.00001&quot;,&quot;ZENODO.1234567&quot;]}&#39;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (200)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;dois&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;10.1000/XYZ123&quot;</span><span class="p">,</span><span class="s2">&quot;ARXIV.2101.00001&quot;</span><span class="p">,</span><span class="s2">&quot;ZENODO.1234567&quot;</span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;10.1000/XYZ123&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Q...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;ARXIV.2101.00001&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Q...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;success&quot;</span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;ZENODO.1234567&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;qid&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;not_found&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DOI was not found.&quot;</span><span class="p">}</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;all_imported&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Errors</strong></p>
+<ul class="simple">
+<li><p>400 if <code class="docutils literal notranslate"><span class="pre">dois</span></code> missing</p></li>
+</ul>
+</section>
+<section id="post-import-doi-async">
+<h3>POST /import/doi_async<a class="headerlink" href="#post-import-doi-async" title="Link to this heading"></a></h3>
+<p>Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).</p>
+<p>This endpoint accepts a JSON request body.</p>
+<p><strong>Request</strong></p>
+<p>curl:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">curl</span> <span class="o">-</span><span class="n">sS</span> <span class="o">-</span><span class="n">X</span> <span class="n">POST</span> <span class="s2">&quot;http://localhost:3333/import/doi_async&quot;</span> \
+  <span class="o">-</span><span class="n">H</span> <span class="s2">&quot;Content-Type: application/json&quot;</span> \
+  <span class="o">-</span><span class="n">d</span> <span class="s1">&#39;{&quot;dois&quot;:[&quot;10.1000/XYZ123&quot;,&quot;ARXIV.2101.00001&quot;]}&#39;</span> <span class="o">|</span> <span class="n">jq</span> <span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Response (202)</strong></p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accepted&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DOI import process started in background&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;deployment_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;16e267d3-61d0-4484-b8ad-1af9221a969c&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;flow_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;dois_queued&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;10.1000/XYZ123&quot;</span><span class="p">,</span><span class="s2">&quot;ARXIV.2101.00001&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Errors</strong></p>
+<ul class="simple">
+<li><p>400 if <code class="docutils literal notranslate"><span class="pre">dois</span></code> missing</p></li>
+<li><p>500 if triggering the Prefect deployment fails</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cli.html" class="btn btn-neutral float-left" title="Command-Line Interface (CLI) Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tech.html" class="btn btn-neutral float-right" title="Architecture Diagram" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

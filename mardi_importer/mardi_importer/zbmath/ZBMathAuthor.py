@@ -23,8 +23,8 @@ class ZBMathAuthor:
         self.QID = None
         self.zbmath_author_id = zbmath_author_id.strip()
         self.label_id_dict = label_id_dict
+        self.api = Importer.get_api('zbmath')
         self.item = self.init_item()
-        self.api = None
     
     def __post_init__(self):
         if self.api is None:

@@ -14,8 +14,8 @@ class ZBMathJournal:
     def __init__(self, name):
         self.name = name.strip()
         self.QID = None
+        self.api = Importer.get_api('zbmath')
         self.item = self.init_item()
-        self.api = None
 
     def __post_init__(self):
         if self.api is None:

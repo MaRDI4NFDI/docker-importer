@@ -12,7 +12,7 @@ class ZBMathJournal:
     """
 
     def __init__(self, name):
-        self.name = name.strip()
+        self.name = " ".join(name.strip().split())
         self.QID = None
         self.api = Importer.get_api('zbmath')
         self.item = self.init_item()

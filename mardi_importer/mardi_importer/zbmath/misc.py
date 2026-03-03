@@ -170,4 +170,10 @@ def get_info_from_doi(doi, key):
         except HTTPError:
             print("HTTP Error!")
             continue
+        except Exception as e:
+            if "HTTPStatusError" in type(e).__name__:
+                print(f"Got an HTTP status error: {e}")
+                continue
+            else:
+                raise
     return None

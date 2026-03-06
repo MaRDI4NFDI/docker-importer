@@ -18,6 +18,7 @@ from services.import_service import (
     trigger_wikidata_async,
 )
 from services.version import get_version
+from mardi_importer.wikidata import WikidataImporter
 
 
 logging.basicConfig(level=logging.INFO)
@@ -205,6 +206,24 @@ def import_wikidata():
     payload, _all_ok = import_wikidata_sync(qids)
     return jsonify(payload), 200
 
+
+@app.post("/update/wikidata")
+def update_wikidata():
+    """Update person profile from wikidata
+
+    Expects JSON with a ``qid`` field, which should contain the QID of a wikidata item. 
+
+    Returns:
+        Response, either the QID that was updated or an empty list
+    """
+    log.info("Called 'update_wikidata'.")
+    data = request.get_json(silent=True) or {}
+    qid = data.get("qid")
+    if not qid:
+        return jsonify(error="missing qid"), 400
+    wdi = WikidataImporter()
+    response = wdi.update_entities(id_list=[qid])
+    return jsonify(result), 200
 
 @app.post("/import/doi_async")
 def import_doi_async():

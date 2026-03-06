@@ -216,13 +216,14 @@ def update_wikidata():
     Returns:
         Response, either the QID that was updated or an empty list
     """
+    log.info("Called 'update_wikidata'.")
     data = request.get_json(silent=True) or {}
     qid = data.get("qid")
     if not qid:
         return jsonify(error="missing qid"), 400
     wdi = WikidataImporter()
     response = wdi.update_entities(id_list=[qid])
-    return response, 200
+    return jsonify(result), 200
 
 @app.post("/import/doi_async")
 def import_doi_async():

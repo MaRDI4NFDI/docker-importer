@@ -64,7 +64,7 @@ class WikidataImporter:
             sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
             wikibase_url=os.environ.get("WIKIBASE_URL"),
             importer_api_url=os.environ.get("IMPORTER_API_URL"),
-            user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)",
+            user_agent=os.environ.get("IMPORTER_MW_AGENT")
         )
 
         if self.api.login is None:
@@ -118,8 +118,8 @@ class WikidataImporter:
             SQLalchemy engine
         """
         if self.setup:
-            db_user = os.environ["DB_USER"]
-            db_pass = os.environ["DB_PASS"]
+            db_user = os.environ["IMPORTER_DB_USER"]
+            db_pass = os.environ["IMPORTER_DB_PASS"]
             db_name = os.environ["DB_NAME"]
             if mediawiki:
                 db_name = "my_wiki"

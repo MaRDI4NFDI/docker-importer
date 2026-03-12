@@ -17,8 +17,8 @@ from services.version import get_version
 @task(retries=1, retry_delay_seconds=30)
 def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
     # Set needed env variables for Wikidata importer
-    os.environ["DB_PASS"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["DB_USER"] = "importer-user"
+    os.environ["IMPORTER_DB_PASS"] = Secret.load("wikidata-importer-db-password").get()
+    os.environ["IMPORTER_DB_USER"] = "importer-user"
     os.environ["DB_NAME"] = "wikidata-importer"
     os.environ["DB_HOST"] = "mariadb-primary"
 
@@ -116,8 +116,8 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     log = get_run_logger()
 
     # Set needed env variables for Wikidata importer
-    os.environ["DB_PASS"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["DB_USER"] = "importer-user"
+    os.environ["IMPORTER_DB_PASS"] = Secret.load("wikidata-importer-db-password").get()
+    os.environ["IMPORTER_DB_USER"] = "importer-user"
     os.environ["DB_NAME"] = "wikidata-importer"
     os.environ["DB_HOST"] = "mariadb-primary"
 

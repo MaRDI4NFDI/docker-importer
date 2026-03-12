@@ -665,8 +665,9 @@ MOCK_ENV_VARS = {
     "SPARQL_ENDPOINT_URL": "http://test.sparql.org",
     "WIKIBASE_URL": "http://test.wikibase.org",
     "IMPORTER_API_URL": "http://test.importer.org",
-    "DB_USER": "test_db_user",
-    "DB_PASS": "test_db_pass",
+    "IMPORTER_DB_USER": "test_db_user",
+    "IMPORTER_DB_PASS": "test_db_pass",
+    "IMPORTER_MW_AGENT": "Importer agent",
     "DB_NAME": "test_db",
     "DB_HOST": "test_db_host",
     "ARXIV_USER": "test_arxiv_user",
@@ -771,7 +772,7 @@ class TestCoreImporters(unittest.TestCase):
                 sparql_endpoint_url=MOCK_ENV_VARS["SPARQL_ENDPOINT_URL"],
                 wikibase_url=MOCK_ENV_VARS["WIKIBASE_URL"],
                 importer_api_url=MOCK_ENV_VARS["IMPORTER_API_URL"],
-                user_agent="MaRDI4NFDI (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)",
+                user_agent=MOCK_ENV_VARS["IMPORTER_MW_AGENT"],
             )
             self.assertTrue(mock_create_engine.called)
             self.assertTrue(mock_inspect.called)

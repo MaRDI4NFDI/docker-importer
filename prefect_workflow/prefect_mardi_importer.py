@@ -167,7 +167,7 @@ def update_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
         "qids": qids,
         "count": len(qids),
         "results": results,
-        "all_updated": all_ok,
+        "all_imported": all_ok,
     }
 
 @task(retries=1, retry_delay_seconds=30)

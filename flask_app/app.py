@@ -212,7 +212,7 @@ def import_wikidata():
 def update_wikidata_async():
     """Update person profile from wikidata; this is async and happens in Prefect
 
-    Expects JSON with a ``qid`a` field, , which may be a list or a string of
+    Expects JSON with a ``qids`` field, , which may be a list or a string of
     comma/space-separated Wikidata QIDs. 
 
     Returns:
@@ -222,7 +222,7 @@ def update_wikidata_async():
     data = request.get_json(silent=True) or {}
     qids = normalize_list(data.get("qids"))
     if not qids:
-        return jsonify(error="missing qid"), 400
+        return jsonify(error="missing qids"), 400
     log.info("QID: %s", qids)
     try:
         log.info("Triggering Prefect workflow '%s'", DEFAULT_WORKFLOW_NAME)

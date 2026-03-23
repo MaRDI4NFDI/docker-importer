@@ -16,6 +16,7 @@ from services.import_service import (
     normalize_list,
     trigger_doi_async,
     trigger_wikidata_async,
+    trigger_update_wikidata_async,
 )
 from services.version import get_version
 from mardi_importer.wikidata import WikidataImporter
@@ -208,22 +209,34 @@ def import_wikidata():
 
 
 @app.post("/update/wikidata")
-def update_wikidata():
-    """Update person profile from wikidata
+def update_wikidata_async():
+    """Update person profile from wikidata; this is async and happens in Prefect
 
-    Expects JSON with a ``qid`` field, which should contain the QID of a wikidata item. 
+    Expects JSON with a ``qids`` field, , which may be a list or a string of
+    comma/space-separated Wikidata QIDs. 
 
     Returns:
         Response, either the QID that was updated or an empty list
     """
     log.info("Called 'update_wikidata'.")
     data = request.get_json(silent=True) or {}
-    qid = data.get("qid")
-    if not qid:
-        return jsonify(error="missing qid"), 400
-    wdi = WikidataImporter()
-    response = wdi.update_entities(id_list=[qid])
-    return jsonify(result), 200
+    qids = normalize_list(data.get("qids"))
+    if not qids:
+        return jsonify(error="missing qids"), 400
+    log.info("QID: %s", qids)
+    try:
+        log.info("Triggering Prefect workflow '%s'", DEFAULT_WORKFLOW_NAME)
+        payload = trigger_update_wikidata_async(qids, workflow_name=DEFAULT_WORKFLOW_NAME)
+        log.info(
+            "Workflow triggered. ID: %s. Deployment ID: %s. Flow ID: %s",
+            payload.get("id"),
+            payload.get("deployment_id"),
+            payload.get("flow_id"),
+        )
+        return jsonify(payload), 202
+    except Exception as exc:
+        log.error("Failed to trigger Prefect flow: %s", exc)
+        return jsonify(error="Could not start background job", details=str(exc)), 500
 
 @app.post("/import/doi_async")
 def import_doi_async():

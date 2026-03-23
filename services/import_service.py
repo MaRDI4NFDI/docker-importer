@@ -280,6 +280,35 @@ def trigger_wikidata_async(
         "qids_queued": qids,
     }
 
+def trigger_update_wikidata_async(
+    qids: list[str],
+    workflow_name: str = DEFAULT_WORKFLOW_NAME,
+) -> dict:
+    """Trigger a Prefect Wikidata import workflow.
+
+    Args:
+        qids: List of Wikidata QIDs to update.
+        workflow_name: Prefect deployment name.
+
+    Returns:
+        Payload with flow run metadata.
+    """
+    from prefect.deployments import run_deployment
+
+    flow_run = run_deployment(
+        name=workflow_name,
+        parameters={"action": "update/wikidata", "qids": qids},
+        timeout=0,
+    )
+    return {
+        "status": "accepted",
+        "message": "Wikidata update process started in background",
+        "deployment_id": str(flow_run.deployment_id),
+        "id": str(flow_run.id),
+        "flow_id": str(flow_run.flow_id),
+        "qids_queued": qids,
+    }
+
 
 def trigger_doi_async(
     dois: list[str],

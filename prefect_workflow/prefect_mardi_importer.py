@@ -110,6 +110,65 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
 
     return result
 
+@task(retries=1, retry_delay_seconds=30)
+def update_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
+    log = get_run_logger()
+
+    # Set needed env variables for Wikidata importer
+    os.environ["IMPORTER_DB_PASS"] = Secret.load("wikidata-importer-db-password").get()
+    os.environ["IMPORTER_DB_USER"] = "importer-user"
+    os.environ["DB_NAME"] = "wikidata-importer"
+    os.environ["DB_HOST"] = "mariadb-primary"
+
+    os.environ["WIKIDATA_USER"] = "Wikidata-Importer"
+    os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
+    os.environ["MEDIAWIKI_API_URL"] = "http://wikibase-apache/w/api.php"
+    os.environ["WIKIBASE_URL"] = "http://wikibase-apache"
+    os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
+    os.environ["IMPORTER_API_URL"] = "http://importer-api"
+
+    wdi = WikidataImporter()
+    results: Dict[str, Any] = {}
+    all_ok = True
+
+    log.info("Starting batch update for Wikidata items: %s", ", ".join(qids))
+
+    for q in qids:
+        try:
+            updated_q = wdi.update_entities(q)
+
+            if not updated_q:
+                log.info("No update for wikidata qid %s", q)
+                status = "not_updated"
+                ok = False
+            else:
+                log.info("Update for wikidata qid %s: %s", q, updated_q)
+                status = "success"
+                ok = True
+
+            results[q] = {
+                "qid": updated_q,
+                "status": status,
+            }
+
+            if not ok:
+                all_ok = False
+
+        except Exception as e:
+            log.error("Updating wikidata failed: %s", e, exc_info=True)
+            results[q] = {
+                "qid": None,
+                "status": "error",
+                "error": str(e),
+            }
+            all_ok = False
+
+    return {
+        "qids": qids,
+        "count": len(qids),
+        "results": results,
+        "all_updated": all_ok,
+    }
 
 @task(retries=1, retry_delay_seconds=30)
 def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
@@ -197,7 +256,10 @@ def prefect_mardi_importer_flow(
         if not qids:
             raise ValueError("missing qids")
         result = import_wikidata_batch(qids)
-
+    elif action == "update/wikidata":
+        if not qids:
+            raise ValueError("missing qids")
+        result = update_wikidata_batch(qids)
     elif action == "import/doi":
         if not dois:
             raise ValueError("missing dois")

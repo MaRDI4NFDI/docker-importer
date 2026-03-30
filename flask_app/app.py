@@ -207,6 +207,19 @@ def import_wikidata():
     payload, _all_ok = import_wikidata_sync(qids)
     return jsonify(payload), 200
 
+@app.get("/update/wikidata")
+def update_wikidata_get():
+    """Thin GET wrapper, delegates to POST route."""
+    log.info("Called 'update_wikidata' (using GET instead of POST).")
+    qid = request.args.get("qid")
+    if not qid:
+        return jsonify(error="missing qid"), 400
+    with app.test_client() as client:
+        response = client.post(
+            "/update/wikidata",
+            json={"qids": [qid]}
+        )
+        return response.data, response.status_code, response.headers
 
 @app.post("/update/wikidata")
 def update_wikidata_async():

@@ -1,5 +1,6 @@
 import os
 import sqlalchemy as db
+import time
 
 from mardiclient import MardiClient
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
@@ -505,7 +506,19 @@ class WikidataImporter:
                 mardi_item = self.api.item.get(entity_id=mardi_id)
                 entity = self._convert_claim_ids(entity)
                 mardi_item.add_claims(entity.claims)
-                mardi_item = mardi_item.write()
+                for attempt in range(3):
+                    try:
+                        mardi_item = mardi_item.write()
+                        break
+                    except ModificationFailed:
+                        if attempt < 2:
+                            self.log.warning(
+                                "write() failed for %s (attempt %d/3) — retrying in 30s",
+                                wikidata_id, attempt + 1
+                            )
+                            time.sleep(30)
+                        else:
+                            raise 
                 self.update_has_all_claims(wikidata_id)
                 updated_entities[wikidata_id] = mardi_id
             else:

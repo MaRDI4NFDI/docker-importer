@@ -5,13 +5,6 @@ import time
 import requests
 from flask import Flask, jsonify, request
 
-# For checking allowed callers (only in MaRDI k8 network)
-import ipaddress
-
-ALLOWED_SUBNETS = [
-    ipaddress.ip_network('10.0.0.0/16'),
-]
-
 from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
@@ -41,13 +34,6 @@ PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://prefect-mardi.zib.de/api"
 PREFECT_API_AUTH_STRING = os.getenv("PREFECT_API_AUTH_STRING")  # "user:pass"
 
 app = Flask(__name__)
-
-def is_allowed_ip(ip):
-    try:
-        addr = ipaddress.ip_address(ip)
-        return any(addr in subnet for subnet in ALLOWED_SUBNETS)
-    except ValueError:
-        return False
 
 @app.get("/health")
 def health():
@@ -230,15 +216,6 @@ def update_wikidata_get():
     """Thin GET wrapper, delegates to POST route."""
     log.info("Called 'update_wikidata' (GET). PID: %s, Time: %s", os.getpid(), time.time())
 
-    # Check where the call is coming from - only allow local calls
-    remote_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
-    remote_ip = remote_ip.split(',')[0].strip()
-
-    if not is_allowed_ip(remote_ip):
-        log.warning("Rejected unauthorized request from IP: %s", remote_ip)
-        return jsonify(error="unauthorized"), 403
-
-    log.info("Accepted request from IP: %s", remote_ip)
     qid = request.args.get("qid")
     if not qid:
         return jsonify(error="missing qid"), 400

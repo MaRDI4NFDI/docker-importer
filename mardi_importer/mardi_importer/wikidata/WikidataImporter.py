@@ -500,7 +500,7 @@ class WikidataImporter:
                 self.log.warning(f"Warning: Lexemes not supported. Property skipped.")
                 continue
 
-            mardi_id = entity.exists()
+            mardi_id = self.query("local_id", wikidata_id)
             if mardi_id:
                 mardi_item = self.api.item.get(entity_id=mardi_id)
                 entity = self._convert_claim_ids(entity)

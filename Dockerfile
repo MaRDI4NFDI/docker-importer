@@ -60,7 +60,7 @@ COPY /mardi_importer /mardi_importer
 RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 
 # Install needed libs
-RUN pip install --no-cache-dir prefect requests
+RUN pip install --no-cache-dir prefect==3.6.15 requests
 
 # Add contentmath datatype to WikibaseIntegrator
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/

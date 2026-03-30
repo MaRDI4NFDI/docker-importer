@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 import requests
 from flask import Flask, jsonify, request
@@ -22,7 +23,11 @@ from services.version import get_version
 from mardi_importer.wikidata import WikidataImporter
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)-8s | %(name)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 log = logging.getLogger(__name__)
 
 PREFECT_API_URL = os.getenv("PREFECT_API_URL", "http://prefect-mardi.zib.de/api")
@@ -210,15 +215,17 @@ def import_wikidata():
 @app.get("/update/wikidata")
 def update_wikidata_get():
     """Thin GET wrapper, delegates to POST route."""
-    log.info("Called 'update_wikidata' (using GET instead of POST).")
+    log.info("Called 'update_wikidata' (GET). PID: %s, Time: %s", os.getpid(), time.time())
     qid = request.args.get("qid")
     if not qid:
         return jsonify(error="missing qid"), 400
+    log.info("Delegating to POST for QID: %s, PID: %s", qid, os.getpid())
     with app.test_client() as client:
         response = client.post(
             "/update/wikidata",
             json={"qids": [qid]}
         )
+        log.info("POST response status: %s, PID: %s", response.status_code, os.getpid())
         return response.data, response.status_code, response.headers
 
 @app.post("/update/wikidata")
@@ -231,7 +238,7 @@ def update_wikidata_async():
     Returns:
         Response, either the QID that was updated or an empty list
     """
-    log.info("Called 'update_wikidata'.")
+    log.info("Called 'update_wikidata' (POST). PID: %s, Time: %s", os.getpid(), time.time())
     data = request.get_json(silent=True) or {}
     qids = normalize_list(data.get("qids"))
     if not qids:

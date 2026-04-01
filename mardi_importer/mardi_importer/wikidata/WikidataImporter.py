@@ -1,4 +1,5 @@
 import os
+import concurrent.futures
 import requests
 import sqlalchemy as db
 import time
@@ -518,7 +519,14 @@ class WikidataImporter:
 
             self.log.debug(f"Reading from Wikidata (with 120s timeout)...")
             try:
-                entity = self._get_wikidata_information(wikidata_id, True)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(self._get_wikidata_information, wikidata_id, True)
+                    entity = future.result(timeout=120)
+            except concurrent.futures.TimeoutError:
+                self.log.error(
+                    f"Timeout while fetching {wikidata_id} from Wikidata — skipping"
+                )
+                continue
             except requests.exceptions.Timeout:
                 self.log.error(
                     f"Timeout while fetching {wikidata_id} from Wikidata — skipping"
@@ -646,7 +654,7 @@ class WikidataImporter:
             )
 
         # Get entity
-        params = {"entity_id": wikidata_id, "mediawiki_api_url": WIKIDATA_API_URL, "timeout": (10, 120)}
+        params = {"entity_id": wikidata_id, "mediawiki_api_url": WIKIDATA_API_URL}
         entity = (self.api.item if prefix == "Q" else self.api.property).get(**params)
 
         if self.languages != "all":

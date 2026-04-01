@@ -129,6 +129,16 @@ class WikidataImporter:
 
         wbi_helpers.default_session = _TimeoutSession()
 
+        # mediawiki_api_call_helper passes login.get_session() when a login
+        # object is present, which bypasses default_session entirely.
+        # Replace the login session so the timeout applies there too.
+        if self.api.login is not None:
+            old_session = self.api.login.session
+            new_session = _TimeoutSession()
+            new_session.headers.update(dict(old_session.headers))
+            new_session.cookies.update(old_session.cookies)
+            self.api.login.session = new_session
+
     def _create_engine(self, mediawiki=False):
         """
         Creates SQLalchemy engine

@@ -850,7 +850,7 @@ class TestCoreImporters(unittest.TestCase):
             entity = importer._get_wikidata_information("Q123", recurse=False)
 
             mock_item_get.assert_called_once_with(
-                entity_id="Q123", mediawiki_api_url="https://www.wikidata.org/w/api.php"
+                entity_id="Q123", mediawiki_api_url="https://www.wikidata.org/w/api.php", timeout=(10, 120)
             )
             self.assertEqual(entity.labels.values["en"], "Test Item")
             self.assertNotIn("de", entity.labels.values)  # Language filtering

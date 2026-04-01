@@ -652,6 +652,7 @@ class WikidataImporter:
 
         # Get entity
         params = {"entity_id": wikidata_id, "mediawiki_api_url": WIKIDATA_API_URL}
+        self.log.debug("Calling Wikidata API: url=%s entity_id=%s", WIKIDATA_API_URL, wikidata_id)
         entity = (self.api.item if prefix == "Q" else self.api.property).get(**params)
 
         if self.languages != "all":

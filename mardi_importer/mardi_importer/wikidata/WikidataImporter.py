@@ -472,6 +472,33 @@ class WikidataImporter:
             return local_id
 
     def update_entities(self, id_list, label=False, description=False):
+        """Synchronise local MaRDI entities with their current Wikidata state.
+
+        For each Wikidata ID in ``id_list``, fetches the latest data from
+        Wikidata and merges all claims into the corresponding local entity.
+        If no local entity exists yet, the entity is imported from scratch via
+        :meth:`import_entities`.  Lexeme IDs (``L``-prefixed) are skipped.
+
+        The write step is retried up to three times (30 s apart) on
+        :class:`~wikibaseintegrator.wbi_exceptions.ModificationFailed` before
+        re-raising.
+
+        Args:
+            id_list (str | list[str]): Single Wikidata ID or list of Wikidata
+                IDs (``Q``- or ``P``-prefixed) to update.
+            label (bool): Reserved for future use; currently unused.
+            description (bool): Reserved for future use; currently unused.
+
+        Returns:
+            str | dict[str, str]: The local MaRDI ID when ``id_list`` contains
+            exactly one entry; otherwise a mapping of
+            ``{wikidata_id: local_mardi_id}`` for every successfully updated
+            or imported entity.
+
+        Raises:
+            ModificationFailed: If writing a local entity fails on all three
+                retry attempts.
+        """
         updated_entities = {}
 
         # Ensure id_list is a list
@@ -486,8 +513,9 @@ class WikidataImporter:
                 )
                 continue
 
-            self.log.debug(f"Updating entity {wikidata_id}")
+            self.log.debug(f"Updating local entity from wikidata {wikidata_id}")
 
+            self.log.debug(f"Reading from Wikidata ...")
             entity = self._get_wikidata_information(wikidata_id, True)
 
             if not entity:
@@ -501,7 +529,10 @@ class WikidataImporter:
                 self.log.warning(f"Warning: Lexemes not supported. Property skipped.")
                 continue
 
+            self.log.debug("Getting local QID ...")
             mardi_id = self.query("local_id", wikidata_id)
+
+            self.log.debug(f"Processing (updating) local item: {mardi_id}")
             if mardi_id:
                 mardi_item = self.api.item.get(entity_id=mardi_id)
                 entity = self._convert_claim_ids(entity)

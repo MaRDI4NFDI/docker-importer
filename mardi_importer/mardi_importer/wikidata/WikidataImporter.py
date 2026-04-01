@@ -4,7 +4,6 @@ import sqlalchemy as db
 import time
 
 from mardiclient import MardiClient
-from wikibaseintegrator import wbi_helpers
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -80,7 +79,6 @@ class WikidataImporter:
 
     def setup(self) -> None:
         """Initialize database connections and Wikidata-specific configurations."""
-        self._patch_wbi_session()
         self.engine = self._create_engine()
         self.mw_engine = self._create_engine(mediawiki=True)
         self.create_db_table()
@@ -113,31 +111,6 @@ class WikidataImporter:
             "wikibase-form",
             "entity-schema",
         ]
-
-    def _patch_wbi_session(self) -> None:
-        """Replace the wikibaseintegrator default session with one that enforces
-        a request timeout, preventing indefinite hangs on slow or unresponsive
-        Wikidata API calls."""
-
-        if not hasattr(requests, "Session"):
-            return
-
-        class _TimeoutSession(requests.Session):
-            def request(self, *args, **kwargs):
-                kwargs.setdefault("timeout", (10, 120))
-                return super().request(*args, **kwargs)
-
-        wbi_helpers.default_session = _TimeoutSession()
-
-        # mediawiki_api_call_helper passes login.get_session() when a login
-        # object is present, which bypasses default_session entirely.
-        # Replace the login session so the timeout applies there too.
-        if self.api.login is not None:
-            old_session = self.api.login.session
-            new_session = _TimeoutSession()
-            new_session.headers.update(dict(old_session.headers))
-            new_session.cookies.update(old_session.cookies)
-            self.api.login.session = new_session
 
     def _create_engine(self, mediawiki=False):
         """
@@ -673,7 +646,7 @@ class WikidataImporter:
             )
 
         # Get entity
-        params = {"entity_id": wikidata_id, "mediawiki_api_url": WIKIDATA_API_URL}
+        params = {"entity_id": wikidata_id, "mediawiki_api_url": WIKIDATA_API_URL, "timeout": (10, 120)}
         entity = (self.api.item if prefix == "Q" else self.api.property).get(**params)
 
         if self.languages != "all":

@@ -518,20 +518,17 @@ class WikidataImporter:
             self.log.debug(f"Updating local entity from wikidata {wikidata_id}")
 
             self.log.debug(f"Reading from Wikidata (with 120s timeout)...")
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(self._get_wikidata_information, wikidata_id, True)
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(self._get_wikidata_information, wikidata_id, True)
-                    entity = future.result(timeout=120)
-            except concurrent.futures.TimeoutError:
+                entity = future.result(timeout=120)
+            except (concurrent.futures.TimeoutError, requests.exceptions.Timeout):
                 self.log.error(
                     f"Timeout while fetching {wikidata_id} from Wikidata — skipping"
                 )
+                executor.shutdown(wait=False)
                 continue
-            except requests.exceptions.Timeout:
-                self.log.error(
-                    f"Timeout while fetching {wikidata_id} from Wikidata — skipping"
-                )
-                continue
+            executor.shutdown(wait=False)
 
             if not entity:
                 self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")

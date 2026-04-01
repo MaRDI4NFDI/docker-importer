@@ -1,8 +1,10 @@
 import os
+import requests
 import sqlalchemy as db
 import time
 
 from mardiclient import MardiClient
+from wikibaseintegrator import wbi_helpers
 from wikibaseintegrator.models import Claim, Claims, Qualifiers, Reference, Sitelinks
 from wikibaseintegrator.wbi_config import config as wbi_config
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -78,6 +80,7 @@ class WikidataImporter:
 
     def setup(self) -> None:
         """Initialize database connections and Wikidata-specific configurations."""
+        self._patch_wbi_session()
         self.engine = self._create_engine()
         self.mw_engine = self._create_engine(mediawiki=True)
         self.create_db_table()
@@ -110,6 +113,18 @@ class WikidataImporter:
             "wikibase-form",
             "entity-schema",
         ]
+
+    def _patch_wbi_session(self) -> None:
+        """Replace the wikibaseintegrator default session with one that enforces
+        a request timeout, preventing indefinite hangs on slow or unresponsive
+        Wikidata API calls."""
+
+        class _TimeoutSession(requests.Session):
+            def request(self, *args, **kwargs):
+                kwargs.setdefault("timeout", (10, 120))
+                return super().request(*args, **kwargs)
+
+        wbi_helpers.default_session = _TimeoutSession()
 
     def _create_engine(self, mediawiki=False):
         """
@@ -515,8 +530,14 @@ class WikidataImporter:
 
             self.log.debug(f"Updating local entity from wikidata {wikidata_id}")
 
-            self.log.debug(f"Reading from Wikidata ...")
-            entity = self._get_wikidata_information(wikidata_id, True)
+            self.log.debug(f"Reading from Wikidata (with 120s timeout)...")
+            try:
+                entity = self._get_wikidata_information(wikidata_id, True)
+            except requests.exceptions.Timeout:
+                self.log.error(
+                    f"Timeout while fetching {wikidata_id} from Wikidata — skipping"
+                )
+                continue
 
             if not entity:
                 self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")

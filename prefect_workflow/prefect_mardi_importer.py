@@ -1,10 +1,9 @@
 import os
 import re
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 
-from prefect import flow, task, get_run_logger, State
+from prefect import flow, task, get_run_logger
 from mardi_importer.wikidata import WikidataImporter
-from prefect.states import Failed
 
 from mardi_importer.mardi_importer import Importer
 from prefect.artifacts import Artifact
@@ -236,7 +235,7 @@ def prefect_mardi_importer_flow(
     action: str,
     qids: Optional[List[str]] = None,
     dois: Optional[List[str]] = None,
-) -> Union[Dict[str, Any], State]:
+) -> Dict[str, Any]:
     log = get_run_logger()
     qids = qids or []
     dois = dois or []
@@ -291,7 +290,7 @@ def prefect_mardi_importer_flow(
     # Mark flow failed if not all items have been imported
     if not result.get("all_imported", True):
         log.error("Batch processing contained errors. Marking flow as failed.")
-        return Failed(message="Partial import failure detected.", data=response_payload)
+        raise RuntimeError(f"Partial import failure detected. See artifact: {artifact.key}")
 
     # Return pointers for later programmatic retrieval
     return response_payload

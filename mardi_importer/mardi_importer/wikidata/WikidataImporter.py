@@ -1,7 +1,7 @@
 import os
-import concurrent.futures
 import requests
 import sqlalchemy as db
+import threading
 import time
 
 from mardiclient import MardiClient
@@ -518,17 +518,34 @@ class WikidataImporter:
             self.log.debug(f"Updating local entity from wikidata {wikidata_id}")
 
             self.log.debug(f"Reading from Wikidata (with 120s timeout)...")
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            future = executor.submit(self._get_wikidata_information, wikidata_id, True)
-            try:
-                entity = future.result(timeout=120)
-            except (concurrent.futures.TimeoutError, requests.exceptions.Timeout):
+
+            # Run the Wikidata API call in a daemon thread so the process can
+            # exit cleanly if the thread is abandoned. result_holder and
+            # exc_holder are single-element lists used to pass the return value
+            # or exception back to the main thread after join().
+            result_holder = [None]
+            exc_holder = [None]
+
+            def _fetch():
+                try:
+                    result_holder[0] = self._get_wikidata_information(wikidata_id, True)
+                except Exception as e:
+                    exc_holder[0] = e
+
+            t = threading.Thread(target=_fetch, daemon=True)
+            t.start()
+            t.join(timeout=120)
+
+            if t.is_alive():
                 self.log.error(
                     f"Timeout while fetching {wikidata_id} from Wikidata — skipping"
                 )
-                executor.shutdown(wait=False)
                 continue
-            executor.shutdown(wait=False)
+
+            if exc_holder[0] is not None:
+                raise exc_holder[0]
+
+            entity = result_holder[0]
 
             if not entity:
                 self.log.debug(f"No labels for entity with id {wikidata_id}, skipping")

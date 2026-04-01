@@ -211,23 +211,6 @@ def import_wikidata():
     payload, _all_ok = import_wikidata_sync(qids)
     return jsonify(payload), 200
 
-@app.get("/update/wikidata")
-def update_wikidata_get():
-    """Thin GET wrapper, delegates to POST route."""
-    log.info("Called 'update_wikidata' (GET). PID: %s, Time: %s", os.getpid(), time.time())
-
-    qid = request.args.get("qid")
-    if not qid:
-        return jsonify(error="missing qid"), 400
-    log.info("Delegating to POST for QID: %s, PID: %s", qid, os.getpid())
-    with app.test_client() as client:
-        response = client.post(
-            "/update/wikidata",
-            json={"qids": [qid]}
-        )
-        log.info("POST response status: %s, PID: %s", response.status_code, os.getpid())
-        return response.data, response.status_code, response.headers
-
 @app.post("/update/wikidata")
 def update_wikidata_async():
     """Update person profile from wikidata; this is async and happens in Prefect

@@ -278,11 +278,10 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
             patch("prefect_workflow.prefect_mardi_importer.Artifact", return_value=artifact):
             get_ctx.return_value.flow_run.id = "flow-run-id"
 
-            result = pmi.prefect_mardi_importer_flow("import/doi", dois=["10.1000/xyz"])
+            with self.assertRaises(RuntimeError) as ctx:
+                pmi.prefect_mardi_importer_flow("import/doi", dois=["10.1000/xyz"])
 
-        self.assertIsInstance(result, pmi.Failed)
-        self.assertEqual(result.data["artifact_id"], "artifact-id")
-        self.assertFalse(result.data["all_imported"])
+        self.assertIn("artifact-key", str(ctx.exception))
 
     def test_flow_missing_inputs(self) -> None:
         """Validate required inputs by action."""
@@ -346,9 +345,7 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
             patch("prefect_workflow.prefect_mardi_importer.Artifact", return_value=artifact):
             get_ctx.return_value.flow_run.id = "flow-run-id"
 
-            result = pmi.prefect_mardi_importer_flow("import/wikidata", qids=["Q1", "Q2"])
+            with self.assertRaises(RuntimeError) as ctx:
+                pmi.prefect_mardi_importer_flow("import/wikidata", qids=["Q1", "Q2"])
 
-        self.assertIsInstance(result, pmi.Failed)
-        self.assertEqual(result.data["artifact_id"], "artifact-id")
-        self.assertEqual(result.data["flow_run_id"], "flow-run-id")
-        self.assertFalse(result.data["all_imported"])
+        self.assertIn("artifact-key", str(ctx.exception))

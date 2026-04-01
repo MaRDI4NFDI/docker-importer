@@ -1,5 +1,6 @@
 import os
 import requests
+from requests import Session as RequestsSession
 import sqlalchemy as db
 import time
 
@@ -119,7 +120,7 @@ class WikidataImporter:
         a request timeout, preventing indefinite hangs on slow or unresponsive
         Wikidata API calls."""
 
-        class _TimeoutSession(requests.Session):
+        class _TimeoutSession(RequestsSession):
             def request(self, *args, **kwargs):
                 kwargs.setdefault("timeout", (10, 120))
                 return super().request(*args, **kwargs)

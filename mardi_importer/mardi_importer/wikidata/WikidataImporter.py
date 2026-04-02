@@ -473,7 +473,7 @@ class WikidataImporter:
 
             return local_id
 
-    def update_entities(self, id_list, label=False, description=False):
+    def update_entities(self, id_list, label=False, description=False, timeout=86400):
         """Synchronise local MaRDI entities with their current Wikidata state.
 
         For each Wikidata ID in ``id_list``, fetches the latest data from
@@ -490,6 +490,7 @@ class WikidataImporter:
                 IDs (``Q``- or ``P``-prefixed) to update.
             label (bool): Reserved for future use; currently unused.
             description (bool): Reserved for future use; currently unused.
+            timeout (int): Timeout in seconds. Defaults to 24 hours (86400s)
 
         Returns:
             str | dict[str, str]: The local MaRDI ID when ``id_list`` contains
@@ -517,7 +518,7 @@ class WikidataImporter:
 
             self.log.debug(f"Updating local entity from wikidata {wikidata_id}")
 
-            self.log.debug(f"Reading from Wikidata (with 120s timeout)...")
+            self.log.debug(f"Reading from Wikidata (with {timeout}s timeout)...")
 
             # Run the Wikidata API call in a daemon thread so the process can
             # exit cleanly if the thread is abandoned. result_holder and
@@ -534,7 +535,7 @@ class WikidataImporter:
 
             t = threading.Thread(target=_fetch, daemon=True)
             t.start()
-            t.join(timeout=120)
+            t.join(timeout)
 
             if t.is_alive():
                 self.log.error(

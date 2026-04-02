@@ -26,8 +26,9 @@ if __name__ == "__main__":
         parameters={
             # Must match flow signature
             "action": "not_set",
-            # Default value; Flask will override on trigger
+            # Default values; Flask will override on trigger
             "qids": [],
+            "dois": [],
         },
         job_variables={
             "image": "ghcr.io/mardi4nfdi/docker-importer:main",

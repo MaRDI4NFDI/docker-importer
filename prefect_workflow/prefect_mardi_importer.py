@@ -237,8 +237,8 @@ def prefect_mardi_importer_flow(
     dois: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     log = get_run_logger()
-    qids = qids or []
-    dois = dois or []
+    qids: List[str] = qids or []
+    dois: List[str] = dois or []
 
     log.info("version: %s", get_version())
     log.info(
@@ -277,7 +277,7 @@ def prefect_mardi_importer_flow(
             "action": action,
             **result,
         },
-    ).create()
+    ).create()  # type: ignore[call-arg]  # false positive: async_dispatch ParamSpec wrapper
 
     response_payload = {
         "action": action,

@@ -134,7 +134,7 @@ def update_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
 
     for q in qids:
         try:
-            updated_q = wdi.update_entities(q)
+            updated_q = wdi.update_entities(q, timeout=300)
 
             if not updated_q:
                 log.info("No update for wikidata qid %s", q)

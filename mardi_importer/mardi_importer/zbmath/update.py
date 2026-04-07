@@ -13,27 +13,37 @@ import sys
 
 username = os.environ.get('MARDI_USERNAME')
 password = os.environ.get('MARDI_PASSWORD')
+print(f"starting mardiclient login for username {username}")
 mc = MardiClient(user=username, password=password)
+print("finished mardiclient login")
 error_string = 'zbMATH Open Web Interface contents unavailable due to conflicting licenses.'
 
 label_id_dict = {}
-label_id_dict["de_number_prop"] = mc.get_local_id_by_label( #de_number_prop
-    "zbMATH DE Number", "property"
-)
-label_id_dict["keyword_prop"] = mc.get_local_id_by_label( #keyword_prop
-    "zbMATH Keywords", "property"
-)
-label_id_dict["review_prop"] = mc.get_local_id_by_label("review text", "property")
-label_id_dict["mardi_profile_type_prop"] = mc.get_local_id_by_label("MaRDI profile type", "property")
-label_id_dict["mardi_publication_profile_item"] = mc.get_local_id_by_label(
-    "Publication", "item"
-)[0]
-label_id_dict["mardi_person_profile_item"] = mc.get_local_id_by_label("Person", "item")[0]
+#label_id_dict["de_number_prop"] = mc.get_local_id_by_label( #de_number_prop
+#    "zbMATH DE Number", "property"
+#)
+label_id_dict["de_number_prop"] = "P1451"
+#label_id_dict["keyword_prop"] = mc.get_local_id_by_label( #keyword_prop
+#    "zbMATH Keywords", "property"
+#)
+label_id_dict["keyword_prop"] = "P1450"
+#label_id_dict["review_prop"] = mc.get_local_id_by_label("review text", "property")
+label_id_dict["review_prop"] = "P1448"
+#label_id_dict["mardi_profile_type_prop"] = mc.get_local_id_by_label("MaRDI profile type", "property")
+label_id_dict["mardi_profile_type_prop"] = "P1460"
+#label_id_dict["mardi_publication_profile_item"] = mc.get_local_id_by_label(
+#    "Publication", "item"
+#)[0]
+label_id_dict["mardi_publication_profile_item"] = "Q5976449"
+#label_id_dict["mardi_person_profile_item"] = mc.get_local_id_by_label("Person", "item")[0]
+label_id_dict["mardi_person_profile_item"] = "Q5976445"
 
 property_dict = {"document_title":"P159","classifications":"P226","keywords":"P1450","publication_year":"P28","serial":"P200","links":"P205",
      "doi":"P27","author":"P16","reviewers":"P1447","review_text":"P1448", "arxiv_id":"P21","source":"P22","preprint":"P1676"}
 
+print("started reading df")
 df = pd.read_csv('/scratch/visual/lpusch/mardi/differences_zbmath_data_dump20231221_TO_zbmath_data_dump20240912.csv', sep='\t')
+print("finished reading df")
 
 def is_empty(val):
     if isinstance(val,str):
@@ -106,8 +116,9 @@ for _, row in df.iterrows():
                 old_cols = ["document_title", "classifications","author","author_ids","publication_year","source"]
             
     if not found:
-        if row["de_number"] == 1566567:
+        if row["de_number"] == 6369580:
             found= True
+            print("found it!")
         continue
     authors_done = False
     reviewers_done=False

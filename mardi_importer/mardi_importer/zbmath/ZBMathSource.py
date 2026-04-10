@@ -539,7 +539,7 @@ class ZBMathSource(ADataSource):
                             continue
                         if a:
                             a = a.strip()
-                        if not a_id:
+                        if a and not a_id:
                             name_parts = a.strip().split(",")
                             a_name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
                             author_name_strings.append(a_name)

@@ -172,7 +172,7 @@ class ZBMathPublication:
         self.item.add_claims(author_claims)
         author_string_claims = []
         for author_string in self.author_name_strings:
-            claim = self.api.get_claim("Q56500", author_string)
+            claim = self.api.get_claim("P43", author_string)
             author_string_claims.append(claim)
         self.item.add_claims(author_string_claims)
         if self.journal:

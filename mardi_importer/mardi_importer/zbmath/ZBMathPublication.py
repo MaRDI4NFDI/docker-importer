@@ -201,8 +201,6 @@ class ZBMathPublication:
                 claim = self.api.get_claim("P163", license_dict[l])
                 license_claims.append(claim)
             self.item.add_claims(license_claims)
-            for l in self.licenses:
-                self.item.add_claim("P163", license_dict[l])
         if self.keywords:
             kw_claims = []
             for k in self.keywords:

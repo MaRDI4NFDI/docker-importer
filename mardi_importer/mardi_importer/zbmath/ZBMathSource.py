@@ -533,11 +533,17 @@ class ZBMathSource(ADataSource):
                     else:
                         author_strings = info_dict["author"].split(";")
                     authors = []
+                    author_name_strings = []
                     for a, a_id in zip(author_strings, author_ids):
                         if not a and not a_id:
                             continue
                         if a:
                             a = a.strip()
+                        if not a_id:
+                            name_parts = a.strip().split(",")
+                            a_name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
+                            author_name_strings.append(a_name)
+                            continue
                         a_id = a_id.strip()
                         if a_id in self.existing_authors:
                             authors.append(self.existing_authors[a_id])
@@ -563,6 +569,7 @@ class ZBMathSource(ADataSource):
                             self.existing_authors[a_id] = local_author_id
                 else:
                     authors = []
+                    author_name_strings = []
 
                 if (
                     self.conflict_string in info_dict["serial"]
@@ -737,6 +744,7 @@ class ZBMathSource(ADataSource):
                             title=document_title,
                             doi=doi,
                             authors=authors,
+                            author_name_strings=author_name_strings,
                             journal=journal,
                             language=language,
                             time=time_string,

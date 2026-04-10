@@ -520,56 +520,42 @@ class ZBMathSource(ADataSource):
                 else:
                     zbl_id = None
 
-                if (
-                    not self.conflict_string in info_dict["author_ids"]
-                    and "None" not in info_dict["author_ids"]
-                ):
-                    author_ids = info_dict["author_ids"].split(";")
-                    if (
-                        self.conflict_string in info_dict["author"]
-                        or "None" in info_dict["author"]
-                    ):
-                        author_strings = [None] * len(author_ids)
+                author_ids = [None if x.strip() == "None" or self.conflict_string in x else x.strip()
+                                for x in info_dict["author_ids"].split(";")]
+                author_strings = [None if x.strip() == "None" or self.conflict_string in x else x.strip()
+                                for x in info_dict["author"].split(";")]
+                authors = []
+                author_name_strings = []
+                for a, a_id in zip(author_strings, author_ids):
+                    if not a and not a_id:
+                        continue
+                    if a and not a_id:
+                        name_parts = a.split(",")
+                        a_name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
+                        author_name_strings.append(a_name)
+                        continue
+                    if a_id in self.existing_authors:
+                        authors.append(self.existing_authors[a_id])
+                        print(f"Author with name {a} was already created this run.")
                     else:
-                        author_strings = info_dict["author"].split(";")
-                    authors = []
-                    author_name_strings = []
-                    for a, a_id in zip(author_strings, author_ids):
-                        if not a and not a_id:
-                            continue
-                        if a:
-                            a = a.strip()
-                        if a and not a_id:
-                            name_parts = a.strip().split(",")
-                            a_name = ((" ").join(name_parts[1:]) + " " + name_parts[0]).strip()
-                            author_name_strings.append(a_name)
-                            continue
-                        a_id = a_id.strip()
-                        if a_id in self.existing_authors:
-                            authors.append(self.existing_authors[a_id])
-                            print(f"Author with name {a} was already created this run.")
-                        else:
-                            for attempt in range(5):
-                                try:
-                                    author = ZBMathAuthor(
-                                        name=a,
-                                        zbmath_author_id=a_id,
-                                        label_id_dict=self.label_id_dict,
-                                    )
-                                    local_author_id = author.create()
-                                except Exception as e:
-                                    print(f"Exception: {e}, sleeping")
-                                    print(traceback.format_exc())
-                                    time.sleep(120)
-                                else:
-                                    break
+                        for attempt in range(5):
+                            try:
+                                author = ZBMathAuthor(
+                                    name=a,
+                                    zbmath_author_id=a_id,
+                                    label_id_dict=self.label_id_dict,
+                                )
+                                local_author_id = author.create()
+                            except Exception as e:
+                                print(f"Exception: {e}, sleeping")
+                                print(traceback.format_exc())
+                                time.sleep(120)
                             else:
-                                sys.exit("Uploading author did not work after retries!")
-                            authors.append(local_author_id)
-                            self.existing_authors[a_id] = local_author_id
-                else:
-                    authors = []
-                    author_name_strings = []
+                                break
+                        else:
+                            sys.exit("Uploading author did not work after retries!")
+                        authors.append(local_author_id)
+                        self.existing_authors[a_id] = local_author_id
 
                 if (
                     self.conflict_string in info_dict["serial"]

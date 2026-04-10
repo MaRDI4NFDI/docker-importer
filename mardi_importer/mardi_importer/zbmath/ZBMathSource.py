@@ -348,6 +348,7 @@ class ZBMathSource(ADataSource):
                     record["review_text"] = review_text
                     record["review_sign"] = review_sign
                     record["reviewer_id"] = reviewer_id
+                    record["license"] = ";".join(literal_eval(row["license"]))
                         
                     if record:
                         for key, value in record.items():
@@ -711,6 +712,11 @@ class ZBMathSource(ADataSource):
                 else:
                     classifications = None
 
+                if info_dict["license"]:
+                    licenses = info_dict["license"].split(";")
+                else:
+                    licenses = None
+
                 if info_dict["de_number"].strip() != "None":
                     de_number = info_dict["de_number"].strip()
                 else:
@@ -744,6 +750,7 @@ class ZBMathSource(ADataSource):
                             de_number=de_number,
                             keywords=keywords,
                             label_id_dict = self.label_id_dict,
+                            licenses = licenses
                         )
                         if publication.is_arxiv():
                             print(f"Publication {document_title} is arXiv article")

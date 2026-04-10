@@ -198,9 +198,13 @@ class ZBMathPublication:
         if self.licenses:
             license_claims = []
             for l in self.licenses:
-                claim = self.api.get_claim("P163", license_dict[l])
+                license_qid = license_dict.get(l)
+                if not license_qid:
+                    continue
+                claim = self.api.get_claim("P163", license_qid)
                 license_claims.append(claim)
-            self.item.add_claims(license_claims)
+            if license_claims:
+                self.item.add_claims(license_claims)
         if self.keywords:
             kw_claims = []
             for k in self.keywords:

@@ -89,6 +89,7 @@ class ZBMathPublication:
         title,
         doi,
         authors,
+        author_name_strings,
         journal,
         language,
         time,
@@ -113,6 +114,7 @@ class ZBMathPublication:
         if self.doi:
             self.doi = self.doi.upper()
         self.authors = authors
+        self.author_name_strings = author_name_strings
         self.journal = journal
         self.time = time
         self.creation_date = creation_date
@@ -168,6 +170,11 @@ class ZBMathPublication:
             claim = self.api.get_claim("wdt:P50", author)
             author_claims.append(claim)
         self.item.add_claims(author_claims)
+        author_string_claims = []
+        for author_string in self.author_name_strings:
+            claim = self.api.get_claim("P43", author_string)
+            author_string_claims.append(claim)
+        self.item.add_claims(author_string_claims)
         if self.journal:
             self.item.add_claim("wdt:P1433", self.journal)
         if self.creation_date:

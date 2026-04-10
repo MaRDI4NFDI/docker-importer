@@ -1,6 +1,52 @@
 from .misc import search_item_by_property
 from mardi_importer import Importer
 
+license_dict = {
+    "http://arxiv.org/licenses/nonexclusive-distrib/1.0/": "Q6830561",
+    "https://arxiv.org/licenses/nonexclusive-distrib/1.0/": "Q6830561",
+    "https://creativecommons.org": "Q56978",
+    "https://creativecommons.org/": "Q56978",
+    "https://creativecommons.org/Licenses/by-nc-nd/4.0/": "Q6830565",
+    "https://creativecommons.org/Licenses/by/4.0/": "Q57056",
+    "https://creativecommons.org/licences/by/4.0/": "Q57056",
+    "https://creativecommons.org/licenses/": "Q56978",
+    "https://creativecommons.org/licenses/by-nc-by/4.0/": "Q57074",  # malformed, likely CC BY-NC 4.0
+    "https://creativecommons.org/licenses/by-nc-nd/3.0/": "Q6830563",
+    "https://creativecommons.org/licenses/by-nc-nd/4.0/": "Q6830565",
+    "https://creativecommons.org/licenses/by-nc-sa/3.0/": "Q57076",
+    "https://creativecommons.org/licenses/by-nc-sa/4.0/": "Q57078",
+    "https://creativecommons.org/licenses/by-nc/2.0/": "Q6830583",
+    "https://creativecommons.org/licenses/by-nc/2.5/": "Q6830578",  # Q26874140 not in portal
+    "https://creativecommons.org/licenses/by-nc/2/": "Q6830583",  # malformed, likely CC BY-NC 2.0
+    "https://creativecommons.org/licenses/by-nc/3.0/": "Q57072",
+    "https://creativecommons.org/licenses/by-nc/4.0/": "Q57074",
+    "https://creativecommons.org/licenses/by-nd/3.0/": "Q6830595",
+    "https://creativecommons.org/licenses/by-nd/4.0/": "Q6830589",
+    "https://creativecommons.org/licenses/by-sa/3.0/": "Q57029",
+    "https://creativecommons.org/licenses/by-sa/4.0/": "Q57038",
+    "https://creativecommons.org/licenses/by/1.0/": "Q6830600",
+    "https://creativecommons.org/licenses/by/2.0/": "Q6830597",
+    "https://creativecommons.org/licenses/by/2/": "Q6830597",  # malformed, likely CC BY 2.0
+    "https://creativecommons.org/licenses/by/3.0/": "Q57050",
+    "https://creativecommons.org/licenses/by/4.0/": "Q57056",
+    "https://creativecommons.org/licenses/by/4.0/legalcode": "Q57056",
+    "https://creativecommons.org/licenses/by/4/": "Q57056",  # malformed, likely CC BY 4.0
+    "https://creativecommons.org/licenses/by/4:0/": "Q57056",  # malformed, likely CC BY 4.0
+    "https://creativecommons.org/licenses/by/nc/4.0/": "Q57074",  # malformed, likely CC BY-NC 4.0
+    "https://creativecommons.org/licenses/ny/4.0/": "Q57056",  # malformed, likely CC BY 4.0
+    "https://creativecommons.org/publicdomain/mark/1.0/": "Q56990",
+    "https://creativecommons.org/publicdomain/zero/1.0/": "Q56468",
+    "http://creativecommons.org/publicdomain/zero/1.0/": "Q56468",
+    "http://creativecommons.org/licenses/by/4.0/": "Q57056",
+    "http://creativecommons.org/licenses/by/3.0/": "Q57050",
+    "http://creativecommons.org/licenses/by-nc-sa/3.0/": "Q57076",
+    "http://creativecommons.org/licenses/publicdomain/": "Q56990",
+    "http://creativecommons.org/licenses/by-sa/4.0/": "Q57038",
+    "http://creativecommons.org/licenses/by-nc-nd/4.0/": "Q6830565",
+    "http://creativecommons.org/licenses/by-nc-sa/4.0/": "Q57078",
+}
+
+
 class ZBMathPublication:
     """Class to manage zbMath publication items in the local Wikibase instance.
     Attributes:
@@ -56,6 +102,7 @@ class ZBMathPublication:
         de_number,
         keywords,
         label_id_dict,
+        licenses
     ):
         self.title = title
         self.zbl_id = zbl_id
@@ -76,6 +123,7 @@ class ZBMathPublication:
         self.de_number = de_number
         self.keywords = keywords
         self.label_id_dict = label_id_dict
+        self.licenses = licenses
         self.api = Importer.get_api('zbmath')
         self.item = self.init_item()
 
@@ -97,6 +145,13 @@ class ZBMathPublication:
         self.item.add_claim("wdt:P31", "wd:Q13442814")
         self.insert_claims()
         publication_id = self.item.write().id
+         # If arxiv_id exists, find the arXiv item and link it back
+        if self.arxiv_id:
+            qid_list = self.api.search_entity_by_value("P21", self.arxiv_id)
+            for qid in qid_list:
+                arxiv_item = self.api.item.get(entity_id=qid)
+                arxiv_item.add_claim("P1676", publication_id)  # is preprint of
+                arxiv_item.write()
         return publication_id
 
     def insert_claims(self):
@@ -106,8 +161,6 @@ class ZBMathPublication:
         # zbmath document id
         if self.zbl_id:
             self.item.add_claim("wdt:P894", self.zbl_id)
-        if self.arxiv_id:
-            self.item.add_claim("wdt:P818", self.arxiv_id)
         if self.doi:
             self.item.add_claim("wdt:P356", self.doi)
         author_claims = []
@@ -142,6 +195,16 @@ class ZBMathPublication:
             self.item.add_claims(classification_claims)
         if self.de_number:
             self.item.add_claim(self.label_id_dict["de_number_prop"], self.de_number)
+        if self.licenses:
+            license_claims = []
+            for l in self.licenses:
+                license_qid = license_dict.get(l)
+                if not license_qid:
+                    continue
+                claim = self.api.get_claim("P163", license_qid)
+                license_claims.append(claim)
+            if license_claims:
+                self.item.add_claims(license_claims)
         if self.keywords:
             kw_claims = []
             for k in self.keywords:

@@ -760,7 +760,7 @@ class ZBMathSource(ADataSource):
                                         changed = True
                                 #add msc if they are not already there
                                 if not 'P226' in arxiv_item.claims.get_json().keys():
-                                    if publication.classfications:
+                                    if publication.classifications:
                                         classification_claims = []
                                         for c in publication.classifications:
                                             claim = self.api.get_claim("P226", c)

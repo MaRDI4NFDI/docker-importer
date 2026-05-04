@@ -334,7 +334,9 @@ class ZBMathSource(ADataSource):
                     record["zbl_id"] = row["identifier"]
                     ref_ids = []
                     for d in literal_eval(row["references"]):
-                        ref_ids.append(str(d["zbmath"]["document_id"]))
+                        doc_id = d["zbmath"]["document_id"]
+                        if doc_id is not None:
+                            ref_ids.append(str(doc_id))
                     record["references"] = ";".join(ref_ids)
                     review_text = None
                     review_sign = None

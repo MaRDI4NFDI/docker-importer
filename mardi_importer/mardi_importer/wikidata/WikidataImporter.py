@@ -122,7 +122,7 @@ class WikidataImporter:
         """
         if self.setup:
             db_user = os.environ["IMPORTER_DB_USER"]
-            db_pass = os.environ["IMPORTER_DB_PASS"]
+            db_pass = os.environ["IMPORTER_DB_PASSWORD"]
             db_name = os.environ["DB_NAME"]
             if mediawiki:
                 db_name = "my_wiki"

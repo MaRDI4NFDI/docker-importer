@@ -63,41 +63,21 @@ def ensure_concurrency_limit() -> None:
 # The worker merges these into the Kubernetes Job manifest it creates.
 JOB_VARIABLES = {
     "image": "ghcr.io/mardi4nfdi/docker-importer:main",
-
-    # Volumes + mounts for the shared persistent volume.
-    # The PVC "importer-workflow-data" must already exist in the namespace
-    # (see k8s/pvc-workflow-data.yaml).
-    "customizations": [
-        {
-            # Add the volume definition to the pod spec
-            "op": "add",
-            "path": "/spec/template/spec/volumes/-",
-            "value": {
-                "name": "workflow-data",
-                "persistentVolumeClaim": {
-                    "claimName": "importer-workflow-data",
-                },
-            },
+    "volumes": [{
+        "name": "workflow-data",
+        "persistentVolumeClaim": {
+            "claimName": "importer-workflow-data",
         },
-        {
-            # Mount it into the container
-            "op": "add",
-            "path": "/spec/template/spec/containers/0/volumeMounts/-",
-            "value": {
-                "name": "workflow-data",
-                "mountPath": "/mnt/workflow-data",
-            },
-        },
-        {
-            # Set the env var so the flow code knows where to find it
-            "op": "add",
-            "path": "/spec/template/spec/containers/0/env/-",
-            "value": {
-                "name": "CHECKPOINT_DIR",
-                "value": "/mnt/workflow-data",
-            },
-        },
-    ],
+    }],
+    "volume_mounts": [{
+        "name": "workflow-data",
+        "mountPath": "/mnt/workflow-data",
+    }],
+    "env": {
+        "PREFECT_LOGGING_LEVEL": "DEBUG",
+        "PREFECT_LOGGING_INTERNAL_LEVEL": "DEBUG",
+        "CHECKPOINT_DIR": "/mnt/workflow-data",
+    },
 }
 
 

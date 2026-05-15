@@ -1,0 +1,214 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.cran.CRANSource &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../flask_endpoints.html">Web API Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cran.html">Importer Module for CRAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../integrator.html">Integrator Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">mardi_importer.cran.CRANSource</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mardi_importer.cran.CRANSource</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mardi_importer.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ADataSource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.RPackage</span><span class="w"> </span><span class="kn">import</span> <span class="n">RPackage</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;CRANlogger&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CRANSource">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.CRANSource.CRANSource">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">CRANSource</span><span class="p">(</span><span class="n">ADataSource</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Processes data from the Comprehensive R Archive Network.</span>
+
+<span class="sd">    Metadata for each R package is scrapped from the CRAN Repository. Each </span>
+<span class="sd">    Wikibase item corresponding to each R package is subsequently updated</span>
+<span class="sd">    or created, in case of a new package.</span>
+<span class="sd">    </span>
+<span class="sd">    Attributes:</span>
+<span class="sd">        packages (Pandas dataframe): </span>
+<span class="sd">          Dataframe with **package name**, **title** and **date of publication** for</span>
+<span class="sd">          each package in CRAN.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">password</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">user</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">packages</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+<div class="viewcode-block" id="CRANSource.setup">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.CRANSource.CRANSource.setup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create all necessary properties and entities for CRAN</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Import entities from Wikidata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">import_wikidata_entities</span><span class="p">(</span><span class="s2">&quot;/wikidata_entities.txt&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Create new required local entities</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_local_entities</span><span class="p">(</span><span class="s2">&quot;/new_entities.json&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CRANSource.pull">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.CRANSource.CRANSource.pull">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pull</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reads **date**, **package name** and **title** from the CRAN Repository URL.</span>
+
+<span class="sd">        The result is saved as a pandas dataframe in the attribute **packages**.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Pandas dataframe: Attribute ``packages``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;https://cran.r-project.org/web/packages/available_packages_by_date.html&quot;</span>
+
+        <span class="n">tables</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_html</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">packages</span> <span class="o">=</span> <span class="n">tables</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">packages</span></div>
+
+
+<div class="viewcode-block" id="CRANSource.push">
+<a class="viewcode-back" href="../../../cran.html#mardi_importer.cran.CRANSource.CRANSource.push">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates the MaRDI Wikibase entities corresponding to R packages.</span>
+
+<span class="sd">        For each **package name** in the attribute **packages** checks </span>
+<span class="sd">        if the date in CRAN coincides with the date in the MaRDI </span>
+<span class="sd">        knowledge graph. If not, the package is updated. If the package </span>
+<span class="sd">        is not found in the MaRDI knowledge graph, the corresponding </span>
+<span class="sd">        item is created.</span>
+
+<span class="sd">        It creates a :class:`mardi_importer.cran.RPackage` instance</span>
+<span class="sd">        for each package.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)</span>
+        <span class="c1">#self.packages = self.packages.loc[:100, :]</span>
+
+        <span class="n">flag</span> <span class="o">=</span> <span class="kc">False</span>
+        
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">packages</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">package_date</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Date&quot;</span><span class="p">]</span>
+            <span class="n">package_label</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Package&quot;</span><span class="p">]</span>
+            <span class="n">package_title</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Title&quot;</span><span class="p">]</span>
+
+            <span class="c1">#if not flag and package_label != &quot;BeSS&quot;:</span>
+            <span class="c1">#    continue</span>
+            <span class="c1">#flag = True</span>
+            <span class="c1">#if package_label == &quot;GeoModels&quot;:</span>
+
+            <span class="n">package</span> <span class="o">=</span> <span class="n">RPackage</span><span class="p">(</span><span class="n">package_date</span><span class="p">,</span> <span class="n">package_label</span><span class="p">,</span> <span class="n">package_title</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">package</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">package</span><span class="o">.</span><span class="n">is_updated</span><span class="p">():</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package </span><span class="si">{</span><span class="n">package_label</span><span class="si">}</span><span class="s2"> found: Not up to date. Attempting update...&quot;</span><span class="p">)</span>
+                    <span class="n">package</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package </span><span class="si">{</span><span class="n">package_label</span><span class="si">}</span><span class="s2"> found: Already up to date.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package </span><span class="si">{</span><span class="n">package_label</span><span class="si">}</span><span class="s2"> not found: Attempting item creation...&quot;</span><span class="p">)</span>
+                <span class="n">package</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

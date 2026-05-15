@@ -666,7 +666,7 @@ MOCK_ENV_VARS = {
     "WIKIBASE_URL": "http://test.wikibase.org",
     "IMPORTER_API_URL": "http://test.importer.org",
     "IMPORTER_DB_USER": "test_db_user",
-    "IMPORTER_DB_PASS": "test_db_pass",
+    "IMPORTER_DB_PASSWORD": "test_db_pass",
     "IMPORTER_MW_AGENT": "Importer agent",
     "DB_NAME": "test_db",
     "DB_HOST": "test_db_host",

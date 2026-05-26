@@ -1,6 +1,7 @@
 from habanero import Crossref
 from requests.exceptions import HTTPError
 import requests
+import pandas as pd
 
 
 def search_item_by_property(property_id,value):
@@ -46,6 +47,56 @@ def get_tag(tag_name, namespace):
         namespace (string): namespace URL of a namespace
     """
     return "{{{}}}{}".format(namespace, tag_name)
+
+
+
+def split_file(processed_dump_path):
+    dirname = os.path.dirname(processed_dump_path)
+    basename = os.path.basename(processed_dump_path)
+    df = pd.read_csv(processed_dump_path,sep="\t")
+    wo_arxiv = df[~df.zbl_id.str.contains("arXiv", na=False)]
+    only_arxiv = df[df.zbl_id.str.contains("arXiv",na=False)]
+    wo_arxiv_name = os.path.join(dirname, f"wo_arxiv_{basename}")
+    only_arxiv_name = os.path.join(dirname, f"only_arxiv_{basename}")
+    wo_arxiv.to_csv(wo_arxiv_name, sep="\t", index=False)
+    only_arxiv.to_csv(only_arxiv_name, sep="\t", index=False)
+    return wo_arxiv_name, only_arxiv_name
+
+def deduplicate_arxiv_file(old_arxiv_path, new_arxiv_path):
+    old = pd.read_csv(old_arxiv_path, sep="\t")
+    new = pd.read_csv(new_arxiv_path, sep="\t")
+    new_only = new[~new.zbl_id.isin(old.zbl_id)]
+    dirname = os.path.dirname(new_arxiv_path)
+    dedup_path = os.path.join(dirname, f"dedup_{os.path.basename(new_arxiv_path)}") 
+    new_only.to_csv(dedup_path, sep="\t", index=False)
+    return dedup_path
+
+def run_references(dump_path, mc, log):
+
+    df = pd.read_csv(dump_path, sep="\t")
+    subset = df[~df.references.isna()]
+
+    found = False
+    for _, row in subset.iterrows():
+        root_de = str(row["de_number"])
+        references = row["references"].split(";")
+        if not references:
+            continue
+        mapping = mc.batch_search_by_value("P1451", references)
+        ref_qids = [mapping[r][0] for r in references if r in mapping]
+
+        if ref_qids:
+            try:
+                root_qid = mc.search_entity_by_value("P1451", root_de)[0]
+            except:
+                continue
+            root_item = mc.item.get(entity_id=root_qid)
+
+            for rq in ref_qids:
+                root_item.add_claim("P223", rq)
+
+            log.info(f"attempting write for item {root_qid} with de number {root_de}")
+            root_item.write()
 
 
 def parse_doi_info(val, work_info):

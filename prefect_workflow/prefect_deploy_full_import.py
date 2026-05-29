@@ -1,63 +1,22 @@
 # What this script does:
-#   1. Creates a global concurrency limit of 1 so at most one run of
-#      this flow can be active at a time (= "don't start if the previous
-#      run hasn't finished").
-#   2. Deploys the flow from the Git repo (manual trigger only, no schedule).
+#   1. Deploys the flow from the Git repo (manual trigger only, no schedule).
+#   2. Limits the deployment to one active run at a time, so a second run
+#      will queue (wait) until the first finishes.
 #   3. Passes ``job_variables`` that tell the Prefect K8s worker to mount
 #      the PVC ``importer-workflow-data`` into the job pod.
 # ---------------------------------------------------------------------------
 
 from prefect import flow
-from prefect.client.orchestration import get_client
 
-# ── 1.  Concurrency limit ──────────────────────────────────────────────────
+
+# ── Deploy ─────────────────────────────────────────────────────────────────
 #
-# Prefect's *global* concurrency limits cap how many matching runs can be
-# active at once.  We create one with limit=1 so a second run will wait
-# (queue) until the first finishes.
-#
-# The limit is identified by a tag.  We add the same tag to the deployment
-# so every run of this deployment inherits it.
-
-CONCURRENCY_TAG   = "full-import-lock"
-CONCURRENCY_LIMIT = 1
-
-
-def ensure_concurrency_limit() -> None:
-    """Create (or update) the concurrency limit idempotently."""
-    import asyncio
-    from prefect.client.schemas.actions import GlobalConcurrencyLimitCreate
-
-    async def _ensure():
-        async with get_client() as client:
-            try:
-                existing = await client.read_global_concurrency_limit_by_name(
-                    CONCURRENCY_TAG
-                )
-                if existing.limit != CONCURRENCY_LIMIT:
-                    await client.update_global_concurrency_limit(
-                        name=CONCURRENCY_TAG,
-                        concurrency_limit=GlobalConcurrencyLimitCreate(
-                            name=CONCURRENCY_TAG,
-                            limit=CONCURRENCY_LIMIT,
-                        ),
-                    )
-                    print(f"Updated concurrency limit '{CONCURRENCY_TAG}' → {CONCURRENCY_LIMIT}")
-                else:
-                    print(f"Concurrency limit '{CONCURRENCY_TAG}' already exists (limit={CONCURRENCY_LIMIT})")
-            except Exception:
-                await client.create_global_concurrency_limit(
-                    GlobalConcurrencyLimitCreate(
-                        name=CONCURRENCY_TAG,
-                        limit=CONCURRENCY_LIMIT,
-                    )
-                )
-                print(f"Created concurrency limit '{CONCURRENCY_TAG}' (limit={CONCURRENCY_LIMIT})")
-
-    asyncio.run(_ensure())
-
-
-# ── 2.  Deploy ─────────────────────────────────────────────────────────────
+# Single-run behaviour is enforced by the per-deployment ``concurrency_limit``
+# below. In Prefect 3 a deployment concurrency limit caps how many runs of
+# *this* deployment can be active at once; with the default ENQUEUE collision
+# strategy, runs over the limit wait in "AwaitingConcurrencySlot" until a slot
+# frees up. limit=1 therefore means "don't start if the previous run hasn't
+# finished".
 
 # K8s job customisation – the interesting part is the PVC mount.
 # The worker merges these into the Kubernetes Job manifest it creates.
@@ -82,16 +41,13 @@ JOB_VARIABLES = {
 
 
 if __name__ == "__main__":
-    # Ensure the concurrency limit exists before deploying.
-    ensure_concurrency_limit()
-
     flow.from_source(
         source="https://github.com/MaRDI4NFDI/docker-importer.git",
         entrypoint="prefect_workflow/prefect_full_import.py:full_import_flow",
     ).deploy(
         name="prefect-full-import",
         work_pool_name="K8WorkerPool",
-        tags=[CONCURRENCY_TAG],
+        concurrency_limit=1,          # one active run at a time; extra runs queue
         parameters={},
         job_variables=JOB_VARIABLES,
         # To add a weekly schedule later, uncomment:
@@ -99,6 +55,6 @@ if __name__ == "__main__":
     )
 
     print("\n✔  Deployment 'full-import/prefect-full-import' created.")
-    print("   Schedule : manual (no cron)")
-    print("   Concurrency : 1 (via tag '%s')" % CONCURRENCY_TAG)
-    print("   PVC      : importer-workflow-data → /mnt/workflow-data")
+    print("   Schedule    : manual (no cron)")
+    print("   Concurrency : 1 (per-deployment limit, ENQUEUE)")
+    print("   PVC         : importer-workflow-data → /mnt/workflow-data")

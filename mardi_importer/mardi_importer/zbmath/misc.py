@@ -2,6 +2,7 @@ from habanero import Crossref
 from requests.exceptions import HTTPError
 import requests
 import pandas as pd
+import os
 
 
 def search_item_by_property(property_id,value):
@@ -71,24 +72,29 @@ def deduplicate_arxiv_file(old_arxiv_path, new_arxiv_path):
     new_only.to_csv(dedup_path, sep="\t", index=False)
     return dedup_path
 
-def run_references(dump_path, mc, log):
+def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=None):
 
     df = pd.read_csv(dump_path, sep="\t")
     subset = df[~df.references.isna()]
 
-    found = False
     for _, row in subset.iterrows():
         root_de = str(row["de_number"])
+        if resume_after_de is not None:
+            if root_de != str(resume_after_de):
+                continue
+            else:
+                resume_after_de = None
+                continue
         references = row["references"].split(";")
         if not references:
             continue
         mapping = mc.batch_search_by_value("P1451", references)
-        ref_qids = [mapping[r][0] for r in references if r in mapping]
+        ref_qids = [mapping[r][0] for r in references if mapping.get(r)]
 
         if ref_qids:
             try:
                 root_qid = mc.search_entity_by_value("P1451", root_de)[0]
-            except:
+            except Exception:
                 continue
             root_item = mc.item.get(entity_id=root_qid)
 
@@ -97,6 +103,9 @@ def run_references(dump_path, mc, log):
 
             log.info(f"attempting write for item {root_qid} with de number {root_de}")
             root_item.write()
+
+        if progress_callback:
+            progress_callback(root_de)
 
 
 def parse_doi_info(val, work_info):

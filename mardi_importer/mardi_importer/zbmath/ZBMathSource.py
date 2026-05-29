@@ -170,18 +170,25 @@ class ZBMathSource(ADataSource):
                 else:
                     print(f"Max retries reached for {de}")
 
-    def write_data_dump(self,start_after=0):
+    def write_data_dump(self,start_after=0,output_path=None,progress_callback=None):
         """
         Overrides abstract method.
         This method queries the zbMath API to get a data dump of all records,
         optionally between from_date and until_date
         """
         url = "https://api.zbmath.org/v1/document/_all"
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        self.raw_dump_path = self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt"
+        if output_path and os.path.exists(output_path):
+            # Resuming — reuse existing file, don't write headers again
+            self.raw_dump_path = output_path
+            write_header = False
+        else:
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            self.raw_dump_path = output_path or (self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt")
+            write_header = True
         headers = ['biographic_references', 'contributors', 'database', 'datestamp', 'document_type', 'editorial_contributions', 'id', 'identifier', 'keywords', 'language', 'license', 'links', 'msc', 'references', 'source', 'states', 'title', 'year', 'zbmath_url']
         with open(self.raw_dump_path, "a+") as f:
-            f.write("\t".join(headers) + "\n")
+            if write_header:
+                f.write("\t".join(headers) + "\n")
             retries = 0
             max_retries = 5
             while True:
@@ -204,6 +211,8 @@ class ZBMathSource(ADataSource):
                             f.write(self.get_line(r.values()))
                         f.flush()
                         os.fsync(f)
+                        if progress_callback:
+                            progress_callback(start_after)
                     elif retries < max_retries:
                         print(f"Encountered {response.status_code} error, retrying...")
                         retries += 1
@@ -259,7 +268,7 @@ class ZBMathSource(ADataSource):
             for rec in records:
                 f.write(rec.raw + "\n")
 
-    def process_data(self):
+    def process_data(self, resume_after_de=None, progress_callback=None):
         """
         Overrides abstract method.
         Reads a raw zbMath data dump and processes it, then saves it as a csv.
@@ -269,13 +278,15 @@ class ZBMathSource(ADataSource):
             self.processed_dump_path = (
                 self.out_dir + "zbmath_data_dump" + timestr + ".csv"
             )
+        write_header = resume_after_de is None
         with open(self.processed_dump_path, "a") as outfile:
-            outfile.write(
-                "de_number\t"
-                + "creation_date\t"
-                + ("\t").join(self.tags)
-                + "\n"
-                )
+            if write_header:
+                outfile.write(
+                    "de_number\t"
+                    + "creation_date\t"
+                    + ("\t").join(self.tags)
+                    + "\n"
+                    )
             
             #df = pd.read_csv(self.raw_dump_path, sep = "\t")
             found = False
@@ -283,6 +294,12 @@ class ZBMathSource(ADataSource):
                 for _, row in chunk.iterrows():
                     record = {}
                     record["de_number"] = row["id"]
+                    if resume_after_de is not None:
+                        if str(row["id"]) != str(resume_after_de):
+                            continue
+                        else:
+                            resume_after_de = None
+                            continue
                     # if row["id"] == 2522407:
                     #     found = True
                     #     continue
@@ -359,6 +376,8 @@ class ZBMathSource(ADataSource):
                         outfile.write(
                             "\t".join(str(x) for x in record.values()) + "\n"
                         )
+                        if progress_callback:
+                            progress_callback(str(row["id"]))
 
     def old_process_data(self):
         """
@@ -472,7 +491,7 @@ class ZBMathSource(ADataSource):
         else:
             sys.exit("Error: zb_preview not found")
 
-    def push(self):
+    def push(self, resume_after_de=None, progress_callback=None):
         """Updates the MaRDI Wikibase entities corresponding to zbMath publications.
         It creates a :class:`mardi_importer.zbmath.ZBMathPublication` instance
         for each publication. Authors and journals are added, as well.
@@ -490,14 +509,12 @@ class ZBMathSource(ADataSource):
                 if len(split_line) != len(headers):
                     continue
                 info_dict = dict(zip(headers, split_line))
-                # this part is for continuing at a certain position if the import failed
-                # if not found:
-                #     if info_dict["de_number"].strip() != "49686":
-                #     #if info_dict["document_title"] != "Unimodular supergravity":
-                    #     continue
-                    # else:
-                    #     found = True
-                    #     continue
+                if resume_after_de is not None:
+                    if info_dict["de_number"].strip() != str(resume_after_de):
+                        continue
+                    else:
+                        resume_after_de = None
+                        continue
                 # if there is not title, don't add
                 if self.conflict_string in info_dict["document_title"]:
                     if (
@@ -799,6 +816,8 @@ class ZBMathSource(ADataSource):
                         break
                 else:
                     sys.exit("Uploading publication did not work after retries!")
+                if progress_callback:
+                    progress_callback(info_dict["de_number"].strip())
 
 
     def create_arxiv_item(self, publication, info_dict):

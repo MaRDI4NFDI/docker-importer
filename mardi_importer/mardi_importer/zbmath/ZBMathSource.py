@@ -170,7 +170,7 @@ class ZBMathSource(ADataSource):
                 else:
                     print(f"Max retries reached for {de}")
 
-    def write_data_dump(self):
+    def write_data_dump(self,start_after=0):
         """
         Overrides abstract method.
         This method queries the zbMath API to get a data dump of all records,
@@ -182,15 +182,14 @@ class ZBMathSource(ADataSource):
         headers = ['biographic_references', 'contributors', 'database', 'datestamp', 'document_type', 'editorial_contributions', 'id', 'identifier', 'keywords', 'language', 'license', 'links', 'msc', 'references', 'source', 'states', 'title', 'year', 'zbmath_url']
         with open(self.raw_dump_path, "a+") as f:
             f.write("\t".join(headers) + "\n")
-            start_after = 0
             retries = 0
             max_retries = 5
             while True:
                 results = []
                 params = {"start_after": start_after,
-                            "results_per_request": 500}
+                            "results_per_request": 100}
                 try:
-                    response = requests.get(url, params=params)
+                    response = requests.get(url, params=params, timeout=300)
                     if response.status_code == 200:
                         retries = 0
                         data=response.json()
@@ -205,10 +204,10 @@ class ZBMathSource(ADataSource):
                             f.write(self.get_line(r.values()))
                         f.flush()
                         os.fsync(f)
-                    elif response.status_code == 502 and retries < max_retries:
-                        print("Encountered 502 error, retrying...")
+                    elif retries < max_retries:
+                        print(f"Encountered {response.status_code} error, retrying...")
                         retries += 1
-                        sleep(5)
+                        sleep(120)
                         continue
                     else:
                         print(f"Failed to retrieve data: {response.status_code}")
@@ -217,10 +216,11 @@ class ZBMathSource(ADataSource):
                     print(f"Exception occurred: {e}")
                     if retries < max_retries:
                         retries += 1
-                        sleep(30)
+                        sleep(120)
                         continue
                     else:
                         print("Max retries reached for Exception.")
+                        print(f"response url is {response.url} and text is {response.text}")
                         break
                 except Exception as e:
                     print(f"An unexpected error occurred: {e}")

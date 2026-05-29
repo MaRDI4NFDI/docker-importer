@@ -67,9 +67,23 @@ def _mark_step(checkpoint: dict, step: str, result: dict | None = None) -> dict:
     checkpoint.setdefault("completed_steps", {})[step] = True
     if result:
         checkpoint.setdefault("step_outputs", {}).update(result)
+    # Clear intra-step progress now that the step is fully done
+    checkpoint.get("step_progress", {}).pop(step, None)
     checkpoint["last_updated"] = datetime.now(timezone.utc).isoformat()
     _save_checkpoint(checkpoint)
     return checkpoint
+
+def _save_progress(step: str, data: dict) -> None:
+    """Save intra-step progress (e.g. last processed ID)."""
+    checkpoint = _load_checkpoint()
+    checkpoint.setdefault("step_progress", {})[step] = data
+    _save_checkpoint(checkpoint)
+
+
+def _load_progress(step: str) -> dict | None:
+    """Load intra-step progress, or None if no progress saved."""
+    checkpoint = _load_checkpoint()
+    return checkpoint.get("step_progress", {}).get(step)
 
 
 # ── Test tasks ──────────────────────────────────────────
@@ -155,11 +169,30 @@ def download_raw_dump(start_after: Optional[str] = None) -> str:
     source = ZBMathSource(user=user, password=password)
     source.out_dir = DATA_DIR + "/"
 
-    log.info("Starting raw dump download (start_after=%s)", start_after)
-    source.write_data_dump(start_after=int(start_after) if start_after else 0)
+    progress = _load_progress("download_raw_dump")
+    if progress:
+        resume_after = progress["last_id"]
+        output_path = progress["raw_dump_path"]
+        log.info("Resuming download from last_id=%s into %s", resume_after, output_path)
+    else:
+        resume_after = int(start_after) if start_after else 0
+        output_path = None
+
+    def on_progress(last_id):
+        _save_progress("download_raw_dump", {
+            "last_id": last_id,
+            "raw_dump_path": source.raw_dump_path,
+        })
+
+    source.write_data_dump(
+        start_after=resume_after,
+        output_path=output_path,
+        progress_callback=on_progress,
+    )
 
     log.info("Raw dump written to %s", source.raw_dump_path)
     return source.raw_dump_path
+
 
 
 @task(name="convert_raw_to_processed")
@@ -176,11 +209,27 @@ def convert_raw_to_processed(raw_dump_path: str) -> str:
     source = ZBMathSource(user=user, password=password)
     source.out_dir = DATA_DIR + "/"
 
-    source.raw_dump_path = raw_dump_path
-    source.processed_dump_path = None  # let it auto-generate a timestamped path
+    progress = _load_progress("convert_raw_to_processed")
+    if progress:
+        resume_after_de = progress["last_de"]
+        source.processed_dump_path = progress["processed_dump_path"]
+        log.info("Resuming conversion after de_number=%s", resume_after_de)
+    else:
+        resume_after_de = None
+        source.processed_dump_path = None
 
-    log.info("Converting raw dump %s", raw_dump_path)
-    source.process_data()
+    source.raw_dump_path = raw_dump_path
+
+    def on_progress(last_de):
+        _save_progress("convert_raw_to_processed", {
+            "last_de": last_de,
+            "processed_dump_path": source.processed_dump_path,
+        })
+
+    source.process_data(
+        resume_after_de=resume_after_de,
+        progress_callback=on_progress,
+    )
 
     log.info("Processed dump written to %s", source.processed_dump_path)
     return source.processed_dump_path
@@ -247,31 +296,53 @@ def push_zbmath(dump_path: str, label: str = "") -> str:
     password = Secret.load("importer-zbmath-password").get()
 
     source = ZBMathSource(user=user, password=password)
-    source.out_dir = DATA_DIR + "/"
     source.processed_dump_path = dump_path
-    source.push()
+    step_key = f"push_zbmath_{label}"
+    progress = _load_progress(step_key)
+    resume_after_de = progress["last_de"] if progress else None
+
+    if resume_after_de:
+        log.info("Resuming push (%s) after de_number=%s", label, resume_after_de)
+
+    def on_progress(last_de):
+        _save_progress(step_key, {"last_de": last_de})
+
+    source.push(
+        resume_after_de=resume_after_de,
+        progress_callback=on_progress,
+    )
 
     log.info("Push complete (%s): %s", label, dump_path)
     return dump_path
 
 
+
 @task(name="run_references")
-def run_references(dump_path: str) -> str:
-    """Run the reference-linking pass.
-    Returns a status string.
-    """
+def run_references(dump_path: str, label: str = "") -> str:
     log = get_run_logger()
-    log.info(f"Running reference pass for file {dump_path}")
+    log.info("Running reference pass (%s) for %s", label, dump_path)
 
     user = Secret.load("importer-zbmath-user").get()
     password = Secret.load("importer-zbmath-password").get()
-
     source = ZBMathSource(user=user, password=password)
-    source.out_dir = DATA_DIR + "/"
 
-    run_references_impl(dump_path, source.api, log)
+    step_key = f"run_references_{label}"
+    progress = _load_progress(step_key)
+    resume_after_de = progress["last_de"] if progress else None
 
-    log.info("Reference run complete")
+    if resume_after_de:
+        log.info("Resuming references (%s) after de_number=%s", label, resume_after_de)
+
+    def on_progress(last_de):
+        _save_progress(step_key, {"last_de": last_de})
+
+    run_references_impl(
+        dump_path, source.api, log,
+        resume_after_de=resume_after_de,
+        progress_callback=on_progress,
+    )
+
+    log.info("Reference run complete (%s)", label)
     return "references_done"
 
 
@@ -427,7 +498,7 @@ def full_import_flow():
     if _step_done(checkpoint, "push_zbmath_non_arxiv"):
         log.info("Skipping push_zbmath non-arxiv (already done)")
     else:
-        push_zbmath(non_arxiv_path, label="non-arxiv")
+        push_zbmath(non_arxiv_path, label="non_arxiv")
         checkpoint = _mark_step(checkpoint, "push_zbmath_non_arxiv")
 
     # ── Step 6: Push arxiv ───────────────────────────────────────────────
@@ -441,14 +512,14 @@ def full_import_flow():
     if _step_done(checkpoint, "run_references_non_arxiv"):
         log.info("Skipping run_references for non-arxiv (already done)")
     else:
-        run_references(non_arxiv_path)
+        run_references(non_arxiv_path, label="non_arxiv")
         checkpoint = _mark_step(checkpoint, "run_references_non_arxiv")
 
     # ── Step 8: Reference run for arxiv ────────────────────────────────────────────
     if _step_done(checkpoint, "run_references_arxiv"):
         log.info("Skipping run_references for arxiv (already done)")
     else:
-        run_references(deduped_arxiv_path)
+        run_references(deduped_arxiv_path, label="arxiv")
         checkpoint = _mark_step(checkpoint, "run_references_arxiv")
 
     # ── Step 9: Verify files ─────────────────────────────────────────────

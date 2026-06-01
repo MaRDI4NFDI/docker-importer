@@ -164,7 +164,7 @@ def download_raw_dump(start_after: Optional[str] = None) -> str:
 
     log = get_run_logger()
 
-    user = Secret.load("importer-zbmath-user").get()
+    user = "zbMATH-Importer"
     password = Secret.load("importer-zbmath-password").get()
     source = ZBMathSource(user=user, password=password)
     source.out_dir = DATA_DIR + "/"
@@ -204,7 +204,7 @@ def convert_raw_to_processed(raw_dump_path: str) -> str:
 
     log = get_run_logger()
 
-    user = Secret.load("importer-zbmath-user").get()
+    user = "zbMATH-Importer"
     password = Secret.load("importer-zbmath-password").get()
     source = ZBMathSource(user=user, password=password)
     source.out_dir = DATA_DIR + "/"
@@ -292,7 +292,7 @@ def push_zbmath(dump_path: str, label: str = "") -> str:
     log.info("Pushing zbMath data (%s) from %s", label, dump_path)
 
 
-    user = Secret.load("importer-zbmath-user").get()
+    user = "zbMATH-Importer"
     password = Secret.load("importer-zbmath-password").get()
 
     source = ZBMathSource(user=user, password=password)
@@ -322,7 +322,7 @@ def run_references(dump_path: str, label: str = "") -> str:
     log = get_run_logger()
     log.info("Running reference pass (%s) for %s", label, dump_path)
 
-    user = Secret.load("importer-zbmath-user").get()
+    user = "zbMATH-Importer"
     password = Secret.load("importer-zbmath-password").get()
     source = ZBMathSource(user=user, password=password)
 

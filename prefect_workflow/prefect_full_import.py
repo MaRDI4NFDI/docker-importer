@@ -427,6 +427,7 @@ def full_import_flow():
 
     os.environ["WIKIDATA_PASS"]        = Secret.load("wikidata-importer-wiki-password").get()
     os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
+    os.environ["ZBMATH_PASS"]          = Secret.load("importer-zbmath-password").get()
     log = get_run_logger()
     ctx = get_run_context()
     log.info("Full import flow run: %s", ctx.flow_run.id)

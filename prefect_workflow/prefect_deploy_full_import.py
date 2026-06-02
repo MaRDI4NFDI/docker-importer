@@ -44,6 +44,7 @@ JOB_VARIABLES = {
         "IMPORTER_DB_USER":     "importer-user",
         "DB_NAME":              "wikidata-importer",
         "DB_HOST":              "mariadb-primary",
+        "ZBMATH_USER": "zbMATH-Importer",
     },
 }
 

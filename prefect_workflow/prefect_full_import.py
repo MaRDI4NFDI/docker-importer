@@ -5,6 +5,7 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from typing import Optional
+import shutil
 
 from prefect import flow, task, get_run_logger
 from prefect.context import get_run_context
@@ -419,6 +420,11 @@ def full_import_flow():
     If the flow is interrupted, re-running it will skip already-completed
     steps based on the checkpoint file at CHECKPOINT_DIR.
     """
+    shutil.copyfile(
+        "/config/import_config.config.template",
+        "/config/import_config.config",
+    )
+
     os.environ["WIKIDATA_PASS"]        = Secret.load("wikidata-importer-wiki-password").get()
     os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
     log = get_run_logger()

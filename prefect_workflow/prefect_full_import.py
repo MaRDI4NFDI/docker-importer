@@ -419,6 +419,8 @@ def full_import_flow():
     If the flow is interrupted, re-running it will skip already-completed
     steps based on the checkpoint file at CHECKPOINT_DIR.
     """
+    os.environ["WIKIDATA_PASS"]        = Secret.load("wikidata-importer-wiki-password").get()
+    os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
     log = get_run_logger()
     ctx = get_run_context()
     log.info("Full import flow run: %s", ctx.flow_run.id)

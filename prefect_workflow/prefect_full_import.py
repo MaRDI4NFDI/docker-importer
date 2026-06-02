@@ -461,6 +461,7 @@ def full_import_flow():
         raw_path = outputs["raw_dump_path"]
         log.info("Skipping download_raw_dump (already done): %s", raw_path)
     else:
+        log.info("Starting download of raw dump")
         raw_path = download_raw_dump(start_after=last_de)
         checkpoint = _mark_step(
             checkpoint, "download_raw_dump", {"raw_dump_path": raw_path}
@@ -471,6 +472,7 @@ def full_import_flow():
         processed_path = outputs["processed_dump_path"]
         log.info("Skipping convert_raw_to_processed (already done): %s", processed_path)
     else:
+        log.info("Starting to convert raw dump to processed dump")
         processed_path = convert_raw_to_processed(raw_path)
         checkpoint = _mark_step(
             checkpoint, "convert_raw_to_processed",
@@ -484,6 +486,7 @@ def full_import_flow():
         log.info("Skipping split (already done): arxiv=%s, non_arxiv=%s",
                  arxiv_path, non_arxiv_path)
     else:
+        log.info("Splitting files")
         split_result = split_arxiv_non_arxiv(processed_path)
         arxiv_path = split_result["arxiv_path"]
         non_arxiv_path = split_result["non_arxiv_path"]
@@ -497,6 +500,7 @@ def full_import_flow():
         deduped_arxiv_path = outputs["deduped_arxiv_path"]
         log.info("Skipping deduplicate_arxiv (already done): %s", deduped_arxiv_path)
     else:
+        log.info("Deduplicating arxiv")
         deduped_arxiv_path = deduplicate_arxiv(arxiv_path)
         checkpoint = _mark_step(
             checkpoint, "deduplicate_arxiv",
@@ -507,6 +511,7 @@ def full_import_flow():
     if _step_done(checkpoint, "push_zbmath_non_arxiv"):
         log.info("Skipping push_zbmath non-arxiv (already done)")
     else:
+        log.info("Starting to push non-arxiv")
         push_zbmath(non_arxiv_path, label="non_arxiv")
         checkpoint = _mark_step(checkpoint, "push_zbmath_non_arxiv")
 
@@ -514,6 +519,7 @@ def full_import_flow():
     if _step_done(checkpoint, "push_zbmath_arxiv"):
         log.info("Skipping push_zbmath arxiv (already done)")
     else:
+        log.info("Starting to push arxiv")
         push_zbmath(deduped_arxiv_path, label="arxiv")
         checkpoint = _mark_step(checkpoint, "push_zbmath_arxiv")
 
@@ -521,6 +527,7 @@ def full_import_flow():
     if _step_done(checkpoint, "run_references_non_arxiv"):
         log.info("Skipping run_references for non-arxiv (already done)")
     else:
+        log.info("Starting to run references for non-arxiv")
         run_references(non_arxiv_path, label="non_arxiv")
         checkpoint = _mark_step(checkpoint, "run_references_non_arxiv")
 
@@ -528,6 +535,7 @@ def full_import_flow():
     if _step_done(checkpoint, "run_references_arxiv"):
         log.info("Skipping run_references for arxiv (already done)")
     else:
+        log.info("Starting to run references for arxiv")
         run_references(deduped_arxiv_path, label="arxiv")
         checkpoint = _mark_step(checkpoint, "run_references_arxiv")
 
@@ -535,6 +543,7 @@ def full_import_flow():
     if _step_done(checkpoint, "verify_files"):
         log.info("Skipping verify_files (already done)")
     else:
+        log.info("Starting file verification")
         expected = [
             raw_path,
             processed_path,

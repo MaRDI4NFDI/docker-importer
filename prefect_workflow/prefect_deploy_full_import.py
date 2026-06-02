@@ -36,6 +36,10 @@ JOB_VARIABLES = {
         "PREFECT_LOGGING_LEVEL": "DEBUG",
         "PREFECT_LOGGING_INTERNAL_LEVEL": "DEBUG",
         "CHECKPOINT_DIR": "/mnt/workflow-data",
+        "MEDIAWIKI_API_URL":   "http://wikibase/w/api.php",
+        "WIKIBASE_URL":        "http://wikibase",
+        "SPARQL_ENDPOINT_URL": "http://wdqs:9999/bigdata/namespace/wdq/sparql",
+        "IMPORTER_API_URL":    "http://importer-api",
     },
 }
 

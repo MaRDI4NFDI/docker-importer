@@ -40,6 +40,10 @@ JOB_VARIABLES = {
         "WIKIBASE_URL":        "http://wikibase",
         "SPARQL_ENDPOINT_URL": "http://wdqs:9999/bigdata/namespace/wdq/sparql",
         "IMPORTER_API_URL":    "http://importer-api",
+        "WIKIDATA_USER":        "Wikidata-Importer",
+        "IMPORTER_DB_USER":     "importer-user",
+        "DB_NAME":              "wikidata-importer",
+        "DB_HOST":              "mariadb-primary",
     },
 }
 

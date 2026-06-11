@@ -49,6 +49,7 @@ _install_flask_stub()
 
 from flask_app.app import (
     health,
+    create_item,
     import_wikidata_async,
     import_workflow_status,
     import_workflow_result,
@@ -313,6 +314,58 @@ class TestFlaskApp(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(response["results"]["dplyr"]["status"], "success")
+
+
+    def test_create_item_missing_label(self) -> None:
+        """Test create item with missing label."""
+        fake_request.get_json.return_value = {}
+        response, status = create_item()
+        self.assertEqual(status, 400)
+        self.assertEqual(response["error"], "missing label")
+
+    def test_create_item_success(self) -> None:
+        """Test successful item creation."""
+        fake_request.get_json.return_value = {
+            "label": "Test item",
+            "description": "A test",
+            "claims": {"wdt:P31": "wd:Q5"},
+        }
+        mock_result = Mock()
+        mock_result.id = "Q999"
+        mock_item = Mock()
+        mock_item.write.return_value = mock_result
+        mock_api = Mock()
+        mock_api.item.new.return_value = mock_item
+
+        env = {"WIKIDATA_USER": "user", "WIKIDATA_PASS": "pass"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=mock_api):
+            response, status = create_item()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["qid"], "Q999")
+        self.assertEqual(response["status"], "success")
+        mock_item.labels.set.assert_called_once_with(language="en", value="Test item")
+        mock_item.descriptions.set.assert_called_once_with(language="en", value="A test")
+        mock_item.add_claim.assert_called_once_with("wdt:P31", "wd:Q5")
+
+    def test_create_item_write_failure(self) -> None:
+        """Test item creation when write returns no ID."""
+        fake_request.get_json.return_value = {"label": "Test item"}
+        mock_result = Mock()
+        mock_result.id = None
+        mock_item = Mock()
+        mock_item.write.return_value = mock_result
+        mock_api = Mock()
+        mock_api.item.new.return_value = mock_item
+
+        env = {"WIKIDATA_USER": "user", "WIKIDATA_PASS": "pass"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=mock_api):
+            response, status = create_item()
+
+        self.assertEqual(status, 500)
+        self.assertEqual(response["status"], "error")
 
 
 if __name__ == "__main__":

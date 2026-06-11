@@ -1,11 +1,13 @@
 import base64
 import logging
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
 import requests
+from mardiclient import MardiClient
 
 from mardi_importer import Importer
 from mardi_importer.cran.RPackage import RPackage
@@ -467,6 +469,48 @@ def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
         "all_imported": all_ok,
     }
     return payload, all_ok
+
+
+def create_item_sync(
+    label: str,
+    description: str | None = None,
+    claims: dict | None = None,
+) -> tuple[dict, bool]:
+    """Create a Wikibase item with the given label, description, and claims.
+
+    Args:
+        label: English label for the new item.
+        description: Optional English description.
+        claims: Optional mapping of property IDs to values.
+
+    Returns:
+        Tuple of payload and success flag.
+    """
+    api = MardiClient(
+        user=os.environ["WIKIDATA_USER"],
+        password=os.environ["WIKIDATA_PASS"],
+        mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
+        sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
+        wikibase_url=os.environ.get("WIKIBASE_URL"),
+        importer_api_url=os.environ.get("IMPORTER_API_URL"),
+    )
+
+    item = api.item.new()
+    item.labels.set(language="en", value=label)
+    if description:
+        item.descriptions.set(language="en", value=description)
+    for prop, value in (claims or {}).items():
+        item.add_claim(prop, value)
+
+    result = item.write()
+    qid = result.id if result else None
+
+    if qid:
+        log.info("Created item %s with label '%s'.", qid, label)
+        return {"qid": qid, "status": "success"}, True
+
+    log.error("Failed to create item with label '%s'.", label)
+    return {"qid": None, "status": "error", "error": "Item could not be created."}, False
 
 
 def import_doi_sync(dois: list[str]) -> tuple[dict, bool]:

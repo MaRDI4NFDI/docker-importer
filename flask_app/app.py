@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request
 from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
+    create_item_sync,
     get_workflow_result,
     get_workflow_runs_last_n_hours,
     get_workflow_status,
@@ -313,6 +314,39 @@ def import_cran():
 
     payload, _all_ok = import_cran_sync(packages)
     return jsonify(payload), 200
+
+
+@app.post("/create/item")
+def create_item():
+    """Create a Wikibase item from a JSON description.
+
+    Expects JSON with a ``label`` field (required), and optional ``description``
+    and ``claims`` (mapping of property IDs to values).
+
+    Example body::
+
+        {
+            "label": "My item",
+            "description": "An optional description",
+            "claims": {
+                "wdt:P31": "wd:Q5",
+                "wdt:P496": "0000-0001-2345-6789"
+            }
+        }
+
+    Returns:
+        Flask response tuple with the created item QID and status.
+    """
+    data = request.get_json(silent=True) or {}
+    label = data.get("label")
+    if not label:
+        return jsonify(error="missing label"), 400
+
+    description = data.get("description")
+    claims = data.get("claims", {})
+
+    payload, ok = create_item_sync(label, description, claims)
+    return jsonify(payload), 200 if ok else 500
 
 
 if __name__ == "__main__":

@@ -50,11 +50,12 @@ SCHEMAS: dict[str, dict] = {
                 "pid": "P16",
                 "required": False,
             },
-            # P28 — publication date: string, e.g. "2026-04-09"
+            # P28 — publication date: YYYY-MM-DD, converted to Wikibase time format
             "publication_date": {
                 "target": "claim",
                 "pid": "P28",
                 "required": False,
+                "value_format": "wikibase_time",
             },
             # P163 — copyright license: QID of a license, e.g. CC-BY-SA = Q57031
             "copyright_license": {
@@ -90,6 +91,14 @@ SCHEMAS: dict[str, dict] = {
 }
 
 KNOWN_TYPES: frozenset[str] = frozenset(SCHEMAS)
+
+
+def _to_wikibase_time(value: str) -> str:
+    """Convert a YYYY-MM-DD date string to Wikibase time format (+YYYY-MM-DDT00:00:00Z)."""
+    import re
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        return f"+{value}T00:00:00Z"
+    return value
 
 
 def resolve_typed_item(
@@ -148,6 +157,8 @@ def resolve_typed_item(
         elif target == "description":
             description = value
         elif target == "claim":
+            if field_def.get("value_format") == "wikibase_time":
+                value = _to_wikibase_time(value)
             claim_dict: dict = {"pid": field_def["pid"], "value": value, "qualifiers": []}
             claim_by_field[key] = claim_dict
             claims.append(claim_dict)

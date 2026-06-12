@@ -11,6 +11,7 @@ Currently the following sources are supported:
 * crossref
 * Zenodo
 * ORCID
+* JSON-defined knowledge graph items
 
 ## Documentation
 

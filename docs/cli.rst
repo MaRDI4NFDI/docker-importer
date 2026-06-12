@@ -52,4 +52,4 @@ Create a knowledge graph item::
   # Raw format — supply label and explicit property/item IDs
   python -m cli.importer_cli create-item \
       --label "My item" \
-      --claims '{"P31": "Q5"}'
+      --claims '{"<MaRDI-PID>": "<MaRDI-QID>"}'

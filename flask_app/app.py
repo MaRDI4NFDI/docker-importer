@@ -324,12 +324,12 @@ def create_item():
 
     Accepts two formats:
 
-    **Raw format** — supply explicit property IDs::
+    **Raw format** — supply explicit MaRDI KG property and item IDs::
 
         {
             "label": "My item",
             "description": "An optional description",
-            "claims": {"P31": "Q5", "P496": "0000-0001-2345-6789"}
+            "claims": {"<MaRDI-PID>": "<MaRDI-QID>"}
         }
 
     **Typed format** — supply a schema type and human-readable fields::

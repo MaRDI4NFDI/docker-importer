@@ -11,6 +11,8 @@ from wikibaseintegrator.wbi_login import LoginError
 from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
+    create_item_sync,
+    create_typed_item_sync,
     get_workflow_result,
     get_workflow_runs_last_n_hours,
     get_workflow_status,
@@ -21,6 +23,7 @@ from services.import_service import (
     trigger_doi_async,
     trigger_wikidata_async,
 )
+from services.item_schemas import KNOWN_TYPES
 from services.version import get_version
 
 logging.basicConfig(
@@ -312,6 +315,41 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     return 0 if all_ok else 1
 
 
+def cmd_create_item(args: argparse.Namespace) -> int:
+    """Create a Wikibase item from a typed schema or raw label/claims.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    if args.type:
+        fields: dict = {}
+        if args.fields:
+            try:
+                fields = json.loads(args.fields)
+            except json.JSONDecodeError as exc:
+                print(json.dumps({"error": f"invalid JSON in --fields: {exc}"}))
+                return 2
+        payload, ok = create_typed_item_sync(args.type, fields)
+    else:
+        if not args.label:
+            print(json.dumps({"error": "either --type or --label is required"}))
+            return 2
+        claims: dict = {}
+        if args.claims:
+            try:
+                claims = json.loads(args.claims)
+            except json.JSONDecodeError as exc:
+                print(json.dumps({"error": f"invalid JSON in --claims: {exc}"}))
+                return 2
+        payload, ok = create_item_sync(args.label, args.description, claims)
+
+    print(json.dumps(payload))
+    return 0 if ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser.
 
@@ -379,6 +417,29 @@ def build_parser() -> argparse.ArgumentParser:
         "--packages", nargs="*", help="CRAN package list or comma-separated."
     )
     sub.set_defaults(func=cmd_import_cran)
+
+    sub = subparsers.add_parser(
+        "create-item",
+        help="Create a Wikibase item from a typed schema or raw label/claims.",
+    )
+    sub.add_argument(
+        "--type",
+        metavar="TYPE",
+        help=f"Schema type for typed creation. Known types: {', '.join(sorted(KNOWN_TYPES))}.",
+    )
+    sub.add_argument(
+        "--fields",
+        metavar="JSON",
+        help="JSON object of fields for the typed schema (e.g. '{\"name\": \"My workflow\"}').",
+    )
+    sub.add_argument("--label", help="Item label (raw format).")
+    sub.add_argument("--description", help="Item description (raw format, optional).")
+    sub.add_argument(
+        "--claims",
+        metavar="JSON",
+        help="JSON object of claims for raw format (e.g. '{\"P31\": \"Q5\"}').",
+    )
+    sub.set_defaults(func=cmd_create_item)
 
     return parser
 

@@ -41,3 +41,15 @@ Run synchronous imports::
   python -m cli.importer_cli import-wikidata --qids Q42 Q1
   python -m cli.importer_cli import-doi --dois 10.1000/XYZ123
   python -m cli.importer_cli import-cran --packages dplyr ggplot2
+
+Create a knowledge graph item::
+
+  # Typed format — schema fills predefined claims automatically
+  python -m cli.importer_cli create-item \
+      --type WORKFLOW \
+      --fields '{"name": "My workflow", "problem_statement": "Solve X"}'
+
+  # Raw format — supply label and explicit property/item IDs
+  python -m cli.importer_cli create-item \
+      --label "My item" \
+      --claims '{"P31": "Q5"}'

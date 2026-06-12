@@ -324,14 +324,24 @@ def cmd_create_item(args: argparse.Namespace) -> int:
     Returns:
         Process exit code.
     """
-    if args.type:
+    has_typed = bool(args.type)
+    has_raw = bool(args.label or args.claims or args.description)
+    if has_typed and has_raw:
+        print(json.dumps({"error": "--type and --label/--claims/--description are mutually exclusive"}))
+        return 2
+
+    if has_typed:
         fields: dict = {}
         if args.fields:
             try:
-                fields = json.loads(args.fields)
+                parsed = json.loads(args.fields)
             except json.JSONDecodeError as exc:
                 print(json.dumps({"error": f"invalid JSON in --fields: {exc}"}))
                 return 2
+            if not isinstance(parsed, dict):
+                print(json.dumps({"error": "--fields must be a JSON object"}))
+                return 2
+            fields = parsed
         payload, ok = create_typed_item_sync(args.type, fields)
     else:
         if not args.label:
@@ -340,10 +350,14 @@ def cmd_create_item(args: argparse.Namespace) -> int:
         claims: dict = {}
         if args.claims:
             try:
-                claims = json.loads(args.claims)
+                parsed = json.loads(args.claims)
             except json.JSONDecodeError as exc:
                 print(json.dumps({"error": f"invalid JSON in --claims: {exc}"}))
                 return 2
+            if not isinstance(parsed, dict):
+                print(json.dumps({"error": "--claims must be a JSON object"}))
+                return 2
+            claims = parsed
         payload, ok = create_item_sync(args.label, args.description, claims)
 
     print(json.dumps(payload))

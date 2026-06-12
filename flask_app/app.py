@@ -9,6 +9,7 @@ from services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
     create_item_sync,
+    create_typed_item_sync,
     get_workflow_result,
     get_workflow_runs_last_n_hours,
     get_workflow_status,
@@ -20,6 +21,7 @@ from services.import_service import (
     trigger_wikidata_async,
     trigger_update_wikidata_async,
 )
+from services.item_schemas import KNOWN_TYPES
 from services.version import get_version
 from mardi_importer.wikidata import WikidataImporter
 
@@ -320,31 +322,48 @@ def import_cran():
 def create_item():
     """Create a Wikibase item from a JSON description.
 
-    Expects JSON with a ``label`` field (required), and optional ``description``
-    and ``claims`` (mapping of property IDs to values).
+    Accepts two formats:
 
-    Example body::
+    **Raw format** — supply explicit property IDs::
 
         {
             "label": "My item",
             "description": "An optional description",
-            "claims": {
-                "wdt:P31": "wd:Q5",
-                "wdt:P496": "0000-0001-2345-6789"
+            "claims": {"P31": "Q5", "P496": "0000-0001-2345-6789"}
+        }
+
+    **Typed format** — supply a schema type and human-readable fields::
+
+        {
+            "type": "WORKFLOW",
+            "fields": {
+                "name": "My workflow",
+                "problem_statement": "Solve X"
             }
         }
+
+    Known types: WORKFLOW.
 
     Returns:
         Flask response tuple with the created item QID and status.
     """
     data = request.get_json(silent=True) or {}
+
+    if "type" in data:
+        type_name = data.get("type")
+        if not isinstance(type_name, str) or type_name not in KNOWN_TYPES:
+            return jsonify(error=f"Unknown type '{type_name}'. Known types: {sorted(KNOWN_TYPES)}"), 400
+        fields = data.get("fields", {})
+        if not isinstance(fields, dict):
+            return jsonify(error="'fields' must be a JSON object"), 400
+        payload, ok = create_typed_item_sync(type_name, fields)
+        return jsonify(payload), 200 if ok else 500
+
     label = data.get("label")
     if not label:
         return jsonify(error="missing label"), 400
-
     description = data.get("description")
     claims = data.get("claims", {})
-
     payload, ok = create_item_sync(label, description, claims)
     return jsonify(payload), 200 if ok else 500
 

@@ -12,6 +12,7 @@ from mardiclient import MardiClient
 from mardi_importer import Importer
 from mardi_importer.cran.RPackage import RPackage
 from mardi_importer.wikidata import WikidataImporter
+from services.item_schemas import resolve_typed_item
 
 
 DEFAULT_WORKFLOW_NAME = "mardi-importer/prefect-mardi-importer"
@@ -510,6 +511,59 @@ def create_item_sync(
         return {"qid": qid, "status": "success"}, True
 
     log.error("Failed to create item with label '%s'.", label)
+    return {"qid": None, "status": "error", "error": "Item could not be created."}, False
+
+
+def create_typed_item_sync(type_name: str, fields: dict) -> tuple[dict, bool]:
+    """Create a Wikibase item from a type schema and human-readable fields.
+
+    The schema can emit multiple claims with the same PID (e.g. multiple P31
+    statements) and can attach qualifiers to parent claims.
+
+    Args:
+        type_name: Schema key (e.g. "WORKFLOW").
+        fields: Human-readable key/value pairs as defined in the schema.
+
+    Returns:
+        Tuple of payload and success flag.
+    """
+    label, description, claims, errors = resolve_typed_item(type_name, fields)
+    if errors:
+        log.error("Typed item resolution failed for type '%s': %s", type_name, errors)
+        return {"qid": None, "status": "error", "errors": errors}, False
+
+    api = MardiClient(
+        user=os.environ["WIKIDATA_USER"],
+        password=os.environ["WIKIDATA_PASS"],
+        mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
+        sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
+        wikibase_url=os.environ.get("WIKIBASE_URL"),
+        importer_api_url=os.environ.get("IMPORTER_API_URL"),
+    )
+
+    item = api.item.new()
+    item.labels.set(language="en", value=label)
+    if description:
+        item.descriptions.set(language="en", value=description)
+    for claim_def in claims:
+        qualifiers = [
+            api.get_claim(q["pid"], q["value"])
+            for q in claim_def.get("qualifiers", [])
+        ]
+        item.add_claim(
+            claim_def["pid"],
+            claim_def["value"],
+            **({"qualifiers": qualifiers} if qualifiers else {}),
+        )
+
+    result = item.write()
+    qid = result.id if result else None
+
+    if qid:
+        log.info("Created typed item %s (type=%s, label='%s').", qid, type_name, label)
+        return {"qid": qid, "status": "success"}, True
+
+    log.error("Failed to create typed item (type=%s, label='%s').", type_name, label)
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
 
 

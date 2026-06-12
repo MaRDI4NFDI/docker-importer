@@ -275,7 +275,8 @@ for _, row in df.iterrows():
                 change_dict[col] = new_val.strip()
     if change_dict:
         de_number = row["de_number"]
-        qid = mc.search_entity_by_value("P1451", str(de_number))[0]
+        hits = mc.search_entity_by_value("P1451", str(int(de_number)))
+        qid = hits[0] if hits else None
         if not qid:
             print(f"No item for de number {de_number}")
             print(wtf)
@@ -300,7 +301,7 @@ for _, row in df.iterrows():
             else:
                 claim = mc.get_claim(prop, val)
                 claim_list.append(claim)
-            item.add_claims(claim_list,ActionIfExists.REPLACE_ALL)
+        item.add_claims(claim_list,ActionIfExists.REPLACE_ALL)
         item.write()
         if arxiv_switch:
             arxiv_paper = mc.search_entity_by_value(property_dict["arxiv_id"], change_dict["arxiv_id"])[0]

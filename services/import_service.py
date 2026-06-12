@@ -12,7 +12,7 @@ from mardiclient import MardiClient
 from mardi_importer import Importer
 from mardi_importer.cran.RPackage import RPackage
 from mardi_importer.wikidata import WikidataImporter
-from services.item_schemas import KNOWN_TYPES, resolve_typed_item
+from services.item_schemas import resolve_typed_item
 
 
 DEFAULT_WORKFLOW_NAME = "mardi-importer/prefect-mardi-importer"
@@ -517,8 +517,8 @@ def create_item_sync(
 def create_typed_item_sync(type_name: str, fields: dict) -> tuple[dict, bool]:
     """Create a Wikibase item from a type schema and human-readable fields.
 
-    Uses a list of (pid, value) claim pairs so a single property can appear
-    more than once (e.g. two P31 statements for instance-of).
+    The schema can emit multiple claims with the same PID (e.g. multiple P31
+    statements) and can attach qualifiers to parent claims.
 
     Args:
         type_name: Schema key (e.g. "WORKFLOW").

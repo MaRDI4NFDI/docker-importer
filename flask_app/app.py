@@ -357,7 +357,11 @@ def create_item():
         if not isinstance(fields, dict):
             return jsonify(error="'fields' must be a JSON object"), 400
         payload, ok = create_typed_item_sync(type_name, fields)
-        return jsonify(payload), 200 if ok else 500
+        if ok:
+            return jsonify(payload), 200
+        if "errors" in payload:
+            return jsonify(payload), 400
+        return jsonify(payload), 500
 
     label = data.get("label")
     if not label:

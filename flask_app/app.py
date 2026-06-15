@@ -353,9 +353,9 @@ def create_item():
 
     username = data.get("username")
     password = data.get("password")
-    if not isinstance(username, str) or not username:
+    if not isinstance(username, str) or not username.strip():
         return jsonify(error="'username' is required"), 401
-    if not isinstance(password, str) or not password:
+    if not isinstance(password, str) or not password.strip():
         return jsonify(error="'password' is required"), 401
 
     if "type" in data:
@@ -377,6 +377,8 @@ def create_item():
         return jsonify(error="missing label"), 400
     description = data.get("description")
     claims = data.get("claims", {})
+    if not isinstance(claims, dict):
+        return jsonify(error="'claims' must be a JSON object"), 400
     payload, ok = create_item_sync(label, description, claims, username=username, password=password)
     return jsonify(payload), 200 if ok else 500
 
@@ -404,9 +406,9 @@ def update_item():
 
     username = data.get("username")
     password = data.get("password")
-    if not isinstance(username, str) or not username:
+    if not isinstance(username, str) or not username.strip():
         return jsonify(error="'username' is required"), 401
-    if not isinstance(password, str) or not password:
+    if not isinstance(password, str) or not password.strip():
         return jsonify(error="'password' is required"), 401
 
     qid = data.get("qid")

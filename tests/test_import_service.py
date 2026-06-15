@@ -346,9 +346,7 @@ class TestImportService(unittest.TestCase):
         item.write.assert_not_called()
 
     def test_update_item_sync_override_replaces_existing(self) -> None:
-        """With do_override=True, all new claims are passed to item.claims.add at once."""
-        from wikibaseintegrator.wbi_enums import ActionIfExists
-
+        """With do_override=True, kept values are un-removed and new values are added."""
         old_claim = Mock()
         old_claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
         api, item = self._make_mock_api(existing_claims=[old_claim])
@@ -359,13 +357,9 @@ class TestImportService(unittest.TestCase):
                 "Q1", claims={"P16": ["Q50", "Q99"]}, do_override=True
             )
         self.assertTrue(ok)
-        old_claim.remove.assert_not_called()
-        item.add_claim.assert_not_called()
-        self.assertEqual(api.get_claim.call_count, 2)
-        item.claims.add.assert_called_once()
-        call_args = item.claims.add.call_args
-        action = call_args.args[1] if len(call_args.args) > 1 else call_args.kwargs.get("action_if_exists")
-        self.assertEqual(action, ActionIfExists.REPLACE_ALL)
+        old_claim.remove.assert_called_once()
+        self.assertFalse(old_claim.removed)
+        item.add_claim.assert_called_once_with("P16", "Q99")
 
     def test_update_item_sync_item_not_found(self) -> None:
         """Return not_found status when api.item.get raises."""

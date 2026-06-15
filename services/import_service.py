@@ -8,7 +8,6 @@ from urllib.parse import quote
 
 import requests
 from mardiclient import MardiClient
-from wikibaseintegrator.wbi_enums import ActionIfExists
 
 from mardi_importer import Importer
 from mardi_importer.cran.RPackage import RPackage
@@ -646,8 +645,17 @@ def update_item_sync(
             }, False
         values_list = value if isinstance(value, list) else [value]
         if existing and do_override:
-            new_claims = [api.get_claim(norm_pid, v) for v in values_list]
-            item.claims.add(new_claims, ActionIfExists.REPLACE_ALL)
+            existing_by_value = {}
+            for claim in existing:
+                vals = _extract_claim_values([claim])
+                if vals:
+                    existing_by_value[vals[0]] = claim
+                claim.remove()
+            for v in values_list:
+                if v in existing_by_value:
+                    existing_by_value[v].removed = False
+                else:
+                    item.add_claim(norm_pid, v)
         else:
             for v in values_list:
                 item.add_claim(norm_pid, v)

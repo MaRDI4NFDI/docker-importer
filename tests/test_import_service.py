@@ -292,6 +292,27 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(payload["results"]["badpkg"]["status"], "not_found")
 
 
+    def test_create_item_sync_missing_credentials(self) -> None:
+        """create_item_sync returns error when credentials are absent."""
+        payload, ok = import_service.create_item_sync("Test item")
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("credentials", payload["error"])
+
+    def test_create_typed_item_sync_missing_credentials(self) -> None:
+        """create_typed_item_sync returns error when credentials are absent."""
+        payload, ok = import_service.create_typed_item_sync("WORKFLOW", {})
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("credentials", payload["error"])
+
+    def test_update_item_sync_missing_credentials(self) -> None:
+        """update_item_sync returns error when credentials are absent."""
+        payload, ok = import_service.update_item_sync("Q1", label="x")
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("credentials", payload["error"])
+
     def _make_mock_api(self, existing_claims=None):
         """Return a (api_mock, item_mock) pair wired for update_item_sync tests."""
         item = Mock()

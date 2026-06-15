@@ -374,8 +374,9 @@ def create_item():
         return jsonify(payload), 500
 
     label = data.get("label")
-    if not label:
+    if not isinstance(label, str) or not label.strip():
         return jsonify(error="missing label"), 400
+    label = label.strip()
     description = data.get("description")
     claims = data.get("claims", {})
     if not isinstance(claims, dict):

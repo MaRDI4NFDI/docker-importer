@@ -386,7 +386,7 @@ def cmd_update_item(args: argparse.Namespace) -> int:
             return 2
         claims = parsed
 
-    if not args.label and not args.description and not claims:
+    if args.label is None and args.description is None and not claims:
         print(json.dumps({"error": "at least one of --label, --description, or --claims must be provided"}))
         return 2
 

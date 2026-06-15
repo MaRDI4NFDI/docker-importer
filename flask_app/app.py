@@ -355,6 +355,7 @@ def create_item():
     password = data.get("password")
     if not isinstance(username, str) or not username.strip():
         return jsonify(error="'username' is required"), 401
+    username = username.strip()
     if not isinstance(password, str) or not password.strip():
         return jsonify(error="'password' is required"), 401
 
@@ -408,6 +409,7 @@ def update_item():
     password = data.get("password")
     if not isinstance(username, str) or not username.strip():
         return jsonify(error="'username' is required"), 401
+    username = username.strip()
     if not isinstance(password, str) or not password.strip():
         return jsonify(error="'password' is required"), 401
 

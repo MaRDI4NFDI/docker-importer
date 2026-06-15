@@ -476,6 +476,8 @@ def create_item_sync(
     label: str,
     description: str | None = None,
     claims: dict | None = None,
+    username: str | None = None,
+    password: str | None = None,
 ) -> tuple[dict, bool]:
     """Create a Wikibase item with the given label, description, and claims.
 
@@ -483,13 +485,18 @@ def create_item_sync(
         label: English label for the new item.
         description: Optional English description.
         claims: Optional mapping of property IDs to values.
+        username: Wiki bot username (``User@BotName`` format).
+        password: Wiki bot password.
 
     Returns:
         Tuple of payload and success flag.
     """
+    if not username or not password:
+        return {"qid": None, "status": "error", "error": "Wiki credentials (username, password) are required."}, False
+
     api = MardiClient(
-        user=os.environ["WIKIDATA_USER"],
-        password=os.environ["WIKIDATA_PASS"],
+        user=username,
+        password=password,
         mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
         sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
         wikibase_url=os.environ.get("WIKIBASE_URL"),
@@ -514,7 +521,12 @@ def create_item_sync(
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
 
 
-def create_typed_item_sync(type_name: str, fields: dict) -> tuple[dict, bool]:
+def create_typed_item_sync(
+    type_name: str,
+    fields: dict,
+    username: str | None = None,
+    password: str | None = None,
+) -> tuple[dict, bool]:
     """Create a Wikibase item from a type schema and human-readable fields.
 
     The schema can emit multiple claims with the same PID (e.g. multiple P31
@@ -523,18 +535,23 @@ def create_typed_item_sync(type_name: str, fields: dict) -> tuple[dict, bool]:
     Args:
         type_name: Schema key (e.g. "WORKFLOW").
         fields: Human-readable key/value pairs as defined in the schema.
+        username: Wiki bot username (``User@BotName`` format).
+        password: Wiki bot password.
 
     Returns:
         Tuple of payload and success flag.
     """
+    if not username or not password:
+        return {"qid": None, "status": "error", "error": "Wiki credentials (username, password) are required."}, False
+
     label, description, claims, errors = resolve_typed_item(type_name, fields)
     if errors:
         log.error("Typed item resolution failed for type '%s': %s", type_name, errors)
         return {"qid": None, "status": "error", "errors": errors}, False
 
     api = MardiClient(
-        user=os.environ["WIKIDATA_USER"],
-        password=os.environ["WIKIDATA_PASS"],
+        user=username,
+        password=password,
         mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
         sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
         wikibase_url=os.environ.get("WIKIBASE_URL"),
@@ -590,6 +607,8 @@ def update_item_sync(
     description: str | None = None,
     claims: dict | None = None,
     do_override: bool = False,
+    username: str | None = None,
+    password: str | None = None,
 ) -> tuple[dict, bool]:
     """Update an existing Wikibase item's label, description, or claims.
 
@@ -604,13 +623,18 @@ def update_item_sync(
         claims: Mapping of property IDs to value(s) to set.
         do_override: When True, existing claim values are replaced rather than
             raising a conflict error.
+        username: Wiki bot username (``User@BotName`` format).
+        password: Wiki bot password.
 
     Returns:
         Tuple of payload dict and success flag.
     """
+    if not username or not password:
+        return {"qid": qid, "status": "error", "error": "Wiki credentials (username, password) are required."}, False
+
     api = MardiClient(
-        user=os.environ["WIKIDATA_USER"],
-        password=os.environ["WIKIDATA_PASS"],
+        user=username,
+        password=password,
         mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
         sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
         wikibase_url=os.environ.get("WIKIBASE_URL"),

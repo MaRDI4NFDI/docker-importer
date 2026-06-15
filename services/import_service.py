@@ -567,6 +567,96 @@ def create_typed_item_sync(type_name: str, fields: dict) -> tuple[dict, bool]:
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
 
 
+def _extract_claim_values(claims: list) -> list[str]:
+    """Extract human-readable values from a list of WBI Claim objects."""
+    values = []
+    for claim in claims:
+        dv = claim.mainsnak.datavalue
+        if not dv:
+            continue
+        v = dv.get("value") if isinstance(dv, dict) else None
+        if isinstance(v, dict) and "id" in v:
+            values.append(v["id"])
+        elif isinstance(v, str):
+            values.append(v)
+        elif v is not None:
+            values.append(str(v))
+    return values
+
+
+def update_item_sync(
+    qid: str,
+    label: str | None = None,
+    description: str | None = None,
+    claims: dict | None = None,
+    do_override: bool = False,
+) -> tuple[dict, bool]:
+    """Update an existing Wikibase item's label, description, or claims.
+
+    For claims, if a property already has values the call is refused unless
+    ``do_override=True``, in which case the provided value(s) fully replace the
+    existing ones. Pass a list as the value to set multiple statements at once.
+
+    Args:
+        qid: QID of the item to update.
+        label: New English label (always replaces existing).
+        description: New English description (always replaces existing).
+        claims: Mapping of property IDs to value(s) to set.
+        do_override: When True, existing claim values are replaced rather than
+            raising a conflict error.
+
+    Returns:
+        Tuple of payload dict and success flag.
+    """
+    api = MardiClient(
+        user=os.environ["WIKIDATA_USER"],
+        password=os.environ["WIKIDATA_PASS"],
+        mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
+        sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
+        wikibase_url=os.environ.get("WIKIBASE_URL"),
+        importer_api_url=os.environ.get("IMPORTER_API_URL"),
+    )
+
+    try:
+        item = api.item.get(entity_id=qid)
+    except Exception as exc:
+        log.error("Failed to fetch item %s: %s", qid, exc)
+        return {"qid": qid, "status": "error", "error": f"Item not found: {exc}"}, False
+
+    if label:
+        item.labels.set(language="en", value=label)
+    if description:
+        item.descriptions.set(language="en", value=description)
+
+    for pid, value in (claims or {}).items():
+        existing = item.claims.get(pid)
+        if existing and not do_override:
+            existing_values = _extract_claim_values(existing)
+            log.warning("Conflict on %s property %s: existing=%s", qid, pid, existing_values)
+            return {
+                "qid": qid,
+                "status": "conflict",
+                "error": (
+                    f"Property {pid} already has values: {existing_values}. "
+                    "Retrieve current values, merge, and resubmit with do_override=true."
+                ),
+                "existing_values": existing_values,
+            }, False
+        if existing:
+            for claim in list(existing):
+                claim.remove()
+        for v in (value if isinstance(value, list) else [value]):
+            item.add_claim(pid, v)
+
+    result = item.write()
+    if result:
+        log.info("Updated item %s.", qid)
+        return {"qid": qid, "status": "updated"}, True
+
+    log.error("Failed to update item %s.", qid)
+    return {"qid": qid, "status": "error", "error": "Item could not be updated."}, False
+
+
 def import_doi_sync(dois: list[str]) -> tuple[dict, bool]:
     """Import publications by DOI from supported sources.
 

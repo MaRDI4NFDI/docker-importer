@@ -20,6 +20,7 @@ from services.import_service import (
     trigger_doi_async,
     trigger_wikidata_async,
     trigger_update_wikidata_async,
+    update_item_sync,
 )
 from services.item_schemas import KNOWN_TYPES
 from services.version import get_version
@@ -370,6 +371,47 @@ def create_item():
     claims = data.get("claims", {})
     payload, ok = create_item_sync(label, description, claims)
     return jsonify(payload), 200 if ok else 500
+
+
+@app.post("/update/item")
+def update_item():
+    """Update an existing Wikibase item's label, description, or claims.
+
+    Accepts a JSON body with the following fields:
+
+    - ``qid`` (required): QID of the item to update.
+    - ``label``: New English label.
+    - ``description``: New English description.
+    - ``claims``: Mapping of property IDs to value or list of values.
+    - ``do_override``: If true, existing claim values are replaced. If false
+      (default) and a property already has values, the request is refused
+      with HTTP 409 and the existing values are returned.
+
+    Returns:
+        Flask response tuple with update status.
+    """
+    data = request.get_json(silent=True) or {}
+    qid = data.get("qid")
+    if not qid:
+        return jsonify(error="missing qid"), 400
+
+    label = data.get("label")
+    description = data.get("description")
+    claims = data.get("claims") or {}
+    do_override = bool(data.get("do_override", False))
+
+    if not label and not description and not claims:
+        return jsonify(error="at least one of label, description, or claims must be provided"), 400
+
+    if not isinstance(claims, dict):
+        return jsonify(error="'claims' must be a JSON object"), 400
+
+    payload, ok = update_item_sync(qid, label, description, claims, do_override)
+    if not ok:
+        if payload.get("status") == "conflict":
+            return jsonify(payload), 409
+        return jsonify(payload), 500
+    return jsonify(payload), 200
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ from services.import_service import (
     normalize_list,
     trigger_doi_async,
     trigger_wikidata_async,
+    update_item_sync,
 )
 from services.item_schemas import KNOWN_TYPES
 from services.version import get_version
@@ -364,6 +365,36 @@ def cmd_create_item(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_update_item(args: argparse.Namespace) -> int:
+    """Update an existing Wikibase item's label, description, or claims.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    claims: dict = {}
+    if args.claims:
+        try:
+            parsed = json.loads(args.claims)
+        except json.JSONDecodeError as exc:
+            print(json.dumps({"error": f"invalid JSON in --claims: {exc}"}))
+            return 2
+        if not isinstance(parsed, dict):
+            print(json.dumps({"error": "--claims must be a JSON object"}))
+            return 2
+        claims = parsed
+
+    if not args.label and not args.description and not claims:
+        print(json.dumps({"error": "at least one of --label, --description, or --claims must be provided"}))
+        return 2
+
+    payload, ok = update_item_sync(args.qid, args.label, args.description, claims, args.do_override)
+    print(json.dumps(payload))
+    return 0 if ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser.
 
@@ -454,6 +485,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSON object of claims for raw format (e.g. '{\"P31\": \"Q5\"}').",
     )
     sub.set_defaults(func=cmd_create_item)
+
+    sub = subparsers.add_parser(
+        "update-item",
+        help="Update an existing Wikibase item's label, description, or claims.",
+    )
+    sub.add_argument("--qid", required=True, help="QID of the item to update.")
+    sub.add_argument("--label", help="New English label (replaces existing).")
+    sub.add_argument("--description", help="New English description (replaces existing).")
+    sub.add_argument(
+        "--claims",
+        metavar="JSON",
+        help=(
+            "JSON object of property-value pairs to set, e.g. '{\"P16\": \"Q482723\"}'. "
+            "A list value sets multiple statements: '{\"P16\": [\"Q111\", \"Q482723\"]}'."
+        ),
+    )
+    sub.add_argument(
+        "--do-override",
+        action="store_true",
+        default=False,
+        help=(
+            "Allow overriding existing claim values. Without this flag, the call is "
+            "refused if a property already has values. With it, supply the complete "
+            "new set of values — the server replaces existing ones entirely."
+        ),
+    )
+    sub.set_defaults(func=cmd_update_item)
 
     return parser
 

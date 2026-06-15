@@ -648,7 +648,12 @@ def update_item_sync(
         for v in (value if isinstance(value, list) else [value]):
             item.add_claim(pid, v)
 
-    result = item.write()
+    try:
+        result = item.write()
+    except Exception as exc:
+        log.error("Failed to write item %s: %s", qid, exc)
+        return {"qid": qid, "status": "error", "error": f"Item could not be updated: {exc}"}, False
+
     if result:
         log.info("Updated item %s.", qid)
         return {"qid": qid, "status": "updated"}, True

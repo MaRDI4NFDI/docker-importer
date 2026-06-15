@@ -396,7 +396,11 @@ def update_item():
         return jsonify(error="'qid' must be a non-empty string"), 400
 
     label = data.get("label")
+    if label is not None and not isinstance(label, str):
+        return jsonify(error="'label' must be a string"), 400
     description = data.get("description")
+    if description is not None and not isinstance(description, str):
+        return jsonify(error="'description' must be a string"), 400
     claims = data.get("claims", {})
     if claims is None:
         claims = {}

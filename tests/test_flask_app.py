@@ -50,6 +50,7 @@ _install_flask_stub()
 from flask_app.app import (
     health,
     create_item,
+    update_item,
     import_wikidata_async,
     import_workflow_status,
     import_workflow_result,
@@ -366,6 +367,83 @@ class TestFlaskApp(unittest.TestCase):
 
         self.assertEqual(status, 500)
         self.assertEqual(response["status"], "error")
+
+
+    def test_update_item_missing_qid(self) -> None:
+        fake_request.get_json.return_value = {"label": "x"}
+        response, status = update_item()
+        self.assertEqual(status, 400)
+        self.assertIn("qid", response["error"])
+
+    def test_update_item_non_string_qid(self) -> None:
+        fake_request.get_json.return_value = {"qid": 123, "label": "x"}
+        response, status = update_item()
+        self.assertEqual(status, 400)
+        self.assertIn("qid", response["error"])
+
+    def test_update_item_invalid_label_type(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q1", "label": 42}
+        response, status = update_item()
+        self.assertEqual(status, 400)
+        self.assertIn("label", response["error"])
+
+    def test_update_item_invalid_description_type(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q1", "description": ["bad"]}
+        response, status = update_item()
+        self.assertEqual(status, 400)
+        self.assertIn("description", response["error"])
+
+    def test_update_item_invalid_claims_type(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q1", "claims": "bad"}
+        response, status = update_item()
+        self.assertEqual(status, 400)
+        self.assertIn("claims", response["error"])
+
+    def test_update_item_empty_payload(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q1"}
+        response, status = update_item()
+        self.assertEqual(status, 400)
+        self.assertIn("at least one", response["error"])
+
+    def test_update_item_success(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q1", "label": "New label"}
+        with patch("flask_app.app.update_item_sync",
+                   return_value=({"qid": "Q1", "status": "updated"}, True)):
+            response, status = update_item()
+        self.assertEqual(status, 200)
+        self.assertEqual(response["status"], "updated")
+
+    def test_update_item_conflict(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q1", "claims": {"P16": "Q99"}}
+        conflict = {
+            "qid": "Q1",
+            "status": "conflict",
+            "error": "P16 already has values",
+            "existing_values": ["Q50"],
+        }
+        with patch("flask_app.app.update_item_sync", return_value=(conflict, False)):
+            response, status = update_item()
+        self.assertEqual(status, 409)
+        self.assertEqual(response["status"], "conflict")
+
+    def test_update_item_not_found(self) -> None:
+        fake_request.get_json.return_value = {"qid": "Q999", "label": "x"}
+        not_found = {"qid": "Q999", "status": "not_found", "error": "Item not found"}
+        with patch("flask_app.app.update_item_sync", return_value=(not_found, False)):
+            response, status = update_item()
+        self.assertEqual(status, 404)
+        self.assertEqual(response["status"], "not_found")
+
+    def test_update_item_do_override_string_false(self) -> None:
+        """String 'false' must not enable override mode."""
+        fake_request.get_json.return_value = {
+            "qid": "Q1", "claims": {"P16": "Q99"}, "do_override": "false"
+        }
+        conflict = {"qid": "Q1", "status": "conflict", "error": "x", "existing_values": []}
+        with patch("flask_app.app.update_item_sync", return_value=(conflict, False)) as m:
+            _, status = update_item()
+        self.assertEqual(status, 409)
+        self.assertFalse(m.call_args.args[4])
 
 
 if __name__ == "__main__":

@@ -292,5 +292,88 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(payload["results"]["badpkg"]["status"], "not_found")
 
 
+    def _make_mock_api(self, existing_claims=None):
+        """Return a (api_mock, item_mock) pair wired for update_item_sync tests."""
+        claim = Mock()
+        claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
+
+        item = Mock()
+        item.claims.get.return_value = existing_claims
+        result = Mock()
+        result.id = "Q1"
+        item.write.return_value = result
+
+        api = Mock()
+        api.item.get.return_value = item
+        return api, item
+
+    def test_update_item_sync_success_no_existing(self) -> None:
+        """Add a claim when the property has no existing values."""
+        api, item = self._make_mock_api(existing_claims=None)
+        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1", claims={"P16": "Q99"}
+            )
+        self.assertTrue(ok)
+        self.assertEqual(payload["status"], "updated")
+        item.add_claim.assert_called_once_with("P16", "Q99")
+
+    def test_update_item_sync_conflict_no_override(self) -> None:
+        """Refuse when a property has values and do_override is False."""
+        claim = Mock()
+        claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
+        api, item = self._make_mock_api(existing_claims=[claim])
+        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1", claims={"P16": "Q99"}, do_override=False
+            )
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "conflict")
+        self.assertIn("Q50", payload["existing_values"])
+        item.write.assert_not_called()
+
+    def test_update_item_sync_override_replaces_existing(self) -> None:
+        """With do_override=True, remove existing claims and add new ones."""
+        old_claim = Mock()
+        old_claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
+        api, item = self._make_mock_api(existing_claims=[old_claim])
+        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1", claims={"P16": ["Q50", "Q99"]}, do_override=True
+            )
+        self.assertTrue(ok)
+        old_claim.remove.assert_called_once()
+        self.assertEqual(item.add_claim.call_count, 2)
+
+    def test_update_item_sync_item_not_found(self) -> None:
+        """Return not_found status when api.item.get raises."""
+        api = Mock()
+        api.item.get.side_effect = Exception("no such item")
+        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync("Q999", label="x")
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "not_found")
+
+    def test_update_item_sync_write_exception(self) -> None:
+        """Return error status when item.write raises."""
+        api, item = self._make_mock_api(existing_claims=None)
+        item.write.side_effect = Exception("write failed")
+        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync("Q1", label="x")
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("write failed", payload["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

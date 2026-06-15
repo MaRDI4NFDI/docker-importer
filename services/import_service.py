@@ -661,7 +661,7 @@ def update_item_sync(
         return {"qid": qid, "status": "updated"}, True
 
     log.error("Failed to update item %s.", qid)
-    return {"qid": qid, "status": "error", "error": "Item could not be updated."}, False
+    return {"qid": qid, "status": "error", "error": "Item could not be updated"}, False
 
 
 def import_doi_sync(dois: list[str]) -> tuple[dict, bool]:

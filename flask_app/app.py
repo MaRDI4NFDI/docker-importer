@@ -404,6 +404,9 @@ def update_item():
     claims = data.get("claims", {})
     if claims is None:
         claims = {}
+    if not isinstance(claims, dict):
+        return jsonify(error="'claims' must be a JSON object"), 400
+
     raw_override = data.get("do_override", False)
     if isinstance(raw_override, bool):
         do_override = raw_override
@@ -414,11 +417,8 @@ def update_item():
     else:
         do_override = False
 
-    if not label and not description and not claims:
+    if label is None and description is None and not claims:
         return jsonify(error="at least one of label, description, or claims must be provided"), 400
-
-    if not isinstance(claims, dict):
-        return jsonify(error="'claims' must be a JSON object"), 400
 
     payload, ok = update_item_sync(
         qid,

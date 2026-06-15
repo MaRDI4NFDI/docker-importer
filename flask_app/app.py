@@ -392,12 +392,14 @@ def update_item():
     """
     data = request.get_json(silent=True) or {}
     qid = data.get("qid")
-    if not qid:
-        return jsonify(error="missing qid"), 400
+    if not isinstance(qid, str) or not qid:
+        return jsonify(error="'qid' must be a non-empty string"), 400
 
     label = data.get("label")
     description = data.get("description")
-    claims = data.get("claims") or {}
+    claims = data.get("claims", {})
+    if claims is None:
+        claims = {}
     raw_override = data.get("do_override", False)
     if isinstance(raw_override, bool):
         do_override = raw_override
@@ -418,6 +420,8 @@ def update_item():
     if not ok:
         if payload.get("status") == "conflict":
             return jsonify(payload), 409
+        if payload.get("status") == "not_found":
+            return jsonify(payload), 404
         return jsonify(payload), 500
     return jsonify(payload), 200
 

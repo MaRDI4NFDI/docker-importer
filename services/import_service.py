@@ -621,7 +621,7 @@ def update_item_sync(
         item = api.item.get(entity_id=qid)
     except Exception as exc:
         log.error("Failed to fetch item %s: %s", qid, exc)
-        return {"qid": qid, "status": "error", "error": f"Item not found: {exc}"}, False
+        return {"qid": qid, "status": "not_found", "error": f"Item not found: {exc}"}, False
 
     if label:
         item.labels.set(language="en", value=label)
@@ -654,7 +654,8 @@ def update_item_sync(
         log.error("Failed to write item %s: %s", qid, exc)
         return {"qid": qid, "status": "error", "error": f"Item could not be updated: {exc}"}, False
 
-    if result:
+    updated_qid = result.id if result else None
+    if updated_qid:
         log.info("Updated item %s.", qid)
         return {"qid": qid, "status": "updated"}, True
 

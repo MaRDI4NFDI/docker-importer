@@ -390,7 +390,13 @@ def cmd_update_item(args: argparse.Namespace) -> int:
         print(json.dumps({"error": "at least one of --label, --description, or --claims must be provided"}))
         return 2
 
-    payload, ok = update_item_sync(args.qid, args.label, args.description, claims, args.do_override)
+    payload, ok = update_item_sync(
+        args.qid,
+        label=args.label,
+        description=args.description,
+        claims=claims,
+        do_override=args.do_override,
+    )
     print(json.dumps(payload))
     return 0 if ok else 1
 

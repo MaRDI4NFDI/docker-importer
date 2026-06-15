@@ -396,11 +396,11 @@ def update_item():
         return jsonify(error="'qid' must be a non-empty string"), 400
 
     label = data.get("label")
-    if label is not None and not isinstance(label, str):
-        return jsonify(error="'label' must be a string"), 400
+    if label is not None and (not isinstance(label, str) or not label):
+        return jsonify(error="'label' must be a non-empty string"), 400
     description = data.get("description")
-    if description is not None and not isinstance(description, str):
-        return jsonify(error="'description' must be a string"), 400
+    if description is not None and (not isinstance(description, str) or not description):
+        return jsonify(error="'description' must be a non-empty string"), 400
     claims = data.get("claims", {})
     if claims is None:
         claims = {}
@@ -420,7 +420,13 @@ def update_item():
     if not isinstance(claims, dict):
         return jsonify(error="'claims' must be a JSON object"), 400
 
-    payload, ok = update_item_sync(qid, label, description, claims, do_override)
+    payload, ok = update_item_sync(
+        qid,
+        label=label,
+        description=description,
+        claims=claims,
+        do_override=do_override,
+    )
     if not ok:
         if payload.get("status") == "conflict":
             return jsonify(payload), 409

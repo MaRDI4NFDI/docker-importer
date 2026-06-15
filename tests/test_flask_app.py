@@ -443,7 +443,7 @@ class TestFlaskApp(unittest.TestCase):
         with patch("flask_app.app.update_item_sync", return_value=(conflict, False)) as m:
             _, status = update_item()
         self.assertEqual(status, 409)
-        self.assertFalse(m.call_args.args[4])
+        self.assertFalse(m.call_args.kwargs["do_override"])
 
 
 if __name__ == "__main__":

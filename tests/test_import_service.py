@@ -294,9 +294,6 @@ class TestImportService(unittest.TestCase):
 
     def _make_mock_api(self, existing_claims=None):
         """Return a (api_mock, item_mock) pair wired for update_item_sync tests."""
-        claim = Mock()
-        claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
-
         item = Mock()
         item.claims.get.return_value = existing_claims
         result = Mock()

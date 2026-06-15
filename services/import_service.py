@@ -623,9 +623,9 @@ def update_item_sync(
         log.error("Failed to fetch item %s: %s", qid, exc)
         return {"qid": qid, "status": "not_found", "error": f"Item not found: {exc}"}, False
 
-    if label:
+    if label is not None:
         item.labels.set(language="en", value=label)
-    if description:
+    if description is not None:
         item.descriptions.set(language="en", value=description)
 
     for pid, value in (claims or {}).items():

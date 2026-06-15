@@ -317,6 +317,18 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(payload["status"], "updated")
         item.add_claim.assert_called_once_with("P16", "Q99")
 
+    def test_update_item_sync_prefixed_pid_normalized(self) -> None:
+        """Prefixed PID ('wdt:P16') is normalized to bare form before lookup and add."""
+        api, item = self._make_mock_api(existing_claims=None)
+        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
+        with patch.dict("os.environ", env), \
+             patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1", claims={"wdt:P16": "Q99"}
+            )
+        self.assertTrue(ok)
+        item.add_claim.assert_called_once_with("P16", "Q99")
+
     def test_update_item_sync_conflict_no_override(self) -> None:
         """Refuse when a property has values and do_override is False."""
         claim = Mock()
@@ -369,7 +381,7 @@ class TestImportService(unittest.TestCase):
             payload, ok = import_service.update_item_sync("Q1", label="x")
         self.assertFalse(ok)
         self.assertEqual(payload["status"], "error")
-        self.assertIn("write failed", payload["error"])
+        self.assertEqual(payload["error"], "Item could not be updated")
 
 
 if __name__ == "__main__":

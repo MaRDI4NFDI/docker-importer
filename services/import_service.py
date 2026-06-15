@@ -621,7 +621,7 @@ def update_item_sync(
         item = api.item.get(entity_id=qid)
     except Exception as exc:
         log.error("Failed to fetch item %s: %s", qid, exc)
-        return {"qid": qid, "status": "not_found", "error": f"Item not found: {exc}"}, False
+        return {"qid": qid, "status": "not_found", "error": "Item not found"}, False
 
     if label is not None:
         item.labels.set(language="en", value=label)
@@ -629,15 +629,16 @@ def update_item_sync(
         item.descriptions.set(language="en", value=description)
 
     for pid, value in (claims or {}).items():
-        existing = item.claims.get(pid)
+        norm_pid = pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1] if isinstance(pid, str) else pid
+        existing = item.claims.get(norm_pid)
         if existing and not do_override:
             existing_values = _extract_claim_values(existing)
-            log.warning("Conflict on %s property %s: existing=%s", qid, pid, existing_values)
+            log.warning("Conflict on %s property %s: existing=%s", qid, norm_pid, existing_values)
             return {
                 "qid": qid,
                 "status": "conflict",
                 "error": (
-                    f"Property {pid} already has values: {existing_values}. "
+                    f"Property {norm_pid} already has values: {existing_values}. "
                     "Retrieve current values, merge, and resubmit with do_override=true."
                 ),
                 "existing_values": existing_values,
@@ -646,13 +647,13 @@ def update_item_sync(
             for claim in list(existing):
                 claim.remove()
         for v in (value if isinstance(value, list) else [value]):
-            item.add_claim(pid, v)
+            item.add_claim(norm_pid, v)
 
     try:
         result = item.write()
     except Exception as exc:
         log.error("Failed to write item %s: %s", qid, exc)
-        return {"qid": qid, "status": "error", "error": f"Item could not be updated: {exc}"}, False
+        return {"qid": qid, "status": "error", "error": "Item could not be updated"}, False
 
     updated_qid = result.id if result else None
     if updated_qid:

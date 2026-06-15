@@ -491,6 +491,8 @@ def create_item_sync(
     Returns:
         Tuple of payload and success flag.
     """
+    # Credentials must be supplied explicitly by the caller — no env-var fallback.
+    # All wiki writes must be attributed to an authenticated user.
     if not username or not password:
         return {"qid": None, "status": "error", "error": "Wiki credentials (username, password) are required."}, False
 
@@ -541,6 +543,8 @@ def create_typed_item_sync(
     Returns:
         Tuple of payload and success flag.
     """
+    # Credentials must be supplied explicitly by the caller — no env-var fallback.
+    # All wiki writes must be attributed to an authenticated user.
     if not username or not password:
         return {"qid": None, "status": "error", "error": "Wiki credentials (username, password) are required."}, False
 
@@ -629,6 +633,8 @@ def update_item_sync(
     Returns:
         Tuple of payload dict and success flag.
     """
+    # Credentials must be supplied explicitly by the caller — no env-var fallback.
+    # All wiki writes must be attributed to an authenticated user.
     if not username or not password:
         return {"qid": qid, "status": "error", "error": "Wiki credentials (username, password) are required."}, False
 

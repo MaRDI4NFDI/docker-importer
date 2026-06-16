@@ -343,7 +343,7 @@ def cmd_create_item(args: argparse.Namespace) -> int:
                 print(json.dumps({"error": "--fields must be a JSON object"}))
                 return 2
             fields = parsed
-        payload, ok = create_typed_item_sync(args.type, fields)
+        payload, ok = create_typed_item_sync(args.type, fields, username=args.username, password=args.password)
     else:
         if not args.label:
             print(json.dumps({"error": "either --type or --label is required"}))
@@ -359,7 +359,7 @@ def cmd_create_item(args: argparse.Namespace) -> int:
                 print(json.dumps({"error": "--claims must be a JSON object"}))
                 return 2
             claims = parsed
-        payload, ok = create_item_sync(args.label, args.description, claims)
+        payload, ok = create_item_sync(args.label, args.description, claims, username=args.username, password=args.password)
 
     print(json.dumps(payload))
     return 0 if ok else 1
@@ -396,6 +396,8 @@ def cmd_update_item(args: argparse.Namespace) -> int:
         description=args.description,
         claims=claims,
         do_override=args.do_override,
+        username=args.username,
+        password=args.password,
     )
     print(json.dumps(payload))
     return 0 if ok else 1
@@ -490,6 +492,8 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="JSON",
         help="JSON object of claims for raw format (e.g. '{\"P31\": \"Q5\"}').",
     )
+    sub.add_argument("--username", required=True, help="Wiki bot username (User@BotName).")
+    sub.add_argument("--password", required=True, help="Wiki bot password.")
     sub.set_defaults(func=cmd_create_item)
 
     sub = subparsers.add_parser(
@@ -517,6 +521,8 @@ def build_parser() -> argparse.ArgumentParser:
             "new set of values — the server replaces existing ones entirely."
         ),
     )
+    sub.add_argument("--username", required=True, help="Wiki bot username (User@BotName).")
+    sub.add_argument("--password", required=True, help="Wiki bot password.")
     sub.set_defaults(func=cmd_update_item)
 
     return parser

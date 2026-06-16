@@ -339,9 +339,13 @@ def _resolve_credentials(args: argparse.Namespace) -> tuple[str, str] | None:
         return None
 
     if raw_password == "-":
-        password = sys.stdin.readline().rstrip("\n")
+        if sys.stdin.isatty():
+            import getpass
+            password = getpass.getpass("Wiki password: ")
+        else:
+            password = sys.stdin.readline().rstrip("\n")
         if not password:
-            print(json.dumps({"error": "empty password read from stdin"}))
+            print(json.dumps({"error": "empty password"}))
             return None
     else:
         password = raw_password

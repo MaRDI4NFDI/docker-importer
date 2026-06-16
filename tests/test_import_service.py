@@ -292,6 +292,27 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(payload["results"]["badpkg"]["status"], "not_found")
 
 
+    def test_create_item_sync_missing_credentials(self) -> None:
+        """create_item_sync returns error when credentials are absent."""
+        payload, ok = import_service.create_item_sync("Test item")
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("credentials", payload["error"])
+
+    def test_create_typed_item_sync_missing_credentials(self) -> None:
+        """create_typed_item_sync returns error when credentials are absent."""
+        payload, ok = import_service.create_typed_item_sync("WORKFLOW", {})
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("credentials", payload["error"])
+
+    def test_update_item_sync_missing_credentials(self) -> None:
+        """update_item_sync returns error when credentials are absent."""
+        payload, ok = import_service.update_item_sync("Q1", label="x")
+        self.assertFalse(ok)
+        self.assertEqual(payload["status"], "error")
+        self.assertIn("credentials", payload["error"])
+
     def _make_mock_api(self, existing_claims=None):
         """Return a (api_mock, item_mock) pair wired for update_item_sync tests."""
         item = Mock()
@@ -307,11 +328,9 @@ class TestImportService(unittest.TestCase):
     def test_update_item_sync_success_no_existing(self) -> None:
         """Add a claim when the property has no existing values."""
         api, item = self._make_mock_api(existing_claims=None)
-        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=api):
+        with patch("services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
-                "Q1", claims={"P16": "Q99"}
+                "Q1", claims={"P16": "Q99"}, username="testuser", password="testpass"
             )
         self.assertTrue(ok)
         self.assertEqual(payload["status"], "updated")
@@ -320,11 +339,9 @@ class TestImportService(unittest.TestCase):
     def test_update_item_sync_prefixed_pid_normalized(self) -> None:
         """Prefixed PID ('wdt:P16') is normalized to bare form before lookup and add."""
         api, item = self._make_mock_api(existing_claims=None)
-        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=api):
+        with patch("services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
-                "Q1", claims={"wdt:P16": "Q99"}
+                "Q1", claims={"wdt:P16": "Q99"}, username="testuser", password="testpass"
             )
         self.assertTrue(ok)
         item.add_claim.assert_called_once_with("P16", "Q99")
@@ -334,11 +351,9 @@ class TestImportService(unittest.TestCase):
         claim = Mock()
         claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
         api, item = self._make_mock_api(existing_claims=[claim])
-        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=api):
+        with patch("services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
-                "Q1", claims={"P16": "Q99"}, do_override=False
+                "Q1", claims={"P16": "Q99"}, do_override=False, username="testuser", password="testpass"
             )
         self.assertFalse(ok)
         self.assertEqual(payload["status"], "conflict")
@@ -350,11 +365,9 @@ class TestImportService(unittest.TestCase):
         old_claim = Mock()
         old_claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
         api, item = self._make_mock_api(existing_claims=[old_claim])
-        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=api):
+        with patch("services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
-                "Q1", claims={"P16": ["Q50", "Q99"]}, do_override=True
+                "Q1", claims={"P16": ["Q50", "Q99"]}, do_override=True, username="testuser", password="testpass"
             )
         self.assertTrue(ok)
         old_claim.remove.assert_called_once()
@@ -365,10 +378,8 @@ class TestImportService(unittest.TestCase):
         """Return not_found status when api.item.get raises."""
         api = Mock()
         api.item.get.side_effect = Exception("no such item")
-        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=api):
-            payload, ok = import_service.update_item_sync("Q999", label="x")
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync("Q999", label="x", username="testuser", password="testpass")
         self.assertFalse(ok)
         self.assertEqual(payload["status"], "not_found")
 
@@ -376,10 +387,8 @@ class TestImportService(unittest.TestCase):
         """Return error status when item.write raises."""
         api, item = self._make_mock_api(existing_claims=None)
         item.write.side_effect = Exception("write failed")
-        env = {"WIKIDATA_USER": "u", "WIKIDATA_PASS": "p"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=api):
-            payload, ok = import_service.update_item_sync("Q1", label="x")
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync("Q1", label="x", username="testuser", password="testpass")
         self.assertFalse(ok)
         self.assertEqual(payload["status"], "error")
         self.assertEqual(payload["error"], "Item could not be updated")

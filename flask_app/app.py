@@ -330,17 +330,18 @@ def create_item():
         {
             "label": "My item",
             "description": "An optional description",
-            "claims": {"<MaRDI-PID>": "<MaRDI-QID>"}
+            "claims": {"<MaRDI-PID>": "<MaRDI-QID>"},
+            "username": "User@BotName",
+            "password": "<bot-password>"
         }
 
     **Typed format** — supply a schema type and human-readable fields::
 
         {
             "type": "WORKFLOW",
-            "fields": {
-                "name": "My workflow",
-                "problem_statement": "Solve X"
-            }
+            "fields": {"name": "My workflow", "problem_statement": "Solve X"},
+            "username": "User@BotName",
+            "password": "<bot-password>"
         }
 
     Known types: WORKFLOW.
@@ -350,6 +351,14 @@ def create_item():
     """
     data = request.get_json(silent=True) or {}
 
+    username = data.get("username")
+    password = data.get("password")
+    if not isinstance(username, str) or not username.strip():
+        return jsonify(error="'username' is required"), 401
+    username = username.strip()
+    if not isinstance(password, str) or not password.strip():
+        return jsonify(error="'password' is required"), 401
+
     if "type" in data:
         type_name = data.get("type")
         if not isinstance(type_name, str) or type_name not in KNOWN_TYPES:
@@ -357,7 +366,7 @@ def create_item():
         fields = data.get("fields", {})
         if not isinstance(fields, dict):
             return jsonify(error="'fields' must be a JSON object"), 400
-        payload, ok = create_typed_item_sync(type_name, fields)
+        payload, ok = create_typed_item_sync(type_name, fields, username=username, password=password)
         if ok:
             return jsonify(payload), 200
         if "errors" in payload:
@@ -365,11 +374,14 @@ def create_item():
         return jsonify(payload), 500
 
     label = data.get("label")
-    if not label:
+    if not isinstance(label, str) or not label.strip():
         return jsonify(error="missing label"), 400
+    label = label.strip()
     description = data.get("description")
     claims = data.get("claims", {})
-    payload, ok = create_item_sync(label, description, claims)
+    if not isinstance(claims, dict):
+        return jsonify(error="'claims' must be a JSON object"), 400
+    payload, ok = create_item_sync(label, description, claims, username=username, password=password)
     return jsonify(payload), 200 if ok else 500
 
 
@@ -380,6 +392,8 @@ def update_item():
     Accepts a JSON body with the following fields:
 
     - ``qid`` (required): QID of the item to update.
+    - ``username`` (required): Wiki bot username (``User@BotName`` format).
+    - ``password`` (required): Wiki bot password.
     - ``label``: New English label.
     - ``description``: New English description.
     - ``claims``: Mapping of property IDs to value or list of values.
@@ -391,6 +405,15 @@ def update_item():
         Flask response tuple with update status.
     """
     data = request.get_json(silent=True) or {}
+
+    username = data.get("username")
+    password = data.get("password")
+    if not isinstance(username, str) or not username.strip():
+        return jsonify(error="'username' is required"), 401
+    username = username.strip()
+    if not isinstance(password, str) or not password.strip():
+        return jsonify(error="'password' is required"), 401
+
     qid = data.get("qid")
     if not isinstance(qid, str) or not qid:
         return jsonify(error="'qid' must be a non-empty string"), 400
@@ -426,6 +449,8 @@ def update_item():
         description=description,
         claims=claims,
         do_override=do_override,
+        username=username,
+        password=password,
     )
     if not ok:
         if payload.get("status") == "conflict":

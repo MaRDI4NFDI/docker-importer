@@ -317,9 +317,23 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response["results"]["dplyr"]["status"], "success")
 
 
+    def test_create_item_missing_username(self) -> None:
+        """Test create item without credentials returns 401."""
+        fake_request.get_json.return_value = {"label": "Test item"}
+        response, status = create_item()
+        self.assertEqual(status, 401)
+        self.assertIn("username", response["error"])
+
+    def test_create_item_missing_password(self) -> None:
+        """Test create item with username but no password returns 401."""
+        fake_request.get_json.return_value = {"label": "Test item", "username": "testuser"}
+        response, status = create_item()
+        self.assertEqual(status, 401)
+        self.assertIn("password", response["error"])
+
     def test_create_item_missing_label(self) -> None:
-        """Test create item with missing label."""
-        fake_request.get_json.return_value = {}
+        """Test create item with credentials but missing label."""
+        fake_request.get_json.return_value = {"username": "testuser", "password": "testpass"}
         response, status = create_item()
         self.assertEqual(status, 400)
         self.assertEqual(response["error"], "missing label")
@@ -330,6 +344,8 @@ class TestFlaskApp(unittest.TestCase):
             "label": "Test item",
             "description": "A test",
             "claims": {"wdt:P31": "wd:Q5"},
+            "username": "testuser",
+            "password": "testpass",
         }
         mock_result = Mock()
         mock_result.id = "Q999"
@@ -338,9 +354,7 @@ class TestFlaskApp(unittest.TestCase):
         mock_api = Mock()
         mock_api.item.new.return_value = mock_item
 
-        env = {"WIKIDATA_USER": "user", "WIKIDATA_PASS": "pass"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=mock_api):
+        with patch("services.import_service.MardiClient", return_value=mock_api):
             response, status = create_item()
 
         self.assertEqual(status, 200)
@@ -352,7 +366,11 @@ class TestFlaskApp(unittest.TestCase):
 
     def test_create_item_write_failure(self) -> None:
         """Test item creation when write returns no ID."""
-        fake_request.get_json.return_value = {"label": "Test item"}
+        fake_request.get_json.return_value = {
+            "label": "Test item",
+            "username": "testuser",
+            "password": "testpass",
+        }
         mock_result = Mock()
         mock_result.id = None
         mock_item = Mock()
@@ -360,53 +378,65 @@ class TestFlaskApp(unittest.TestCase):
         mock_api = Mock()
         mock_api.item.new.return_value = mock_item
 
-        env = {"WIKIDATA_USER": "user", "WIKIDATA_PASS": "pass"}
-        with patch.dict("os.environ", env), \
-             patch("services.import_service.MardiClient", return_value=mock_api):
+        with patch("services.import_service.MardiClient", return_value=mock_api):
             response, status = create_item()
 
         self.assertEqual(status, 500)
         self.assertEqual(response["status"], "error")
 
 
+    def test_update_item_missing_username(self) -> None:
+        """Test update item without credentials returns 401."""
+        fake_request.get_json.return_value = {"qid": "Q1", "label": "x"}
+        response, status = update_item()
+        self.assertEqual(status, 401)
+        self.assertIn("username", response["error"])
+
+    def test_update_item_missing_password(self) -> None:
+        """Test update item with username but no password returns 401."""
+        fake_request.get_json.return_value = {"qid": "Q1", "label": "x", "username": "testuser"}
+        response, status = update_item()
+        self.assertEqual(status, 401)
+        self.assertIn("password", response["error"])
+
     def test_update_item_missing_qid(self) -> None:
-        fake_request.get_json.return_value = {"label": "x"}
+        fake_request.get_json.return_value = {"label": "x", "username": "testuser", "password": "testpass"}
         response, status = update_item()
         self.assertEqual(status, 400)
         self.assertIn("qid", response["error"])
 
     def test_update_item_non_string_qid(self) -> None:
-        fake_request.get_json.return_value = {"qid": 123, "label": "x"}
+        fake_request.get_json.return_value = {"qid": 123, "label": "x", "username": "testuser", "password": "testpass"}
         response, status = update_item()
         self.assertEqual(status, 400)
         self.assertIn("qid", response["error"])
 
     def test_update_item_invalid_label_type(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q1", "label": 42}
+        fake_request.get_json.return_value = {"qid": "Q1", "label": 42, "username": "testuser", "password": "testpass"}
         response, status = update_item()
         self.assertEqual(status, 400)
         self.assertIn("label", response["error"])
 
     def test_update_item_invalid_description_type(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q1", "description": ["bad"]}
+        fake_request.get_json.return_value = {"qid": "Q1", "description": ["bad"], "username": "testuser", "password": "testpass"}
         response, status = update_item()
         self.assertEqual(status, 400)
         self.assertIn("description", response["error"])
 
     def test_update_item_invalid_claims_type(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q1", "claims": "bad"}
+        fake_request.get_json.return_value = {"qid": "Q1", "claims": "bad", "username": "testuser", "password": "testpass"}
         response, status = update_item()
         self.assertEqual(status, 400)
         self.assertIn("claims", response["error"])
 
     def test_update_item_empty_payload(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q1"}
+        fake_request.get_json.return_value = {"qid": "Q1", "username": "testuser", "password": "testpass"}
         response, status = update_item()
         self.assertEqual(status, 400)
         self.assertIn("at least one", response["error"])
 
     def test_update_item_success(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q1", "label": "New label"}
+        fake_request.get_json.return_value = {"qid": "Q1", "label": "New label", "username": "testuser", "password": "testpass"}
         with patch("flask_app.app.update_item_sync",
                    return_value=({"qid": "Q1", "status": "updated"}, True)):
             response, status = update_item()
@@ -414,7 +444,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response["status"], "updated")
 
     def test_update_item_conflict(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q1", "claims": {"P16": "Q99"}}
+        fake_request.get_json.return_value = {"qid": "Q1", "claims": {"P16": "Q99"}, "username": "testuser", "password": "testpass"}
         conflict = {
             "qid": "Q1",
             "status": "conflict",
@@ -427,7 +457,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response["status"], "conflict")
 
     def test_update_item_not_found(self) -> None:
-        fake_request.get_json.return_value = {"qid": "Q999", "label": "x"}
+        fake_request.get_json.return_value = {"qid": "Q999", "label": "x", "username": "testuser", "password": "testpass"}
         not_found = {"qid": "Q999", "status": "not_found", "error": "Item not found"}
         with patch("flask_app.app.update_item_sync", return_value=(not_found, False)):
             response, status = update_item()
@@ -437,7 +467,8 @@ class TestFlaskApp(unittest.TestCase):
     def test_update_item_do_override_string_false(self) -> None:
         """String 'false' must not enable override mode."""
         fake_request.get_json.return_value = {
-            "qid": "Q1", "claims": {"P16": "Q99"}, "do_override": "false"
+            "qid": "Q1", "claims": {"P16": "Q99"}, "do_override": "false",
+            "username": "testuser", "password": "testpass",
         }
         conflict = {"qid": "Q1", "status": "conflict", "error": "x", "existing_values": []}
         with patch("flask_app.app.update_item_sync", return_value=(conflict, False)) as m:

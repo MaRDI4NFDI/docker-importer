@@ -499,6 +499,7 @@ def create_item_sync(
     api = MardiClient(
         user=username,
         password=password,
+        login_with_bot=True,
         mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
         sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
         wikibase_url=os.environ.get("WIKIBASE_URL"),
@@ -556,6 +557,7 @@ def create_typed_item_sync(
     api = MardiClient(
         user=username,
         password=password,
+        login_with_bot=True,
         mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
         sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
         wikibase_url=os.environ.get("WIKIBASE_URL"),
@@ -641,6 +643,7 @@ def update_item_sync(
     api = MardiClient(
         user=username,
         password=password,
+        login_with_bot=True,
         mediawiki_api_url=os.environ.get("MEDIAWIKI_API_URL"),
         sparql_endpoint_url=os.environ.get("SPARQL_ENDPOINT_URL"),
         wikibase_url=os.environ.get("WIKIBASE_URL"),

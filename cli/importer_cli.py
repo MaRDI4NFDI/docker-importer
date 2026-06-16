@@ -316,6 +316,43 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     return 0 if all_ok else 1
 
 
+def _resolve_credentials(args: argparse.Namespace) -> tuple[str, str] | None:
+    """Resolve wiki credentials from args or environment variables.
+
+    Password may be the literal string ``-`` to trigger a stdin read.
+    Falls back to ``WIKI_USER`` / ``WIKI_PASS`` env vars when the
+    corresponding argument is not supplied.
+
+    Returns:
+        (username, password) tuple, or None if either is missing.
+    """
+    username = args.username or os.environ.get("WIKI_USER")
+    raw_password = args.password or os.environ.get("WIKI_PASS")
+
+    if not username or not raw_password:
+        missing = []
+        if not username:
+            missing.append("--username (or WIKI_USER)")
+        if not raw_password:
+            missing.append("--password (or WIKI_PASS)")
+        print(json.dumps({"error": f"missing credentials: {', '.join(missing)}"}))
+        return None
+
+    if raw_password == "-":
+        if sys.stdin.isatty():
+            import getpass
+            password = getpass.getpass("Wiki password: ")
+        else:
+            password = sys.stdin.readline().rstrip("\n")
+        if not password:
+            print(json.dumps({"error": "empty password"}))
+            return None
+    else:
+        password = raw_password
+
+    return username, password
+
+
 def cmd_create_item(args: argparse.Namespace) -> int:
     """Create a Wikibase item from a typed schema or raw label/claims.
 
@@ -325,6 +362,11 @@ def cmd_create_item(args: argparse.Namespace) -> int:
     Returns:
         Process exit code.
     """
+    creds = _resolve_credentials(args)
+    if creds is None:
+        return 2
+    username, password = creds
+
     has_typed = bool(args.type)
     has_raw = bool(args.label or args.claims or args.description)
     if has_typed and has_raw:
@@ -343,7 +385,7 @@ def cmd_create_item(args: argparse.Namespace) -> int:
                 print(json.dumps({"error": "--fields must be a JSON object"}))
                 return 2
             fields = parsed
-        payload, ok = create_typed_item_sync(args.type, fields)
+        payload, ok = create_typed_item_sync(args.type, fields, username=username, password=password)
     else:
         if not args.label:
             print(json.dumps({"error": "either --type or --label is required"}))
@@ -359,7 +401,7 @@ def cmd_create_item(args: argparse.Namespace) -> int:
                 print(json.dumps({"error": "--claims must be a JSON object"}))
                 return 2
             claims = parsed
-        payload, ok = create_item_sync(args.label, args.description, claims)
+        payload, ok = create_item_sync(args.label, args.description, claims, username=username, password=password)
 
     print(json.dumps(payload))
     return 0 if ok else 1
@@ -374,6 +416,11 @@ def cmd_update_item(args: argparse.Namespace) -> int:
     Returns:
         Process exit code.
     """
+    creds = _resolve_credentials(args)
+    if creds is None:
+        return 2
+    username, password = creds
+
     claims: dict = {}
     if args.claims:
         try:
@@ -396,6 +443,8 @@ def cmd_update_item(args: argparse.Namespace) -> int:
         description=args.description,
         claims=claims,
         do_override=args.do_override,
+        username=username,
+        password=password,
     )
     print(json.dumps(payload))
     return 0 if ok else 1
@@ -490,6 +539,8 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="JSON",
         help="JSON object of claims for raw format (e.g. '{\"P31\": \"Q5\"}').",
     )
+    sub.add_argument("--username", help="Wiki bot username (User@BotName). Falls back to WIKI_USER env var.")
+    sub.add_argument("--password", help="Wiki bot password, or '-' to read from stdin. Falls back to WIKI_PASS env var.")
     sub.set_defaults(func=cmd_create_item)
 
     sub = subparsers.add_parser(
@@ -517,6 +568,8 @@ def build_parser() -> argparse.ArgumentParser:
             "new set of values — the server replaces existing ones entirely."
         ),
     )
+    sub.add_argument("--username", help="Wiki bot username (User@BotName). Falls back to WIKI_USER env var.")
+    sub.add_argument("--password", help="Wiki bot password, or '-' to read from stdin. Falls back to WIKI_PASS env var.")
     sub.set_defaults(func=cmd_update_item)
 
     return parser

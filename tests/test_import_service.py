@@ -450,6 +450,13 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(val2, "y_n")
         self.assertEqual(qualifiers2, {})
 
+    def test_parse_claim_value_dict_without_qualifiers_key_is_not_unwrapped(self) -> None:
+        """A dict with only 'value' (no 'qualifiers' key) is treated as the raw claim value."""
+        raw = {"value": "y_n"}
+        val, qualifiers = import_service._parse_claim_value(raw)
+        self.assertIs(val, raw)
+        self.assertEqual(qualifiers, {})
+
     def test_update_item_sync_item_not_found(self) -> None:
         """Return not_found status when api.item.get raises."""
         api = Mock()

@@ -602,7 +602,7 @@ def _parse_claim_value(v) -> tuple[Any, dict]:
     mapping qualifier P-IDs to their values. Non-dict qualifiers fields (e.g. null)
     are normalised to an empty dict rather than propagated.
     """
-    if isinstance(v, dict) and "value" in v and v.keys() <= {"value", "qualifiers"}:
+    if isinstance(v, dict) and "value" in v and "qualifiers" in v and v.keys() <= {"value", "qualifiers"}:
         qualifiers = v.get("qualifiers")
         return v["value"], qualifiers if isinstance(qualifiers, dict) else {}
     return v, {}
@@ -705,9 +705,10 @@ def update_item_sync(
             for v in values_list:
                 actual_val, qualifiers_dict = _parse_claim_value(v)
                 qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
-                if actual_val in existing_by_value and not qualifiers:
+                match_key = actual_val["id"] if isinstance(actual_val, dict) and "id" in actual_val else str(actual_val)
+                if match_key in existing_by_value and not qualifiers:
                     # No qualifier update — keep the existing claim as-is.
-                    existing_by_value[actual_val].removed = False
+                    existing_by_value[match_key].removed = False
                 else:
                     # New value, or same value with qualifier changes — add fresh claim.
                     item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))

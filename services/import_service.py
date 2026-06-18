@@ -511,11 +511,12 @@ def create_item_sync(
     if description:
         item.descriptions.set(language="en", value=description)
     for prop, value in (claims or {}).items():
+        norm_prop = _norm_pid(prop)
         values_list = value if isinstance(value, list) else [value]
         for v in values_list:
             actual_val, qualifiers_dict = _parse_claim_value(v)
-            qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
-            item.add_claim(prop, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
+            qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
+            item.add_claim(norm_prop, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
     result = item.write()
     qid = result.id if result else None
@@ -592,6 +593,11 @@ def create_typed_item_sync(
 
     log.error("Failed to create typed item (type=%s, label='%s').", type_name, label)
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
+
+
+def _norm_pid(pid: str) -> str:
+    """Strip wdt:/full-URL prefix from a property ID, returning the bare P-number."""
+    return pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1] if isinstance(pid, str) else pid
 
 
 def _parse_claim_value(v) -> tuple[Any, dict]:
@@ -680,7 +686,7 @@ def update_item_sync(
         item.descriptions.set(language="en", value=description)
 
     for pid, value in (claims or {}).items():
-        norm_pid = pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1] if isinstance(pid, str) else pid
+        norm_pid = _norm_pid(pid)
         existing = item.claims.get(norm_pid)
         if existing and not do_override:
             existing_values = _extract_claim_values(existing)
@@ -704,7 +710,7 @@ def update_item_sync(
                 claim.remove()
             for v in values_list:
                 actual_val, qualifiers_dict = _parse_claim_value(v)
-                qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
+                qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
                 explicit_qualifiers = (
                     isinstance(v, dict)
                     and "value" in v
@@ -721,7 +727,7 @@ def update_item_sync(
         else:
             for v in values_list:
                 actual_val, qualifiers_dict = _parse_claim_value(v)
-                qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
+                qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
                 item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
     try:

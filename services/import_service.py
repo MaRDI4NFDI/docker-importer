@@ -600,7 +600,7 @@ def _norm_pid(pid: str) -> str:
     return pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
 
 
-def _parse_claim_value(v) -> tuple[Any, dict]:
+def _parse_claim_value(v: Any) -> tuple[Any, dict[str, Any]]:
     """Extract (actual_value, qualifiers_dict) from a claim value spec.
 
     Accepts either a bare scalar or ``{"value": ..., "qualifiers": {"P984": "Q123"}}``

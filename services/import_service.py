@@ -597,7 +597,7 @@ def create_typed_item_sync(
 
 def _norm_pid(pid: str) -> str:
     """Strip wdt:/full-URL prefix from a property ID, returning the bare P-number."""
-    return pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1] if isinstance(pid, str) else pid
+    return pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
 
 
 def _parse_claim_value(v) -> tuple[Any, dict]:

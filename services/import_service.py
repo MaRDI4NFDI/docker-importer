@@ -511,7 +511,9 @@ def create_item_sync(
     if description:
         item.descriptions.set(language="en", value=description)
     for prop, value in (claims or {}).items():
-        item.add_claim(prop, value)
+        values_list = value if isinstance(value, list) else [value]
+        for v in values_list:
+            item.add_claim(prop, v)
 
     result = item.write()
     qid = result.id if result else None

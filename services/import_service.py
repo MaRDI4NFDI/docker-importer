@@ -513,7 +513,9 @@ def create_item_sync(
     for prop, value in (claims or {}).items():
         values_list = value if isinstance(value, list) else [value]
         for v in values_list:
-            item.add_claim(prop, v)
+            actual_val, qualifiers_dict = _parse_claim_value(v)
+            qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
+            item.add_claim(prop, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
     result = item.write()
     qid = result.id if result else None
@@ -590,6 +592,18 @@ def create_typed_item_sync(
 
     log.error("Failed to create typed item (type=%s, label='%s').", type_name, label)
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
+
+
+def _parse_claim_value(v) -> tuple:
+    """Extract (actual_value, qualifiers_dict) from a claim value spec.
+
+    Accepts either a bare scalar or ``{"value": ..., "qualifiers": {"P984": "Q123"}}``
+    object form. Returns a 2-tuple of the actual value and a (possibly empty) dict
+    mapping qualifier P-IDs to their values.
+    """
+    if isinstance(v, dict) and "value" in v:
+        return v["value"], v.get("qualifiers", {})
+    return v, {}
 
 
 def _extract_claim_values(claims: list) -> list[str]:
@@ -687,13 +701,17 @@ def update_item_sync(
                     existing_by_value[vals[0]] = claim
                 claim.remove()
             for v in values_list:
-                if v in existing_by_value:
-                    existing_by_value[v].removed = False
+                actual_val, qualifiers_dict = _parse_claim_value(v)
+                qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
+                if actual_val in existing_by_value:
+                    existing_by_value[actual_val].removed = False
                 else:
-                    item.add_claim(norm_pid, v)
+                    item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
         else:
             for v in values_list:
-                item.add_claim(norm_pid, v)
+                actual_val, qualifiers_dict = _parse_claim_value(v)
+                qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
+                item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
     try:
         result = item.write()

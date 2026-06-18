@@ -374,6 +374,47 @@ class TestImportService(unittest.TestCase):
         self.assertFalse(old_claim.removed)
         item.add_claim.assert_called_once_with("P16", "Q99")
 
+    def test_create_item_sync_with_qualifier(self) -> None:
+        """Object-form claim value passes qualifier to add_claim."""
+        item = Mock()
+        result = Mock()
+        result.id = "Q42"
+        item.write.return_value = result
+        api = Mock()
+        api.item.new.return_value = item
+        qualifier_claim = Mock()
+        api.get_claim.return_value = qualifier_claim
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.create_item_sync(
+                "Test formula",
+                claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        api.get_claim.assert_called_once_with("P984", "Q12345")
+        item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
+
+    def test_update_item_sync_with_qualifier(self) -> None:
+        """Object-form claim value in update passes qualifier to add_claim."""
+        api, item = self._make_mock_api(existing_claims=None)
+        qualifier_claim = Mock()
+        api.get_claim.return_value = qualifier_claim
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1",
+                claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        api.get_claim.assert_called_once_with("P984", "Q12345")
+        item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
+
     def test_update_item_sync_item_not_found(self) -> None:
         """Return not_found status when api.item.get raises."""
         api = Mock()

@@ -419,12 +419,14 @@ class TestImportService(unittest.TestCase):
         """When overriding an existing value with qualifiers, the old claim is replaced."""
         old_claim = Mock()
         old_claim.mainsnak.datavalue = {"value": "y_n"}
+        old_claim.removed = False
+        old_claim.remove.side_effect = lambda: setattr(old_claim, "removed", True)
         api, item = self._make_mock_api(existing_claims=[old_claim])
         qualifier_claim = Mock()
         api.get_claim.return_value = qualifier_claim
 
         with patch("services.import_service.MardiClient", return_value=api):
-            payload, ok = import_service.update_item_sync(
+            _, ok = import_service.update_item_sync(
                 "Q1",
                 claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
                 do_override=True,

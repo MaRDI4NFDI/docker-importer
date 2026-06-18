@@ -602,7 +602,7 @@ def _parse_claim_value(v) -> tuple[Any, dict]:
     mapping qualifier P-IDs to their values. Non-dict qualifiers fields (e.g. null)
     are normalised to an empty dict rather than propagated.
     """
-    if isinstance(v, dict) and "value" in v:
+    if isinstance(v, dict) and "value" in v and v.keys() <= {"value", "qualifiers"}:
         qualifiers = v.get("qualifiers")
         return v["value"], qualifiers if isinstance(qualifiers, dict) else {}
     return v, {}

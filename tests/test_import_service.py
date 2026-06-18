@@ -440,6 +440,28 @@ class TestImportService(unittest.TestCase):
         self.assertTrue(old_claim.removed)
         item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
 
+    def test_update_item_sync_override_explicit_empty_qualifiers_replaces_existing(self) -> None:
+        """Explicit empty-qualifiers object form forces a fresh claim even with no new qualifiers."""
+        old_claim = Mock()
+        old_claim.mainsnak.datavalue = {"value": "y_n"}
+        old_claim.removed = False
+        old_claim.remove.side_effect = lambda: setattr(old_claim, "removed", True)
+        api, item = self._make_mock_api(existing_claims=[old_claim])
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            _, ok = import_service.update_item_sync(
+                "Q1",
+                claims={"P983": {"value": "y_n", "qualifiers": {}}},
+                do_override=True,
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        # old claim stays removed; a fresh qualifier-free claim is added
+        self.assertTrue(old_claim.removed)
+        item.add_claim.assert_called_once_with("P983", "y_n")
+
     def test_parse_claim_value_null_qualifiers_returns_empty_dict(self) -> None:
         """Non-dict qualifiers field (null, list) is normalised to empty dict."""
         val, qualifiers = import_service._parse_claim_value({"value": "y_n", "qualifiers": None})

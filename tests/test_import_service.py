@@ -415,6 +415,39 @@ class TestImportService(unittest.TestCase):
         api.get_claim.assert_called_once_with("P984", "Q12345")
         item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
 
+    def test_update_item_sync_override_with_qualifier_replaces_existing(self) -> None:
+        """When overriding an existing value with qualifiers, the old claim is replaced."""
+        old_claim = Mock()
+        old_claim.mainsnak.datavalue = {"value": "y_n"}
+        api, item = self._make_mock_api(existing_claims=[old_claim])
+        qualifier_claim = Mock()
+        api.get_claim.return_value = qualifier_claim
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1",
+                claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
+                do_override=True,
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        old_claim.remove.assert_called_once()
+        # existing claim must NOT be un-removed; a fresh claim with qualifier is added instead
+        self.assertTrue(old_claim.removed)
+        item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
+
+    def test_parse_claim_value_null_qualifiers_returns_empty_dict(self) -> None:
+        """Non-dict qualifiers field (null, list) is normalised to empty dict."""
+        val, qualifiers = import_service._parse_claim_value({"value": "y_n", "qualifiers": None})
+        self.assertEqual(val, "y_n")
+        self.assertEqual(qualifiers, {})
+
+        val2, qualifiers2 = import_service._parse_claim_value({"value": "y_n", "qualifiers": ["bad"]})
+        self.assertEqual(val2, "y_n")
+        self.assertEqual(qualifiers2, {})
+
     def test_update_item_sync_item_not_found(self) -> None:
         """Return not_found status when api.item.get raises."""
         api = Mock()

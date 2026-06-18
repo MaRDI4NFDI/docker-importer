@@ -594,15 +594,17 @@ def create_typed_item_sync(
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
 
 
-def _parse_claim_value(v) -> tuple:
+def _parse_claim_value(v) -> tuple[Any, dict]:
     """Extract (actual_value, qualifiers_dict) from a claim value spec.
 
     Accepts either a bare scalar or ``{"value": ..., "qualifiers": {"P984": "Q123"}}``
     object form. Returns a 2-tuple of the actual value and a (possibly empty) dict
-    mapping qualifier P-IDs to their values.
+    mapping qualifier P-IDs to their values. Non-dict qualifiers fields (e.g. null)
+    are normalised to an empty dict rather than propagated.
     """
     if isinstance(v, dict) and "value" in v:
-        return v["value"], v.get("qualifiers", {})
+        qualifiers = v.get("qualifiers")
+        return v["value"], qualifiers if isinstance(qualifiers, dict) else {}
     return v, {}
 
 
@@ -703,9 +705,11 @@ def update_item_sync(
             for v in values_list:
                 actual_val, qualifiers_dict = _parse_claim_value(v)
                 qualifiers = [api.get_claim(q_pid, q_val) for q_pid, q_val in qualifiers_dict.items()]
-                if actual_val in existing_by_value:
+                if actual_val in existing_by_value and not qualifiers:
+                    # No qualifier update — keep the existing claim as-is.
                     existing_by_value[actual_val].removed = False
                 else:
+                    # New value, or same value with qualifier changes — add fresh claim.
                     item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
         else:
             for v in values_list:

@@ -511,9 +511,12 @@ def create_item_sync(
     if description:
         item.descriptions.set(language="en", value=description)
     for prop, value in (claims or {}).items():
+        norm_prop = _norm_pid(prop)
         values_list = value if isinstance(value, list) else [value]
         for v in values_list:
-            item.add_claim(prop, v)
+            actual_val, qualifiers_dict, _ = _parse_claim_value(v)
+            qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
+            item.add_claim(norm_prop, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
     result = item.write()
     qid = result.id if result else None
@@ -592,6 +595,26 @@ def create_typed_item_sync(
     return {"qid": None, "status": "error", "error": "Item could not be created."}, False
 
 
+def _norm_pid(pid: str) -> str:
+    """Strip wdt:/full-URL prefix from a property ID, returning the bare P-number."""
+    return pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+
+
+def _parse_claim_value(v: Any) -> tuple[Any, dict[str, Any], bool]:
+    """Extract (actual_value, qualifiers_dict, explicit_qualifiers) from a claim value spec.
+
+    Accepts either a bare scalar or ``{"value": ..., "qualifiers": {"P984": "Q123"}}``
+    object form. Returns a 3-tuple: the actual value, a (possibly empty) dict of qualifier
+    P-IDs to values, and a boolean indicating whether the caller used the object form
+    (i.e. explicitly declared qualifier intent, even if qualifiers dict is empty).
+    Non-dict qualifiers fields (e.g. null) are normalised to an empty dict.
+    """
+    if isinstance(v, dict) and "value" in v and "qualifiers" in v and v.keys() <= {"value", "qualifiers"}:
+        qualifiers = v.get("qualifiers")
+        return v["value"], qualifiers if isinstance(qualifiers, dict) else {}, True
+    return v, {}, False
+
+
 def _extract_claim_values(claims: list) -> list[str]:
     """Extract human-readable values from a list of WBI Claim objects."""
     values = []
@@ -664,7 +687,7 @@ def update_item_sync(
         item.descriptions.set(language="en", value=description)
 
     for pid, value in (claims or {}).items():
-        norm_pid = pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1] if isinstance(pid, str) else pid
+        norm_pid = _norm_pid(pid)
         existing = item.claims.get(norm_pid)
         if existing and not do_override:
             existing_values = _extract_claim_values(existing)
@@ -687,13 +710,20 @@ def update_item_sync(
                     existing_by_value[vals[0]] = claim
                 claim.remove()
             for v in values_list:
-                if v in existing_by_value:
-                    existing_by_value[v].removed = False
+                actual_val, qualifiers_dict, explicit_qualifiers = _parse_claim_value(v)
+                qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
+                match_key = actual_val["id"] if isinstance(actual_val, dict) and "id" in actual_val else str(actual_val)
+                if match_key in existing_by_value and not qualifiers and not explicit_qualifiers:
+                    # Bare value with no qualifier intent — keep the existing claim as-is.
+                    existing_by_value[match_key].removed = False
                 else:
-                    item.add_claim(norm_pid, v)
+                    # New value, qualifier change, or explicit empty-qualifier override — add fresh claim.
+                    item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
         else:
             for v in values_list:
-                item.add_claim(norm_pid, v)
+                actual_val, qualifiers_dict, _ = _parse_claim_value(v)
+                qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
+                item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
     try:
         result = item.write()

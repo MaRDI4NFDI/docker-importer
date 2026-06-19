@@ -362,7 +362,7 @@ class TestFlaskApp(unittest.TestCase):
         self.assertEqual(response["status"], "success")
         mock_item.labels.set.assert_called_once_with(language="en", value="Test item")
         mock_item.descriptions.set.assert_called_once_with(language="en", value="A test")
-        mock_item.add_claim.assert_called_once_with("wdt:P31", "wd:Q5")
+        mock_item.add_claim.assert_called_once_with("P31", "wd:Q5")
 
     def test_create_item_write_failure(self) -> None:
         """Test item creation when write returns no ID."""

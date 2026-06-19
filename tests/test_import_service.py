@@ -374,6 +374,114 @@ class TestImportService(unittest.TestCase):
         self.assertFalse(old_claim.removed)
         item.add_claim.assert_called_once_with("P16", "Q99")
 
+    def test_create_item_sync_with_qualifier(self) -> None:
+        """Object-form claim value passes qualifier to add_claim."""
+        item = Mock()
+        result = Mock()
+        result.id = "Q42"
+        item.write.return_value = result
+        api = Mock()
+        api.item.new.return_value = item
+        qualifier_claim = Mock()
+        api.get_claim.return_value = qualifier_claim
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.create_item_sync(
+                "Test formula",
+                claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        api.get_claim.assert_called_once_with("P984", "Q12345")
+        item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
+
+    def test_update_item_sync_with_qualifier(self) -> None:
+        """Object-form claim value in update passes qualifier to add_claim."""
+        api, item = self._make_mock_api(existing_claims=None)
+        qualifier_claim = Mock()
+        api.get_claim.return_value = qualifier_claim
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            payload, ok = import_service.update_item_sync(
+                "Q1",
+                claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        api.get_claim.assert_called_once_with("P984", "Q12345")
+        item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
+
+    def test_update_item_sync_override_with_qualifier_replaces_existing(self) -> None:
+        """When overriding an existing value with qualifiers, the old claim is replaced."""
+        old_claim = Mock()
+        old_claim.mainsnak.datavalue = {"value": "y_n"}
+        old_claim.removed = False
+        old_claim.remove.side_effect = lambda: setattr(old_claim, "removed", True)
+        api, item = self._make_mock_api(existing_claims=[old_claim])
+        qualifier_claim = Mock()
+        api.get_claim.return_value = qualifier_claim
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            _, ok = import_service.update_item_sync(
+                "Q1",
+                claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
+                do_override=True,
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        old_claim.remove.assert_called_once()
+        # existing claim must NOT be un-removed; a fresh claim with qualifier is added instead
+        self.assertTrue(old_claim.removed)
+        item.add_claim.assert_called_once_with("P983", "y_n", qualifiers=[qualifier_claim])
+
+    def test_update_item_sync_override_explicit_empty_qualifiers_replaces_existing(self) -> None:
+        """Explicit empty-qualifiers object form forces a fresh claim even with no new qualifiers."""
+        old_claim = Mock()
+        old_claim.mainsnak.datavalue = {"value": "y_n"}
+        old_claim.removed = False
+        old_claim.remove.side_effect = lambda: setattr(old_claim, "removed", True)
+        api, item = self._make_mock_api(existing_claims=[old_claim])
+
+        with patch("services.import_service.MardiClient", return_value=api):
+            _, ok = import_service.update_item_sync(
+                "Q1",
+                claims={"P983": {"value": "y_n", "qualifiers": {}}},
+                do_override=True,
+                username="testuser",
+                password="testpass",
+            )
+
+        self.assertTrue(ok)
+        # old claim stays removed; a fresh qualifier-free claim is added
+        self.assertTrue(old_claim.removed)
+        item.add_claim.assert_called_once_with("P983", "y_n")
+
+    def test_parse_claim_value_null_qualifiers_returns_empty_dict(self) -> None:
+        """Non-dict qualifiers field (null, list) is normalised to empty dict."""
+        val, qualifiers, explicit = import_service._parse_claim_value({"value": "y_n", "qualifiers": None})
+        self.assertEqual(val, "y_n")
+        self.assertEqual(qualifiers, {})
+        self.assertTrue(explicit)
+
+        val2, qualifiers2, explicit2 = import_service._parse_claim_value({"value": "y_n", "qualifiers": ["bad"]})
+        self.assertEqual(val2, "y_n")
+        self.assertEqual(qualifiers2, {})
+        self.assertTrue(explicit2)
+
+    def test_parse_claim_value_dict_without_qualifiers_key_is_not_unwrapped(self) -> None:
+        """A dict with only 'value' (no 'qualifiers' key) is treated as the raw claim value."""
+        raw = {"value": "y_n"}
+        val, qualifiers, explicit = import_service._parse_claim_value(raw)
+        self.assertIs(val, raw)
+        self.assertEqual(qualifiers, {})
+        self.assertFalse(explicit)
+
     def test_update_item_sync_item_not_found(self) -> None:
         """Return not_found status when api.item.get raises."""
         api = Mock()

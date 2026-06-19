@@ -464,20 +464,23 @@ class TestImportService(unittest.TestCase):
 
     def test_parse_claim_value_null_qualifiers_returns_empty_dict(self) -> None:
         """Non-dict qualifiers field (null, list) is normalised to empty dict."""
-        val, qualifiers = import_service._parse_claim_value({"value": "y_n", "qualifiers": None})
+        val, qualifiers, explicit = import_service._parse_claim_value({"value": "y_n", "qualifiers": None})
         self.assertEqual(val, "y_n")
         self.assertEqual(qualifiers, {})
+        self.assertTrue(explicit)
 
-        val2, qualifiers2 = import_service._parse_claim_value({"value": "y_n", "qualifiers": ["bad"]})
+        val2, qualifiers2, explicit2 = import_service._parse_claim_value({"value": "y_n", "qualifiers": ["bad"]})
         self.assertEqual(val2, "y_n")
         self.assertEqual(qualifiers2, {})
+        self.assertTrue(explicit2)
 
     def test_parse_claim_value_dict_without_qualifiers_key_is_not_unwrapped(self) -> None:
         """A dict with only 'value' (no 'qualifiers' key) is treated as the raw claim value."""
         raw = {"value": "y_n"}
-        val, qualifiers = import_service._parse_claim_value(raw)
+        val, qualifiers, explicit = import_service._parse_claim_value(raw)
         self.assertIs(val, raw)
         self.assertEqual(qualifiers, {})
+        self.assertFalse(explicit)
 
     def test_update_item_sync_item_not_found(self) -> None:
         """Return not_found status when api.item.get raises."""

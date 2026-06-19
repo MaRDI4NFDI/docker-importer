@@ -514,7 +514,7 @@ def create_item_sync(
         norm_prop = _norm_pid(prop)
         values_list = value if isinstance(value, list) else [value]
         for v in values_list:
-            actual_val, qualifiers_dict = _parse_claim_value(v)
+            actual_val, qualifiers_dict, _ = _parse_claim_value(v)
             qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
             item.add_claim(norm_prop, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 
@@ -600,18 +600,19 @@ def _norm_pid(pid: str) -> str:
     return pid.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
 
 
-def _parse_claim_value(v: Any) -> tuple[Any, dict[str, Any]]:
-    """Extract (actual_value, qualifiers_dict) from a claim value spec.
+def _parse_claim_value(v: Any) -> tuple[Any, dict[str, Any], bool]:
+    """Extract (actual_value, qualifiers_dict, explicit_qualifiers) from a claim value spec.
 
     Accepts either a bare scalar or ``{"value": ..., "qualifiers": {"P984": "Q123"}}``
-    object form. Returns a 2-tuple of the actual value and a (possibly empty) dict
-    mapping qualifier P-IDs to their values. Non-dict qualifiers fields (e.g. null)
-    are normalised to an empty dict rather than propagated.
+    object form. Returns a 3-tuple: the actual value, a (possibly empty) dict of qualifier
+    P-IDs to values, and a boolean indicating whether the caller used the object form
+    (i.e. explicitly declared qualifier intent, even if qualifiers dict is empty).
+    Non-dict qualifiers fields (e.g. null) are normalised to an empty dict.
     """
     if isinstance(v, dict) and "value" in v and "qualifiers" in v and v.keys() <= {"value", "qualifiers"}:
         qualifiers = v.get("qualifiers")
-        return v["value"], qualifiers if isinstance(qualifiers, dict) else {}
-    return v, {}
+        return v["value"], qualifiers if isinstance(qualifiers, dict) else {}, True
+    return v, {}, False
 
 
 def _extract_claim_values(claims: list) -> list[str]:
@@ -709,14 +710,8 @@ def update_item_sync(
                     existing_by_value[vals[0]] = claim
                 claim.remove()
             for v in values_list:
-                actual_val, qualifiers_dict = _parse_claim_value(v)
+                actual_val, qualifiers_dict, explicit_qualifiers = _parse_claim_value(v)
                 qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
-                explicit_qualifiers = (
-                    isinstance(v, dict)
-                    and "value" in v
-                    and "qualifiers" in v
-                    and v.keys() <= {"value", "qualifiers"}
-                )
                 match_key = actual_val["id"] if isinstance(actual_val, dict) and "id" in actual_val else str(actual_val)
                 if match_key in existing_by_value and not qualifiers and not explicit_qualifiers:
                     # Bare value with no qualifier intent — keep the existing claim as-is.
@@ -726,7 +721,7 @@ def update_item_sync(
                     item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
         else:
             for v in values_list:
-                actual_val, qualifiers_dict = _parse_claim_value(v)
+                actual_val, qualifiers_dict, _ = _parse_claim_value(v)
                 qualifiers = [api.get_claim(_norm_pid(q_pid), q_val) for q_pid, q_val in qualifiers_dict.items()]
                 item.add_claim(norm_pid, actual_val, **({"qualifiers": qualifiers} if qualifiers else {}))
 

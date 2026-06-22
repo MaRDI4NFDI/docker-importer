@@ -31,8 +31,8 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
     os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
     os.environ["MEDIAWIKI_API_URL"] = "http://wikibase/w/api.php"
     os.environ["WIKIBASE_URL"] = "http://wikibase"
-    os.environ["WIKIBASE_SCHEME"] = "http"
-    os.environ["WIKIBASE_HOST"] = "wikibase"
+    os.environ["WIKIBASE_SCHEME"] = "https"
+    os.environ["WIKIBASE_HOST"] = "portal.mardi4nfdi.de"
     os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
     os.environ["IMPORTER_API_URL"] = "http://importer-api"
 
@@ -125,8 +125,8 @@ def update_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
     os.environ["MEDIAWIKI_API_URL"] = "http://wikibase/w/api.php"
     os.environ["WIKIBASE_URL"] = "http://wikibase"
-    os.environ["WIKIBASE_SCHEME"] = "http"
-    os.environ["WIKIBASE_HOST"] = "wikibase"
+    os.environ["WIKIBASE_SCHEME"] = "https"
+    os.environ["WIKIBASE_HOST"] = "portal.mardi4nfdi.de"
     os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
     os.environ["IMPORTER_API_URL"] = "http://importer-api"
 
@@ -187,8 +187,8 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
     os.environ["MEDIAWIKI_API_URL"] = "http://wikibase/w/api.php"
     os.environ["WIKIBASE_URL"] = "http://wikibase"
-    os.environ["WIKIBASE_SCHEME"] = "http"
-    os.environ["WIKIBASE_HOST"] = "wikibase"
+    os.environ["WIKIBASE_SCHEME"] = "https"
+    os.environ["WIKIBASE_HOST"] = "portal.mardi4nfdi.de"
     os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
     os.environ["IMPORTER_API_URL"] = "http://importer-api"
 

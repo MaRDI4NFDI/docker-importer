@@ -23,6 +23,15 @@ python -m cli.importer_cli import-wikidata-async --qids "Q42,Q1"
 python -m cli.importer_cli import-wikidata --qids Q42 Q1
 ```
 
+Restrict or widen the imported label/description/alias languages with
+`--languages` (comma-separated). `mul` is always included unless you pass
+`all`. When omitted, the default is `en,de,mul`.
+
+```bash
+python -m cli.importer_cli import-wikidata --qids Q42 --languages en,de,fr   # -> en,de,fr,mul
+python -m cli.importer_cli import-wikidata --qids Q42 --languages all        # every language
+```
+
 ### DOI import (async via Prefect)
 
 ```bash

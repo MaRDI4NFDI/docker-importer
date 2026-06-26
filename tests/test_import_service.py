@@ -212,6 +212,18 @@ class TestImportService(unittest.TestCase):
         self.assertEqual(payload["results"]["Q2"]["status"], "not_imported")
         self.assertEqual(payload["results"]["Q3"]["status"], "error")
 
+    def test_import_wikidata_sync_languages_forwarded(self) -> None:
+        importer = Mock()
+        importer.import_entities.return_value = "Q1"
+
+        with patch("services.import_service.WikidataImporter", return_value=importer) as wdi:
+            import_service.import_wikidata_sync(["Q1"], languages=["en", "mul"])
+        wdi.assert_called_once_with(languages=["en", "mul"])
+
+        with patch("services.import_service.WikidataImporter", return_value=importer) as wdi:
+            import_service.import_wikidata_sync(["Q1"])
+        wdi.assert_called_once_with()   # None -> default en/de/mul preserved
+
     def test_import_doi_sync(self) -> None:
         """Return per-DOI results and overall success flag."""
         arxiv_source = Mock()

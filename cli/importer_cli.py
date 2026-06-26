@@ -220,6 +220,18 @@ def cmd_import_workflow_runs(_args: argparse.Namespace) -> int:
         print(json.dumps({"error": "prefect api error", "details": str(exc)}))
         return 1
 
+def _parse_languages(value: str | None):
+    if value is None:
+        return None
+    value = value.strip()
+    if value.lower() == "all":
+        return "all"
+    langs = [lang.strip() for lang in value.split(",") if lang.strip()]
+    if not langs:
+        return None
+    if "mul" not in langs:
+        langs.append("mul")
+    return langs
 
 def cmd_import_wikidata(args: argparse.Namespace) -> int:
     """Import Wikidata entities synchronously by QID.
@@ -235,7 +247,8 @@ def cmd_import_wikidata(args: argparse.Namespace) -> int:
         print(json.dumps({"error": "missing qids"}))
         return 2
 
-    payload, all_ok = import_wikidata_sync(qids)
+    languages = _parse_languages(args.languages)
+    payload, all_ok = import_wikidata_sync(qids,languages=languages)
     print(json.dumps(payload))
     return 0 if all_ok else 1
 
@@ -501,6 +514,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub.add_argument("--qids", nargs="*", help="QIDs list or comma-separated.")
     sub.set_defaults(func=cmd_import_wikidata)
+
+    sub.add_argument("--languages",
+        help='Comma-separated language codes to import (e.g. "en,de,fr"), '
+        'or "all" for every language. mul is always included unless "all". '
+        "Defaults to en,de,mul.",
+    )
 
     sub = subparsers.add_parser("import-doi-async", help="Trigger Prefect DOI import.")
     sub.add_argument("--dois", nargs="*", help="DOIs list or comma-separated.")

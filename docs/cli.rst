@@ -42,6 +42,15 @@ Run synchronous imports::
   python -m cli.importer_cli import-doi --dois 10.1000/XYZ123
   python -m cli.importer_cli import-cran --packages dplyr ggplot2
 
+  The ``import-wikidata`` command accepts an optional ``--languages`` flag
+  (comma-separated language codes, or ``all``) to control which label,
+  description and alias languages are imported. ``mul`` is always included
+  unless ``all`` is given; the default when omitted is ``en,de,mul``. The flag
+  applies only to this synchronous command, not to ``import-wikidata-async``::
+
+  python -m cli.importer_cli import-wikidata --qids Q42 --languages en,de,fr
+  python -m cli.importer_cli import-wikidata --qids Q42 --languages all
+
 Create a knowledge graph item::
 
   # Typed format — schema fills predefined claims automatically

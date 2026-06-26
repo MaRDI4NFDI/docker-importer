@@ -344,7 +344,7 @@ def trigger_doi_async(
     }
 
 
-def import_wikidata_sync(qids: list[str]) -> tuple[dict, bool]:
+def import_wikidata_sync(qids: list[str], languages=None) -> tuple[dict, bool]:
     """Import Wikidata entities synchronously.
 
     Args:
@@ -353,7 +353,10 @@ def import_wikidata_sync(qids: list[str]) -> tuple[dict, bool]:
     Returns:
         Tuple of payload and overall success flag.
     """
-    wdi = WikidataImporter()
+    if languages is None:
+        wdi = WikidataImporter()
+    else:
+        wdi = WikidataImporter(languages=languages)
     results: dict[str, dict] = {}
     all_ok = True
 

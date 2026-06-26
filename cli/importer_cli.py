@@ -226,7 +226,7 @@ def _parse_languages(value: str | None):
     value = value.strip()
     if value.lower() == "all":
         return "all"
-    langs = [lang.strip() for lang in value.split(",") if lang.strip()]
+    langs = [lang.strip().lower() for lang in value.split(",") if lang.strip()]
     if not langs:
         return None
     if "mul" not in langs:

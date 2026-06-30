@@ -72,7 +72,12 @@ def deduplicate_arxiv_file(old_arxiv_path, new_arxiv_path):
     new_only.to_csv(dedup_path, sep="\t", index=False)
     return dedup_path
 
-def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=None):
+
+def _chunked(seq, size):
+    for i in range(0, len(seq), size):
+        yield seq[i:i + size]
+
+def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=None,batch_size=100):
 
     df = pd.read_csv(dump_path, sep="\t")
     subset = df[~df.references.isna()]
@@ -85,10 +90,12 @@ def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=N
             else:
                 resume_after_de = None
                 continue
-        references = row["references"].split(";")
+        references = [r for r in row["references"].split(";") if r]
         if not references:
             continue
-        mapping = mc.batch_search_by_value("P1451", references)
+        mapping = {}
+        for chunk in _chunked(references, batch_size):
+            mapping.update(mc.batch_search_by_value("P1451", chunk))
         ref_qids = [mapping[r][0] for r in references if mapping.get(r)]
 
         if ref_qids:

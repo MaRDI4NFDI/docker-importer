@@ -1,0 +1,171 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting Started &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Command-Line Interface (CLI) Guide" href="cli.html" />
+    <link rel="prev" title="MaRDI Importer Documentation" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#without-docker">Without Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#with-docker">With Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#build-documentation">Build documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#version">Version</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flask_endpoints.html">Web API Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cran.html">Importer Module for CRAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrator.html">Integrator Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Getting Started</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/main.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="getting-started">
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
+<p>What is this about?</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+</section>
+<section id="without-docker">
+<h2>Without Docker<a class="headerlink" href="#without-docker" title="Link to this heading"></a></h2>
+<p>Install the python package of <code class="code docutils literal notranslate"><span class="pre">mardi-importer</span></code> by first installing the
+requirements from <code class="code docutils literal notranslate"><span class="pre">requirements.txt</span></code>,</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</pre></div>
+</div>
+<p>Then install the packages via</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-U<span class="w"> </span>-e<span class="w"> </span>.
+</pre></div>
+</div>
+<p><code class="code docutils literal notranslate"><span class="pre">-U</span></code> enforces reinstalling the package, with <code class="code docutils literal notranslate"><span class="pre">-e</span></code> modifications in
+the source files are automatically taken into account.</p>
+<p>Note: for convenience, local installations not using docker can be placed within
+virtual environments by first calling</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>env
+<span class="nb">source</span><span class="w"> </span>env/bin/activate
+</pre></div>
+</div>
+</section>
+<section id="with-docker">
+<h2>With Docker<a class="headerlink" href="#with-docker" title="Link to this heading"></a></h2>
+<p>TODO</p>
+</section>
+<section id="build-documentation">
+<h2>Build documentation<a class="headerlink" href="#build-documentation" title="Link to this heading"></a></h2>
+<p>In <code class="code docutils literal notranslate"><span class="pre">docs/</span></code>, run <code class="code docutils literal notranslate"><span class="pre">make</span> <span class="pre">html</span></code> to generate the documentation for a
+local installation. The modules have to be installed and findable by <code class="code docutils literal notranslate"><span class="pre">import</span>
+<span class="pre">module</span></code>. To view the docs, open the file <code class="code docutils literal notranslate"><span class="pre">docs/_build/html/index.html</span></code>.</p>
+</section>
+<section id="version">
+<h2>Version<a class="headerlink" href="#version" title="Link to this heading"></a></h2>
+<p>The current release version is stored in the root <code class="docutils literal notranslate"><span class="pre">VERSION</span></code> file. It is
+available via:</p>
+<ul class="simple">
+<li><p>CLI: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">cli.importer_cli</span> <span class="pre">--version</span></code></p></li>
+<li><p>Flask: <code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/version</span></code></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="MaRDI Importer Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cli.html" class="btn btn-neutral float-right" title="Command-Line Interface (CLI) Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

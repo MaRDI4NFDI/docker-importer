@@ -148,10 +148,12 @@ def check_existing_dumps() -> Optional[str]:
     last_line = subprocess.check_output(["tail", "-1", newest], text=True).strip()
     last_de = last_line.split("\t")[0] if last_line else None
 
-    if last_de:
-        log.info("Last de_number from %s: %s", os.path.basename(newest), last_de)
+    if last_de is None or not last_de.isdigit():
+        log.warning("Newest dump %s has no data rows (last line: %r)",
+                    os.path.basename(newest), last_line)
+        last_de = None
     else:
-        log.warning("File %s appears empty (no data rows)", newest)
+        log.info("Last de_number from %s: %s", os.path.basename(newest), last_de)
 
     return last_de
 

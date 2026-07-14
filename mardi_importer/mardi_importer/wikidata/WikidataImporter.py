@@ -28,8 +28,13 @@ from wikibaseintegrator.datatypes import (
     Time,
 )
 
+from wikibaseintegrator.wbi_exceptions import (
+    ModificationFailed,
+    MissingEntityException,
+    NonExistentEntityError,
+)
+
 from mardi_importer.logger.logging_utils import get_logger_safe
-from wikibaseintegrator.wbi_exceptions import ModificationFailed
 from wikibaseintegrator.wbi_login import LoginError
 
 WIKIDATA_API_URL = "https://www.wikidata.org/w/api.php"
@@ -226,6 +231,51 @@ class WikidataImporter:
             connection.execute(ins)
             connection.commit()
 
+    def delete_id_from_db(self, wikidata_id):
+        """Remove the mapping row for wikidata_id from items/properties."""
+        metadata = db.MetaData()
+        table_name = "properties" if wikidata_id.startswith("P") else "items"
+        table = db.Table(table_name, metadata, autoload_with=self.engine)
+        dele = table.delete().where(table.columns.wikidata_id == wikidata_id[1:])
+        with self.engine.connect() as connection:
+            connection.execute(dele)
+            connection.commit()
+
+    def _entity_exists_in_portal(self, local_id):
+        """True if local_id currently exists in the wikibase, False if deleted.
+
+        Returns False only when the wikibase definitively reports the entity as
+        gone. Any other error (network, API) propagates rather than being
+        guessed at, so a transient failure never causes a valid mapping to be
+        deleted.
+        """
+        entity_api = self.api.item if local_id.startswith("Q") else self.api.property
+        try:
+            entity_api.get(entity_id=local_id)
+            return True
+        except (MissingEntityException, NonExistentEntityError):
+            return False
+
+    def resolve_local_id(self, wikidata_id):
+        """Like query('local_id', ...), but never returns a dead mapping.
+
+        If the mapping table has a local_id for wikidata_id but that entity no
+        longer exists in the portal (deleted there without clearing the row),
+        the stale row is removed and None is returned so the caller re-imports
+        and writes a fresh mapping.
+        """
+        local_id = self.query("local_id", wikidata_id)
+        if not local_id:
+            return None
+        if self._entity_exists_in_portal(local_id):
+            return local_id
+        self.log.warning(
+            f"Mapping for {wikidata_id} -> {local_id} is stale "
+            f"(entity no longer in portal). Removing row and re-importing."
+        )
+        self.delete_id_from_db(wikidata_id)
+        return None
+
     def update_has_all_claims(self, wikidata_id):
         """
         Set the has_all_claims property in the wb_id_mapping table
@@ -363,7 +413,7 @@ class WikidataImporter:
 
                 local_id = entity.exists()
                 if not local_id:
-                    local_id = self.query("local_id", wikidata_id)
+                    self.resolve_local_id(wikidata_id)
 
                 if local_id:
                     self.log.debug(
@@ -560,7 +610,7 @@ class WikidataImporter:
                 continue
 
             self.log.debug("Getting local QID ...")
-            mardi_id = self.query("local_id", wikidata_id)
+            mardi_id = self.resolve_local_id(wikidata_id)
 
             self.log.debug(f"Processing (updating) local item: {mardi_id}")
             if mardi_id:
@@ -600,7 +650,7 @@ class WikidataImporter:
         Returns:
             local id or None, if the entity had no labels
         """
-        local_id = self.query("local_id", wikidata_id)
+        local_id = self.resolve_local_id(wikidata_id)
         if local_id:
             return local_id
 
@@ -619,13 +669,13 @@ class WikidataImporter:
         # Handle potential ID redirection
         elif wikidata_id != entity.id:
             wikidata_id = entity.id
-            local_id = self.query("local_id", wikidata_id)
+            local_id = self.resolve_local_id(wikidata_id)
             if local_id:
                 return local_id
 
         # Check if the entity has been redirected by Wikidata
         # into another entity that has already been imported
-        local_id = self.query("local_id", entity.id)
+        local_id = self.resolve_local_id(entity.id)
         if local_id:
             return local_id
 

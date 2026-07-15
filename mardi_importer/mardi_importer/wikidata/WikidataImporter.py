@@ -413,7 +413,7 @@ class WikidataImporter:
 
                 local_id = entity.exists()
                 if not local_id:
-                    self.resolve_local_id(wikidata_id)
+                    local_id = self.resolve_local_id(wikidata_id)
 
                 if local_id:
                     self.log.debug(

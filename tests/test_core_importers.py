@@ -287,6 +287,12 @@ def _install_wikibaseintegrator_stub() -> None:
     class ModificationFailed(Exception):
         pass
 
+    class MissingEntityException(Exception):
+        pass
+
+    class NonExistentEntityError(Exception):
+        pass
+
     class LoginError(Exception):
         pass
 
@@ -322,6 +328,8 @@ def _install_wikibaseintegrator_stub() -> None:
     datatypes_module.Time = Time
 
     exceptions_module.ModificationFailed = ModificationFailed
+    exceptions_module.MissingEntityException = MissingEntityException
+    exceptions_module.NonExistentEntityError = NonExistentEntityError
     login_module.LoginError = LoginError
 
     helpers_module.search_entities = _noop

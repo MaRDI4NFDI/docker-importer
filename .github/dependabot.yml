@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # GitHub Actions used by the workflows in .github/workflows/
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  # Base image in the Dockerfile (FROM python:3.11-slim).
+  # Note: packages installed via `RUN pip install` are not visible to
+  # Dependabot; the `prefect==` pin must be bumped by hand to stay in
+  # lockstep with the prefect-server/prefect-worker chart versions.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: pip
+    directory: "/tests"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: pip
+    directory: "/mardi_importer"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: pip
+    directory: "/docs"
+    schedule:
+      interval: monthly

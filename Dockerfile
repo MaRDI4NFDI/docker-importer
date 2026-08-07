@@ -44,8 +44,8 @@ COPY services /app/services
 # cli
 COPY cli /app/cli
 
-# prefect workflow
-COPY prefect_workflow /prefect_workflow
+# prefect workflows
+COPY prefect_workflows /prefect_workflows
 
 # Install wikibaseintegrator from source
 RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \
@@ -60,7 +60,7 @@ COPY /mardi_importer /mardi_importer
 RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
 
 # Install needed libs
-RUN pip install --no-cache-dir prefect==3.6.15 importlib_metadata requests
+RUN pip install --no-cache-dir prefect==3.8.1 importlib_metadata requests
 
 # Add contentmath datatype to WikibaseIntegrator
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/

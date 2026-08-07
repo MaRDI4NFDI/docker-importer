@@ -15,27 +15,6 @@ from services.version import get_version
 
 @task(retries=1, retry_delay_seconds=30)
 def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
-    # Set needed env variables for Wikidata importer
-    os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["IMPORTER_DB_USER"] = "importer-user"
-    os.environ["DB_NAME"] = "wikidata-importer"
-    os.environ["DB_HOST"] = "mariadb-primary"
-
-    os.environ["ARXIV_USER"] = "arXiv-Importer"
-    os.environ["ARXIV_PASS"] = Secret.load("importer-arxiv-password").get()
-    os.environ["ZENODO_USER"] = "Zenodo-Importer"
-    os.environ["ZENODO_PASS"] = Secret.load("importer-zenodo-password").get()
-    os.environ["CROSSREF_USER"] = "Crossref-Importer"
-    os.environ["CROSSREF_PASS"] = Secret.load("importer-crossref-password").get()
-    os.environ["WIKIDATA_USER"] = "Wikidata-Importer"
-    os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
-    os.environ["MEDIAWIKI_API_URL"] = "http://wikibase/w/api.php"
-    os.environ["WIKIBASE_URL"] = "http://wikibase"
-    os.environ["IMPORTER_MW_AGENT"] = "MaRDI-Importer (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
-    os.environ["WIKIBASE_SCHEME"] = "https"
-    os.environ["WIKIBASE_HOST"] = "portal.mardi4nfdi.de"
-    os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
-    os.environ["IMPORTER_API_URL"] = "http://importer-api"
 
     log = get_run_logger()
     log.info("Starting batch import for DOIs: %s", ", ".join(dois))
@@ -116,22 +95,6 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
 def update_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     log = get_run_logger()
 
-    # Set needed env variables for Wikidata importer
-    os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["IMPORTER_DB_USER"] = "importer-user"
-    os.environ["DB_NAME"] = "wikidata-importer"
-    os.environ["DB_HOST"] = "mariadb-primary"
-
-    os.environ["WIKIDATA_USER"] = "Wikidata-Importer"
-    os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
-    os.environ["MEDIAWIKI_API_URL"] = "http://wikibase/w/api.php"
-    os.environ["WIKIBASE_URL"] = "http://wikibase"
-    os.environ["WIKIBASE_SCHEME"] = "https"
-    os.environ["WIKIBASE_HOST"] = "portal.mardi4nfdi.de"
-    os.environ["IMPORTER_MW_AGENT"] = "MaRDI-Importer (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
-    os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
-    os.environ["IMPORTER_API_URL"] = "http://importer-api"
-
     wdi = WikidataImporter()
     results: Dict[str, Any] = {}
     all_ok = True
@@ -179,22 +142,6 @@ def update_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
 def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     log = get_run_logger()
 
-    # Set needed env variables for Wikidata importer
-    os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["IMPORTER_DB_USER"] = "importer-user"
-    os.environ["DB_NAME"] = "wikidata-importer"
-    os.environ["DB_HOST"] = "mariadb-primary"
-
-    os.environ["WIKIDATA_USER"] = "Wikidata-Importer"
-    os.environ["WIKIDATA_PASS"] = Secret.load("wikidata-importer-wiki-password").get()
-    os.environ["MEDIAWIKI_API_URL"] = "http://wikibase/w/api.php"
-    os.environ["WIKIBASE_URL"] = "http://wikibase"
-    os.environ["WIKIBASE_SCHEME"] = "https"
-    os.environ["WIKIBASE_HOST"] = "portal.mardi4nfdi.de"
-    os.environ["IMPORTER_MW_AGENT"] = "MaRDI-Importer (portal.mardi4nfdi.de; urgent_ta5@mardi4nfdi.de)"
-    os.environ["SPARQL_ENDPOINT_URL"] = "http://wdqs:9999/bigdata/namespace/wdq/sparql"
-    os.environ["IMPORTER_API_URL"] = "http://importer-api"
-
     wdi = WikidataImporter()
     results: Dict[str, Any] = {}
     all_ok = True
@@ -240,7 +187,7 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
 
 
 @flow(name="mardi-importer")
-def prefect_mardi_importer_flow(
+def mardi_importer_flow(
     action: str,
     qids: Optional[List[str]] = None,
     dois: Optional[List[str]] = None,

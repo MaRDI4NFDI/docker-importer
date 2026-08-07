@@ -1,5 +1,6 @@
 import os
 import re
+from enum import Enum
 from typing import List, Dict, Any, Optional
 
 from prefect import flow, task, get_run_logger
@@ -11,6 +12,20 @@ from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 
 from services.version import get_version
+
+
+class ImportAction(str, Enum):
+    """Supported import actions.
+
+    Inherits from ``str`` so that members compare equal to their values and
+    serialise as plain strings over the Prefect API. Prefect builds the
+    deployment's parameter schema from this, so unknown actions are rejected
+    when the flow run is created rather than after a pod has started.
+    """
+
+    IMPORT_WIKIDATA = "import/wikidata"
+    UPDATE_WIKIDATA = "update/wikidata"
+    IMPORT_DOI = "import/doi"
 
 
 @task(retries=1, retry_delay_seconds=30)
@@ -188,7 +203,7 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
 
 @flow(name="mardi-importer")
 def mardi_importer_flow(
-    action: str,
+    action: ImportAction,
     qids: Optional[List[str]] = None,
     dois: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
@@ -197,9 +212,11 @@ def mardi_importer_flow(
     dois: List[str] = dois or []
 
     log.info("version: %s", get_version())
+    action = ImportAction(action)
+
     log.info(
         "Flow triggered with action=%s qids_count=%d dois_count=%d",
-        action,
+        action.value,
         len(qids),
         len(dois),
     )
@@ -207,15 +224,15 @@ def mardi_importer_flow(
     ctx = get_run_context()
     flow_run_id = str(ctx.flow_run.id)
 
-    if action == "import/wikidata":
+    if action is ImportAction.IMPORT_WIKIDATA:
         if not qids:
             raise ValueError("missing qids")
         result = import_wikidata_batch(qids)
-    elif action == "update/wikidata":
+    elif action is ImportAction.UPDATE_WIKIDATA:
         if not qids:
             raise ValueError("missing qids")
         result = update_wikidata_batch(qids)
-    elif action == "import/doi":
+    elif action is ImportAction.IMPORT_DOI:
         if not dois:
             raise ValueError("missing dois")
 
@@ -228,15 +245,15 @@ def mardi_importer_flow(
     artifact = Artifact(
         type="json",
         key=f"mardi-importer-result-{flow_run_id}",
-        description=f"Importer result for action={action} flow_run_id={flow_run_id}",
+        description=f"Importer result for action={action.value} flow_run_id={flow_run_id}",
         data={
-            "action": action,
+            "action": action.value,
             **result,
         },
     ).create()  # type: ignore[call-arg]  # false positive: async_dispatch ParamSpec wrapper
 
     response_payload = {
-        "action": action,
+        "action": action.value,
         **result,
         "artifact_id": str(artifact.id),
         "artifact_key": artifact.key,

@@ -37,30 +37,22 @@ RUN mkdir /app
 
 RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools
 
-# flask app
-COPY flask_app /app/flask_app
-COPY services /app/services
+# Install the project. Dependencies -- including prefect, wikibaseintegrator
+# and mardiclient -- are declared in pyproject.toml.
+#
+# The build context has no .git, so setuptools-scm cannot derive the version
+# from tags; CI passes the value it computed from the repository.
+ARG SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
 
-# cli
-COPY cli /app/cli
+# mardiclient is tracked from its main branch, which Docker cannot see when
+# deciding whether this layer is stale. CI passes the resolved commit so the
+# layer is rebuilt exactly when that branch moves. The value is not read by
+# pip; it only participates in the cache key.
+ARG MARDICLIENT_REF=main
 
-# prefect workflows
-COPY prefect_workflows /app/prefect_workflows
-
-# Install wikibaseintegrator from source
-RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \
-    && pip install ./WikibaseIntegrator
-
-# Install MaRDI client
-RUN git clone https://github.com/MaRDI4NFDI/mardiclient.git \
-    && pip install ./mardiclient
-
-# Install MaRDI importer
-COPY /mardi_importer /mardi_importer
-RUN pip install --no-cache-dir -v --no-build-isolation -e /mardi_importer
-
-# Install needed libs
-RUN pip install --no-cache-dir prefect==3.8.1 importlib_metadata requests
+COPY pyproject.toml README.md /src/
+COPY src /src/src
+RUN MARDICLIENT_REF="${MARDICLIENT_REF}" pip install --no-cache-dir /src
 
 # Add contentmath datatype to WikibaseIntegrator
 COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/
@@ -70,9 +62,6 @@ RUN echo "from .contentmath import ContentMath" \
 # Copy configurations to the image
 COPY config /config
 
-# Copy VERSION file to project root
-COPY VERSION /app/VERSION
-
 # entry point
 WORKDIR /app
-CMD ["gunicorn", "-w", "2", "--timeout", "300", "-b", "0.0.0.0:8000", "flask_app.app:app"]
+CMD ["gunicorn", "-w", "2", "--timeout", "300", "-b", "0.0.0.0:8000", "mardi_portal.api.app:app"]

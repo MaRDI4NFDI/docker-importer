@@ -52,16 +52,19 @@ The result is directly available at
 [mardi4nfdi.github.io/docker-importer](https://mardi4nfdi.github.io/docker-importer)
 
 ## Local testing of python modules
-First install the requirements from `requirements.txt`,
-```
-pip install -r requirements.txt
-```
-Then install the python package bundle ("mardi-importer") via
+The project uses a `src/` layout, so it has to be installed before anything is
+importable — running from a bare checkout does not work. Dependencies are
+declared in `pyproject.toml`, so a single command is enough:
 ```
 pip install -U -e .
 ```
 `-U` enforces reinstalling the package, with `-e` modifications in
 the source files are automatically taken into account.
+
+This installs the `mardi_importer` and `mardi_portal` packages and the
+`mardi-importer` console script. The version is derived from git tags by
+setuptools-scm, so a shallow clone or a source archive without tags reports
+`0.0.0`.
 
 *Note*: it is recommended (when not using docker) for local installations to use [virtual environments](https://docs.python.org/3/tutorial/venv.html).
 

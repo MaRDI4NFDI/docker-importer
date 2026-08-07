@@ -6,12 +6,12 @@ from typing import List, Dict, Any, Optional
 from prefect import flow, task, get_run_logger
 from mardi_importer.wikidata import WikidataImporter
 
-from mardi_importer.mardi_importer import Importer
+from mardi_importer import Importer
 from prefect.artifacts import Artifact
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 
-from services.version import get_version
+from mardi_portal.services.version import get_version
 
 
 class ImportAction(str, Enum):

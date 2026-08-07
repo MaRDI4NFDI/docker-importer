@@ -20,6 +20,20 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v7
+        with:
+          # setuptools-scm needs the full history and tags to derive a version
+          fetch-depth: 0
+      -
+        name: Derive version from git tags
+        id: scm
+        run: |
+          python -m pip install --quiet setuptools-scm
+          echo "version=$(python -m setuptools_scm)" >> "$GITHUB_OUTPUT"
+      -
+        name: Resolve mardiclient revision
+        id: mc
+        run: |
+          echo "sha=$(git ls-remote https://github.com/MaRDI4NFDI/mardiclient.git refs/heads/main | cut -f1)" >> "$GITHUB_OUTPUT"
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -44,6 +58,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            SETUPTOOLS_SCM_PRETEND_VERSION=${{ steps.scm.outputs.version }}
+            MARDICLIENT_REF=${{ steps.mc.outputs.sha }}
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

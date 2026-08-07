@@ -1,14 +1,16 @@
 name: docker-importer
 
+# The image is built by .github/workflows/main.yml, and the flow code is
+# installed into it, so there is nothing to build or pull at run time.
 build: null
 push: null
 
+# A dotted entrypoint is imported normally, unlike a path entrypoint which
+# would put its own directory at the front of sys.path.
 deployments:
   - name: staging
-    entrypoint: prefect_workflows/mardi_importer.py:mardi_importer_flow
+    entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
     work_pool:
       name: staging-k8s-pool
-    pull:
-      - prefect.deployments.steps.git_clone:
-          repository: https://github.com/MaRDI4NFDI/docker-importer.git
-          branch: staging
+      job_variables:
+        image: ghcr.io/mardi4nfdi/docker-importer:staging

@@ -47,7 +47,7 @@ def _install_flask_stub() -> None:
 
 _install_flask_stub()
 
-from flask_app.app import (
+from mardi_portal.api.app import (
     health,
     create_item,
     update_item,
@@ -59,7 +59,7 @@ from flask_app.app import (
     import_doi,
     import_cran,
 )
-from services import import_service
+from mardi_portal.services import import_service
 
 # Get the fake request
 fake_request = sys.modules["flask"].request
@@ -70,14 +70,14 @@ class TestFlaskApp(unittest.TestCase):
 
     def setUp(self) -> None:
         # Ensure PREFECT_API_AUTH_STRING is None for tests
-        import flask_app.app
+        import mardi_portal.api.app
 
-        flask_app.app.PREFECT_API_AUTH_STRING = None
+        mardi_portal.api.app.PREFECT_API_AUTH_STRING = None
 
         # Suppress logging output during tests
         import logging
 
-        self.logger = logging.getLogger("flask_app.app")
+        self.logger = logging.getLogger("mardi_portal.api.app")
         self.original_level = self.logger.level
         self.logger.setLevel(logging.CRITICAL)
 
@@ -240,7 +240,7 @@ class TestFlaskApp(unittest.TestCase):
         importer.import_entities.return_value = "Q1"
 
         with patch(
-            "services.import_service.WikidataImporter",
+            "mardi_portal.services.import_service.WikidataImporter",
             return_value=importer,
         ):
             response, status = import_wikidata()
@@ -276,7 +276,7 @@ class TestFlaskApp(unittest.TestCase):
         crossref_source.new_publication.return_value = crossref_publication
 
         with patch(
-            "services.import_service.Importer.create_source",
+            "mardi_portal.services.import_service.Importer.create_source",
             side_effect=[arxiv_source, zenodo_source, crossref_source],
         ):
             response, status = import_doi()
@@ -307,10 +307,10 @@ class TestFlaskApp(unittest.TestCase):
         software.QID = "Q1"
 
         with patch(
-            "services.import_service.Importer.create_source",
+            "mardi_portal.services.import_service.Importer.create_source",
             return_value=cran_source,
         ):
-            with patch("services.import_service.RPackage", return_value=software):
+            with patch("mardi_portal.services.import_service.RPackage", return_value=software):
                 response, status = import_cran()
 
         self.assertEqual(status, 200)
@@ -354,7 +354,7 @@ class TestFlaskApp(unittest.TestCase):
         mock_api = Mock()
         mock_api.item.new.return_value = mock_item
 
-        with patch("services.import_service.MardiClient", return_value=mock_api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=mock_api):
             response, status = create_item()
 
         self.assertEqual(status, 200)
@@ -378,7 +378,7 @@ class TestFlaskApp(unittest.TestCase):
         mock_api = Mock()
         mock_api.item.new.return_value = mock_item
 
-        with patch("services.import_service.MardiClient", return_value=mock_api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=mock_api):
             response, status = create_item()
 
         self.assertEqual(status, 500)
@@ -437,7 +437,7 @@ class TestFlaskApp(unittest.TestCase):
 
     def test_update_item_success(self) -> None:
         fake_request.get_json.return_value = {"qid": "Q1", "label": "New label", "username": "testuser", "password": "testpass"}
-        with patch("flask_app.app.update_item_sync",
+        with patch("mardi_portal.api.app.update_item_sync",
                    return_value=({"qid": "Q1", "status": "updated"}, True)):
             response, status = update_item()
         self.assertEqual(status, 200)
@@ -451,7 +451,7 @@ class TestFlaskApp(unittest.TestCase):
             "error": "P16 already has values",
             "existing_values": ["Q50"],
         }
-        with patch("flask_app.app.update_item_sync", return_value=(conflict, False)):
+        with patch("mardi_portal.api.app.update_item_sync", return_value=(conflict, False)):
             response, status = update_item()
         self.assertEqual(status, 409)
         self.assertEqual(response["status"], "conflict")
@@ -459,7 +459,7 @@ class TestFlaskApp(unittest.TestCase):
     def test_update_item_not_found(self) -> None:
         fake_request.get_json.return_value = {"qid": "Q999", "label": "x", "username": "testuser", "password": "testpass"}
         not_found = {"qid": "Q999", "status": "not_found", "error": "Item not found"}
-        with patch("flask_app.app.update_item_sync", return_value=(not_found, False)):
+        with patch("mardi_portal.api.app.update_item_sync", return_value=(not_found, False)):
             response, status = update_item()
         self.assertEqual(status, 404)
         self.assertEqual(response["status"], "not_found")
@@ -471,7 +471,7 @@ class TestFlaskApp(unittest.TestCase):
             "username": "testuser", "password": "testpass",
         }
         conflict = {"qid": "Q1", "status": "conflict", "error": "x", "existing_values": []}
-        with patch("flask_app.app.update_item_sync", return_value=(conflict, False)) as m:
+        with patch("mardi_portal.api.app.update_item_sync", return_value=(conflict, False)) as m:
             _, status = update_item()
         self.assertEqual(status, 409)
         self.assertFalse(m.call_args.kwargs["do_override"])

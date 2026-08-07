@@ -45,7 +45,7 @@ COPY services /app/services
 COPY cli /app/cli
 
 # prefect workflows
-COPY prefect_workflows /prefect_workflows
+COPY prefect_workflows /app/prefect_workflows
 
 # Install wikibaseintegrator from source
 RUN git clone https://github.com/LeMyst/WikibaseIntegrator.git \

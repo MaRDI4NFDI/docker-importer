@@ -15,7 +15,7 @@ from mardi_importer.wikidata import WikidataImporter
 from services.item_schemas import resolve_typed_item
 
 
-DEFAULT_WORKFLOW_NAME = "mardi-importer/prefect-mardi-importer"
+DEFAULT_WORKFLOW_NAME = os.getenv("PREFECT_DEPLOYMENT_NAME", "mardi-importer/prefect-mardi-importer")
 
 log = logging.getLogger(__name__)
 

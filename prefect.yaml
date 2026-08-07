@@ -4,12 +4,10 @@ build: null
 push: null
 
 deployments:
-  - name: importer
+  - name: staging
     entrypoint: prefect_workflows/mardi_importer.py:mardi_importer_flow
     work_pool:
       name: staging-k8s-pool
-    parameters:
-      action: not-set
     pull:
       - prefect.deployments.steps.git_clone:
           repository: https://github.com/MaRDI4NFDI/docker-importer.git

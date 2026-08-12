@@ -1,5 +1,5 @@
 Web API Endpoints
-=============
+=================
 
 Base URL
 --------
@@ -61,7 +61,7 @@ curl::
 GET /version
 ~~~~~~~~~~~~
 
-Returns the current service version from the root ``VERSION`` file.
+Returns the current service version, derived from the git tag by setuptools-scm.
 
 **Request**
 
@@ -244,7 +244,7 @@ curl::
 
 
 POST /import/wikidata_async
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).
 
@@ -311,7 +311,7 @@ curl::
 
 
 POST /import/doi_async
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 Triggers the Prefect deployment asynchronously (returns immediately with a Flow Run ID).
 

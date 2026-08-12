@@ -28,7 +28,6 @@ Table of contents
    scripts
    cran
    importer
-   integrator
    polydb
    zbmath
 

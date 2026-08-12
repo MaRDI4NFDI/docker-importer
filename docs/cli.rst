@@ -7,40 +7,45 @@ invocation and quick checks.
 Usage
 -----
 
-Run the CLI module directly::
+Run the console script installed with the package::
 
-  python -m cli.importer_cli --help
+  mardi-importer --help
+
+Equivalently, run the module directly::
+
+  python -m mardi_portal.cli.importer_cli --help
 
 Version
 -------
 
-The CLI exposes the current release version (from the root ``VERSION`` file)::
+The CLI exposes the current release version (derived from the git tag by
+setuptools-scm)::
 
-  python -m cli.importer_cli --version
+  mardi-importer --version
 
 Commands
 --------
 
 Health check::
 
-  python -m cli.importer_cli health
+  mardi-importer health
 
 Trigger Prefect flows asynchronously::
 
-  python -m cli.importer_cli import-wikidata-async --qids Q42 Q1
-  python -m cli.importer_cli import-doi-async --dois 10.1000/XYZ123
+  mardi-importer import-wikidata-async --qids Q42 Q1
+  mardi-importer import-doi-async --dois 10.1000/XYZ123
 
 Check Prefect flow status or results::
 
-  python -m cli.importer_cli import-workflow-status --id <flow-run-id>
-  python -m cli.importer_cli import-workflow-result --id <flow-run-id>
-  python -m cli.importer_cli import-workflow-runs
+  mardi-importer import-workflow-status --id <flow-run-id>
+  mardi-importer import-workflow-result --id <flow-run-id>
+  mardi-importer import-workflow-runs
 
 Run synchronous imports::
 
-  python -m cli.importer_cli import-wikidata --qids Q42 Q1
-  python -m cli.importer_cli import-doi --dois 10.1000/XYZ123
-  python -m cli.importer_cli import-cran --packages dplyr ggplot2
+  mardi-importer import-wikidata --qids Q42 Q1
+  mardi-importer import-doi --dois 10.1000/XYZ123
+  mardi-importer import-cran --packages dplyr ggplot2
 
   The ``import-wikidata`` command accepts an optional ``--languages`` flag
   (comma-separated language codes, or ``all``) to control which label,
@@ -48,17 +53,17 @@ Run synchronous imports::
   unless ``all`` is given; the default when omitted is ``en,de,mul``. The flag
   applies only to this synchronous command, not to ``import-wikidata-async``::
 
-  python -m cli.importer_cli import-wikidata --qids Q42 --languages en,de,fr
-  python -m cli.importer_cli import-wikidata --qids Q42 --languages all
+  mardi-importer import-wikidata --qids Q42 --languages en,de,fr
+  mardi-importer import-wikidata --qids Q42 --languages all
 
 Create a knowledge graph item::
 
   # Typed format — schema fills predefined claims automatically
-  python -m cli.importer_cli create-item \
+  mardi-importer create-item \
       --type WORKFLOW \
       --fields '{"name": "My workflow", "problem_statement": "Solve X"}'
 
   # Raw format — supply label and explicit property/item IDs
-  python -m cli.importer_cli create-item \
+  mardi-importer create-item \
       --label "My item" \
       --claims '{"<MaRDI-PID>": "<MaRDI-QID>"}'

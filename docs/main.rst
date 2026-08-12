@@ -10,21 +10,17 @@ Installation
 Without Docker
 --------------
 
-Install the python package of :code:`mardi-importer` by first installing the
-requirements from :code:`requirements.txt`,
-
-.. code:: shell
-
-   pip install -r requirements.txt
-
-Then install the packages via
+The project uses a :code:`src/` layout, so it has to be installed before
+anything is importable. Dependencies are declared in :code:`pyproject.toml` and
+are resolved by pip:
 
 .. code:: shell
 
    pip install -U -e .
 
-:code:`-U` enforces reinstalling the package, with :code:`-e` modifications in
-the source files are automatically taken into account.
+This installs both the :code:`mardi_importer` and :code:`mardi_portal`
+packages. :code:`-U` enforces reinstalling the package, with :code:`-e`
+modifications in the source files are automatically taken into account.
 
 Note: for convenience, local installations not using docker can be placed within
 virtual environments by first calling
@@ -52,9 +48,9 @@ module`. To view the docs, open the file :code:`docs/_build/html/index.html`.
 Version
 -------
 
-The current release version is stored in the root ``VERSION`` file. It is
-available via:
+The release version is derived from the git tag by setuptools-scm; there is no
+checked-in ``VERSION`` file. It is available via:
 
-- CLI: ``python -m cli.importer_cli --version``
+- CLI: ``mardi-importer --version``
 - Flask: ``GET /version``
 

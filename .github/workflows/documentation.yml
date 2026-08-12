@@ -10,19 +10,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libmariadb-dev
-      - name: Install setuptools
-        run: |
-          python -m pip install --upgrade pip
-          pip install setuptools setuptools-scm wheel
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install sphinx sphinx-argparse sphinx_rtd_theme
-          pip install --no-cache-dir -v --no-build-isolation -e .
+          pip install --no-cache-dir -v -e .
       - name: Sphinx build
         run: |
           cd docs

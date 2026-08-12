@@ -5,7 +5,7 @@ import time
 import requests
 from flask import Flask, jsonify, request
 
-from services.import_service import (
+from mardi_portal.services.import_service import (
     DEFAULT_WORKFLOW_NAME,
     build_health_payload,
     create_item_sync,
@@ -22,8 +22,8 @@ from services.import_service import (
     trigger_update_wikidata_async,
     update_item_sync,
 )
-from services.item_schemas import KNOWN_TYPES
-from services.version import get_version
+from mardi_portal.services.item_schemas import KNOWN_TYPES
+from mardi_portal.services.version import get_version
 from mardi_importer.wikidata import WikidataImporter
 
 

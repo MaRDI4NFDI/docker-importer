@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mardi-importer"
+description = "Data importer for the MaRDI knowledge graph"
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["version"]
+authors = [{ name = "MaRDI TA5", email = "accounts_ta5@mardi4nfdi.de" }]
+license = "GPL-3.0-or-later"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+
+dependencies = [
+    # domain library
+    "beautifulsoup4",
+    "feedparser",
+    "habanero",
+    "lxml",
+    "mariadb",
+    "mysql-connector-python",
+    "nameparser",
+    "openml",
+    "pandas",
+    "sickle",
+    "sparqlwrapper",
+    "sqlalchemy",
+    "validators",
+    "wikibaseintegrator",
+    # application layers
+    "flask",
+    "gunicorn",
+    "requests",
+    # must stay in lockstep with the prefect-server / prefect-worker chart
+    # versions pinned in portal-k8s
+    "prefect==3.8.1",
+    # Tracked from main deliberately: maintained in-house, and changes there
+    # should reach this image without a version bump. CI passes MARDICLIENT_REF
+    # so the Docker layer cache is invalidated when that branch moves.
+    "mardiclient @ git+https://github.com/MaRDI4NFDI/mardiclient.git@main",
+]
+
+[project.urls]
+Homepage = "https://github.com/MaRDI4NFDI/docker-importer"
+Issues = "https://github.com/MaRDI4NFDI/docker-importer/issues"
+
+[project.scripts]
+mardi-importer = "mardi_portal.cli.importer_cli:main"
+
+# The version is derived from git tags rather than a checked-in file, so a
+# release is a tag and nothing has to be remembered separately.
+#   tagged commit  -> 2026.8.7
+#   commits after  -> 2026.8.7.dev5+g1a2b3c4
+# fallback_version covers source archives and shallow clones with no tags.
+# The Docker build has no .git, so CI passes SETUPTOOLS_SCM_PRETEND_VERSION.
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.json", "*.ini", "*.csv"]

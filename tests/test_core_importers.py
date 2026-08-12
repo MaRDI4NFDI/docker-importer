@@ -14,12 +14,18 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 
-def _install_mardi_importer_inner_stub() -> None:
-    if "mardi_importer.mardi_importer" in sys.modules:
+def _install_mardi_importer_stub() -> None:
+    """Stand in for the mardi_importer package.
+
+    Provides a lightweight ``Importer`` while leaving ``__path__`` pointed at
+    the real sources, so submodules such as ``mardi_importer.wikidata`` still
+    import normally without pulling in the package's heavy ``__init__``.
+    """
+    if "mardi_importer" in sys.modules:
         return
 
-    inner_path = os.path.join(REPO_ROOT, "mardi_importer", "mardi_importer")
-    inner_module = types.ModuleType("mardi_importer.mardi_importer")
+    package_path = os.path.join(REPO_ROOT, "src", "mardi_importer")
+    package = types.ModuleType("mardi_importer")
 
     class Importer:
         _sources = {}
@@ -57,20 +63,13 @@ def _install_mardi_importer_inner_stub() -> None:
         def get_api(cls, *_args, **_kwargs):
             return Mock()
 
-    inner_module.Importer = Importer
-    inner_module.__path__ = [inner_path]
+    package.Importer = Importer
+    package.__path__ = [package_path]
 
-    sys.modules["mardi_importer.mardi_importer"] = inner_module
-    try:
-        import importlib
-
-        top_level = importlib.import_module("mardi_importer")
-        setattr(top_level, "mardi_importer", inner_module)
-    except ModuleNotFoundError:
-        pass
+    sys.modules["mardi_importer"] = package
 
 
-_install_mardi_importer_inner_stub()
+_install_mardi_importer_stub()
 
 
 # Set up a minimal Flask stub for app imports if not already done
@@ -650,19 +649,19 @@ coolname_load_config_patcher.start()
 # Import necessary modules
 import importlib
 
-from mardi_importer.mardi_importer.wikidata.WikidataImporter import WikidataImporter
-from mardi_importer.mardi_importer.arxiv.ArxivSource import ArxivSource
-from mardi_importer.mardi_importer.arxiv.ArxivPublication import ArxivPublication
-from mardi_importer.mardi_importer.crossref.CrossrefSource import CrossrefSource
-from mardi_importer.mardi_importer.crossref.CrossrefPublication import (
+from mardi_importer.wikidata.WikidataImporter import WikidataImporter
+from mardi_importer.arxiv.ArxivSource import ArxivSource
+from mardi_importer.arxiv.ArxivPublication import ArxivPublication
+from mardi_importer.crossref.CrossrefSource import CrossrefSource
+from mardi_importer.crossref.CrossrefPublication import (
     CrossrefPublication,
 )
-from mardi_importer.mardi_importer.zenodo.ZenodoSource import ZenodoSource
-from mardi_importer.mardi_importer.zenodo.ZenodoResource import ZenodoResource
+from mardi_importer.zenodo.ZenodoSource import ZenodoSource
+from mardi_importer.zenodo.ZenodoResource import ZenodoResource
 
 ADataSourceModule = importlib.import_module("mardi_importer.base.ADataSource")
 WikidataImporterModule = importlib.import_module(
-    "mardi_importer.mardi_importer.wikidata.WikidataImporter"
+    "mardi_importer.wikidata.WikidataImporter"
 )
 
 # Mock external dependencies (environment variables)

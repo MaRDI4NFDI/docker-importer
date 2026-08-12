@@ -1,0 +1,22 @@
+name: docker-importer
+
+# The image is built by .github/workflows/main.yml, and the flow code is
+# installed into it, so there is nothing to build or pull at run time.
+#
+# `pull: []` must be an empty list, not null and not omitted. Prefect treats an
+# absent or null `pull` as "generate a default pull action for me", which adds a
+# set_working_directory step pointing at a directory this image does not have.
+# Only an explicit empty list disables pull steps.
+build: null
+push: null
+pull: []
+
+# A dotted entrypoint is imported normally, unlike a path entrypoint which
+# would put its own directory at the front of sys.path.
+deployments:
+  - name: staging
+    entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
+    work_pool:
+      name: staging-k8s-pool
+      job_variables:
+        image: ghcr.io/mardi4nfdi/docker-importer:staging

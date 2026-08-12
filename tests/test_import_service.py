@@ -10,7 +10,7 @@ from tests.prefect_stub import install_prefect_stub
 
 install_prefect_stub(force=True)
 
-from services import import_service
+from mardi_portal.services import import_service
 
 
 class TestImportService(unittest.TestCase):
@@ -67,7 +67,7 @@ class TestImportService(unittest.TestCase):
         response.json.return_value = {"ok": True}
         response.raise_for_status.return_value = None
 
-        with patch("services.import_service.requests.get", return_value=response):
+        with patch("mardi_portal.services.import_service.requests.get", return_value=response):
             result = import_service.prefect_request(
                 "http://prefect",
                 None,
@@ -84,7 +84,7 @@ class TestImportService(unittest.TestCase):
         response.json.return_value = {"ok": True}
         response.raise_for_status.return_value = None
 
-        with patch("services.import_service.requests.post", return_value=response):
+        with patch("mardi_portal.services.import_service.requests.post", return_value=response):
             result = import_service.prefect_request(
                 "http://prefect",
                 None,
@@ -112,7 +112,7 @@ class TestImportService(unittest.TestCase):
         result_response.json.return_value = {"value": 123}
 
         with patch(
-            "services.import_service.requests.get",
+            "mardi_portal.services.import_service.requests.get",
             side_effect=[flow_response, result_response],
         ):
             result = import_service.get_workflow_status(
@@ -128,7 +128,7 @@ class TestImportService(unittest.TestCase):
     def test_get_workflow_result_not_completed(self) -> None:
         """Return a 202 payload when the flow run is not completed."""
         with patch(
-            "services.import_service.prefect_request",
+            "mardi_portal.services.import_service.prefect_request",
             return_value={"state": {"type": "RUNNING"}},
         ):
             payload, status_code = import_service.get_workflow_result(
@@ -143,7 +143,7 @@ class TestImportService(unittest.TestCase):
     def test_get_workflow_result_completed(self) -> None:
         """Return artifact payload when the flow run is completed."""
         with patch(
-            "services.import_service.prefect_request",
+            "mardi_portal.services.import_service.prefect_request",
             side_effect=[
                 {"state": {"type": "COMPLETED"}},
                 {"id": "a1", "key": "k", "created": "now", "data": {"x": 1}},
@@ -164,7 +164,7 @@ class TestImportService(unittest.TestCase):
         error.response = types.SimpleNamespace(status_code=404)
 
         with patch(
-            "services.import_service.prefect_request",
+            "mardi_portal.services.import_service.prefect_request",
             side_effect=[{"state": {"type": "COMPLETED"}}, error],
         ):
             payload, status_code = import_service.get_workflow_result(
@@ -199,9 +199,9 @@ class TestImportService(unittest.TestCase):
         importer = Mock()
         importer.import_entities.side_effect = ["Q1", None, Exception("boom")]
 
-        with patch("services.import_service.log.error"):
+        with patch("mardi_portal.services.import_service.log.error"):
             with patch(
-                "services.import_service.WikidataImporter", return_value=importer
+                "mardi_portal.services.import_service.WikidataImporter", return_value=importer
             ):
                 payload, all_ok = import_service.import_wikidata_sync(
                     ["Q1", "Q2", "Q3"]
@@ -216,11 +216,11 @@ class TestImportService(unittest.TestCase):
         importer = Mock()
         importer.import_entities.return_value = "Q1"
 
-        with patch("services.import_service.WikidataImporter", return_value=importer) as wdi:
+        with patch("mardi_portal.services.import_service.WikidataImporter", return_value=importer) as wdi:
             import_service.import_wikidata_sync(["Q1"], languages=["en", "mul"])
         wdi.assert_called_once_with(languages=["en", "mul"])
 
-        with patch("services.import_service.WikidataImporter", return_value=importer) as wdi:
+        with patch("mardi_portal.services.import_service.WikidataImporter", return_value=importer) as wdi:
             import_service.import_wikidata_sync(["Q1"])
         wdi.assert_called_once_with()   # None -> default en/de/mul preserved
 
@@ -243,7 +243,7 @@ class TestImportService(unittest.TestCase):
         crossref_source.new_publication.return_value = crossref_publication
 
         with patch(
-            "services.import_service.Importer.create_source",
+            "mardi_portal.services.import_service.Importer.create_source",
             side_effect=[arxiv_source, zenodo_source, crossref_source],
         ):
             payload, all_ok = import_service.import_doi_sync(
@@ -285,13 +285,13 @@ class TestImportService(unittest.TestCase):
                 return new_package
             raise ValueError("boom")
 
-        with patch("services.import_service.log.error"):
+        with patch("mardi_portal.services.import_service.log.error"):
             with patch(
-                "services.import_service.Importer.create_source",
+                "mardi_portal.services.import_service.Importer.create_source",
                 return_value=cran_source,
             ):
                 with patch(
-                    "services.import_service.RPackage",
+                    "mardi_portal.services.import_service.RPackage",
                     side_effect=rpackage_side_effect,
                 ):
                     payload, all_ok = import_service.import_cran_sync(
@@ -340,7 +340,7 @@ class TestImportService(unittest.TestCase):
     def test_update_item_sync_success_no_existing(self) -> None:
         """Add a claim when the property has no existing values."""
         api, item = self._make_mock_api(existing_claims=None)
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
                 "Q1", claims={"P16": "Q99"}, username="testuser", password="testpass"
             )
@@ -351,7 +351,7 @@ class TestImportService(unittest.TestCase):
     def test_update_item_sync_prefixed_pid_normalized(self) -> None:
         """Prefixed PID ('wdt:P16') is normalized to bare form before lookup and add."""
         api, item = self._make_mock_api(existing_claims=None)
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
                 "Q1", claims={"wdt:P16": "Q99"}, username="testuser", password="testpass"
             )
@@ -363,7 +363,7 @@ class TestImportService(unittest.TestCase):
         claim = Mock()
         claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
         api, item = self._make_mock_api(existing_claims=[claim])
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
                 "Q1", claims={"P16": "Q99"}, do_override=False, username="testuser", password="testpass"
             )
@@ -377,7 +377,7 @@ class TestImportService(unittest.TestCase):
         old_claim = Mock()
         old_claim.mainsnak.datavalue = {"value": {"id": "Q50"}}
         api, item = self._make_mock_api(existing_claims=[old_claim])
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
                 "Q1", claims={"P16": ["Q50", "Q99"]}, do_override=True, username="testuser", password="testpass"
             )
@@ -397,7 +397,7 @@ class TestImportService(unittest.TestCase):
         qualifier_claim = Mock()
         api.get_claim.return_value = qualifier_claim
 
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.create_item_sync(
                 "Test formula",
                 claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
@@ -415,7 +415,7 @@ class TestImportService(unittest.TestCase):
         qualifier_claim = Mock()
         api.get_claim.return_value = qualifier_claim
 
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync(
                 "Q1",
                 claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
@@ -437,7 +437,7 @@ class TestImportService(unittest.TestCase):
         qualifier_claim = Mock()
         api.get_claim.return_value = qualifier_claim
 
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             _, ok = import_service.update_item_sync(
                 "Q1",
                 claims={"P983": {"value": "y_n", "qualifiers": {"P984": "Q12345"}}},
@@ -460,7 +460,7 @@ class TestImportService(unittest.TestCase):
         old_claim.remove.side_effect = lambda: setattr(old_claim, "removed", True)
         api, item = self._make_mock_api(existing_claims=[old_claim])
 
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             _, ok = import_service.update_item_sync(
                 "Q1",
                 claims={"P983": {"value": "y_n", "qualifiers": {}}},
@@ -498,7 +498,7 @@ class TestImportService(unittest.TestCase):
         """Return not_found status when api.item.get raises."""
         api = Mock()
         api.item.get.side_effect = Exception("no such item")
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync("Q999", label="x", username="testuser", password="testpass")
         self.assertFalse(ok)
         self.assertEqual(payload["status"], "not_found")
@@ -507,7 +507,7 @@ class TestImportService(unittest.TestCase):
         """Return error status when item.write raises."""
         api, item = self._make_mock_api(existing_claims=None)
         item.write.side_effect = Exception("write failed")
-        with patch("services.import_service.MardiClient", return_value=api):
+        with patch("mardi_portal.services.import_service.MardiClient", return_value=api):
             payload, ok = import_service.update_item_sync("Q1", label="x", username="testuser", password="testpass")
         self.assertFalse(ok)
         self.assertEqual(payload["status"], "error")

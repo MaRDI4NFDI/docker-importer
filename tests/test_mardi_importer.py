@@ -103,7 +103,7 @@ def _install_prefect_stub() -> None:
 
 _install_prefect_stub()
 
-from prefect_workflow import prefect_mardi_importer as pmi
+from mardi_portal.flows import mardi_importer as pmi
 
 
 class TestImportDoiBatch(unittest.TestCase):
@@ -136,8 +136,8 @@ class TestImportDoiBatch(unittest.TestCase):
                 return crossref_source
             raise AssertionError(f"Unexpected source {name}")
 
-        with patch("prefect_workflow.prefect_mardi_importer.Secret.load") as secret_load, \
-            patch("prefect_workflow.prefect_mardi_importer.Importer.create_source", side_effect=create_source):
+        with patch("mardi_portal.flows.mardi_importer.Secret.load") as secret_load, \
+            patch("mardi_portal.flows.mardi_importer.Importer.create_source", side_effect=create_source):
             secret_load.return_value.get.return_value = "secret"
 
             result = pmi.import_doi_batch(
@@ -155,8 +155,8 @@ class TestImportDoiBatch(unittest.TestCase):
         arxiv_source = Mock()
         arxiv_source.new_publication.side_effect = AssertionError("should not be called")
 
-        with patch("prefect_workflow.prefect_mardi_importer.Secret.load") as secret_load, \
-            patch("prefect_workflow.prefect_mardi_importer.Importer.create_source") as create_source:
+        with patch("mardi_portal.flows.mardi_importer.Secret.load") as secret_load, \
+            patch("mardi_portal.flows.mardi_importer.Importer.create_source") as create_source:
             secret_load.return_value.get.return_value = "secret"
             create_source.return_value = arxiv_source
 
@@ -193,8 +193,8 @@ class TestImportDoiBatch(unittest.TestCase):
                 return crossref_source
             raise AssertionError(f"Unexpected source {name}")
 
-        with patch("prefect_workflow.prefect_mardi_importer.Secret.load") as secret_load, \
-            patch("prefect_workflow.prefect_mardi_importer.Importer.create_source", side_effect=create_source):
+        with patch("mardi_portal.flows.mardi_importer.Secret.load") as secret_load, \
+            patch("mardi_portal.flows.mardi_importer.Importer.create_source", side_effect=create_source):
             secret_load.return_value.get.return_value = "secret"
 
             result = pmi.import_doi_batch(
@@ -216,8 +216,8 @@ class TestImportWikidataBatch(unittest.TestCase):
         importer = Mock()
         importer.import_entities.side_effect = ["Q1", None, RuntimeError("boom")]
 
-        with patch("prefect_workflow.prefect_mardi_importer.Secret.load") as secret_load, \
-            patch("prefect_workflow.prefect_mardi_importer.WikidataImporter", return_value=importer):
+        with patch("mardi_portal.flows.mardi_importer.Secret.load") as secret_load, \
+            patch("mardi_portal.flows.mardi_importer.WikidataImporter", return_value=importer):
             secret_load.return_value.get.return_value = "secret"
 
             result = pmi.import_wikidata_batch(["Q1", "Q2", "Q3"])
@@ -246,12 +246,12 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
         artifact.key = "artifact-key"
         artifact.create.return_value = artifact
 
-        with patch("prefect_workflow.prefect_mardi_importer.get_run_context") as get_ctx, \
-            patch("prefect_workflow.prefect_mardi_importer.import_wikidata_batch", return_value=result_payload) as import_batch, \
-            patch("prefect_workflow.prefect_mardi_importer.Artifact", return_value=artifact):
+        with patch("mardi_portal.flows.mardi_importer.get_run_context") as get_ctx, \
+            patch("mardi_portal.flows.mardi_importer.import_wikidata_batch", return_value=result_payload) as import_batch, \
+            patch("mardi_portal.flows.mardi_importer.Artifact", return_value=artifact):
             get_ctx.return_value.flow_run.id = "flow-run-id"
 
-            result = pmi.prefect_mardi_importer_flow("import/wikidata", qids=["Q1"])
+            result = pmi.mardi_importer_flow("import/wikidata", qids=["Q1"])
 
         import_batch.assert_called_once_with(["Q1"])
         self.assertEqual(result["artifact_id"], "artifact-id")
@@ -273,28 +273,28 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
         artifact.key = "artifact-key"
         artifact.create.return_value = artifact
 
-        with patch("prefect_workflow.prefect_mardi_importer.get_run_context") as get_ctx, \
-            patch("prefect_workflow.prefect_mardi_importer.import_doi_batch", return_value=result_payload), \
-            patch("prefect_workflow.prefect_mardi_importer.Artifact", return_value=artifact):
+        with patch("mardi_portal.flows.mardi_importer.get_run_context") as get_ctx, \
+            patch("mardi_portal.flows.mardi_importer.import_doi_batch", return_value=result_payload), \
+            patch("mardi_portal.flows.mardi_importer.Artifact", return_value=artifact):
             get_ctx.return_value.flow_run.id = "flow-run-id"
 
             with self.assertRaises(RuntimeError) as ctx:
-                pmi.prefect_mardi_importer_flow("import/doi", dois=["10.1000/xyz"])
+                pmi.mardi_importer_flow("import/doi", dois=["10.1000/xyz"])
 
         self.assertIn("artifact-key", str(ctx.exception))
 
     def test_flow_missing_inputs(self) -> None:
         """Validate required inputs by action."""
         with self.assertRaises(ValueError):
-            pmi.prefect_mardi_importer_flow("import/wikidata", qids=[])
+            pmi.mardi_importer_flow("import/wikidata", qids=[])
 
         with self.assertRaises(ValueError):
-            pmi.prefect_mardi_importer_flow("import/doi", dois=[])
+            pmi.mardi_importer_flow("import/doi", dois=[])
 
     def test_flow_unsupported_action(self) -> None:
         """Raise for unsupported actions."""
         with self.assertRaises(ValueError):
-            pmi.prefect_mardi_importer_flow("import/unknown", qids=["Q1"])
+            pmi.mardi_importer_flow("import/unknown", qids=["Q1"])
 
     def test_flow_import_doi_success(self) -> None:
         """Return payload when DOI import succeeds."""
@@ -310,12 +310,12 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
         artifact.key = "artifact-key"
         artifact.create.return_value = artifact
 
-        with patch("prefect_workflow.prefect_mardi_importer.get_run_context") as get_ctx, \
-            patch("prefect_workflow.prefect_mardi_importer.import_doi_batch", return_value=result_payload) as import_batch, \
-            patch("prefect_workflow.prefect_mardi_importer.Artifact", return_value=artifact):
+        with patch("mardi_portal.flows.mardi_importer.get_run_context") as get_ctx, \
+            patch("mardi_portal.flows.mardi_importer.import_doi_batch", return_value=result_payload) as import_batch, \
+            patch("mardi_portal.flows.mardi_importer.Artifact", return_value=artifact):
             get_ctx.return_value.flow_run.id = "flow-run-id"
 
-            result = pmi.prefect_mardi_importer_flow("import/doi", dois=["10.1000/xyz"])
+            result = pmi.mardi_importer_flow("import/doi", dois=["10.1000/xyz"])
 
         import_batch.assert_called_once_with(["10.1000/xyz"])
         self.assertEqual(result["artifact_id"], "artifact-id")
@@ -340,12 +340,12 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
         artifact.key = "artifact-key"
         artifact.create.return_value = artifact
 
-        with patch("prefect_workflow.prefect_mardi_importer.get_run_context") as get_ctx, \
-            patch("prefect_workflow.prefect_mardi_importer.import_wikidata_batch", return_value=result_payload), \
-            patch("prefect_workflow.prefect_mardi_importer.Artifact", return_value=artifact):
+        with patch("mardi_portal.flows.mardi_importer.get_run_context") as get_ctx, \
+            patch("mardi_portal.flows.mardi_importer.import_wikidata_batch", return_value=result_payload), \
+            patch("mardi_portal.flows.mardi_importer.Artifact", return_value=artifact):
             get_ctx.return_value.flow_run.id = "flow-run-id"
 
             with self.assertRaises(RuntimeError) as ctx:
-                pmi.prefect_mardi_importer_flow("import/wikidata", qids=["Q1", "Q2"])
+                pmi.mardi_importer_flow("import/wikidata", qids=["Q1", "Q2"])
 
         self.assertIn("artifact-key", str(ctx.exception))

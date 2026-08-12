@@ -14,9 +14,11 @@ docker build -t ghcr.io/mardi4nfdi/docker-importer:main .
 ```
 
 ### Install for local development
+The project uses a `src/` layout, so it must be installed before anything is
+importable — running from a bare checkout does not work.
 ```bash
+pip install -U -e .                          # installs mardi_importer and mardi_portal
 pip install -r tests/requirements_tests.txt  # minimal test deps
-pip install -U -e mardi_importer/            # install mardi_importer package in editable mode
 ```
 
 ### Run tests
@@ -27,43 +29,47 @@ python -m unittest tests/test_flask_app.py  # run a single test file
 
 ### Run the Flask app locally
 ```bash
-gunicorn -w 2 --timeout 300 -b 0.0.0.0:8000 flask_app.app:app
+gunicorn -w 2 --timeout 300 -b 0.0.0.0:8000 mardi_portal.api.app:app
 # or for dev:
-python flask_app/app.py
+python -m mardi_portal.api.app
 ```
 
 ### Run the CLI
 ```bash
-python -m cli.importer_cli --help
-python -m cli.importer_cli health
-python -m cli.importer_cli import-wikidata --qids Q42 Q43
-python -m cli.importer_cli import-doi --dois 10.1234/example
-python -m cli.importer_cli import-cran --packages dplyr ggplot2
+mardi-importer --help                        # console script installed by pip
+mardi-importer health
+mardi-importer import-wikidata --qids Q42 Q43
+mardi-importer import-doi --dois 10.1234/example
+mardi-importer import-cran --packages dplyr ggplot2
+# equivalent to: python -m mardi_portal.cli.importer_cli ...
 ```
 
 ## Architecture
 
-### Core package: `mardi_importer/`
-The `mardi_importer` Python package (installed via `setup.py`) is the heart of the system. Its modules:
+### Core package: `src/mardi_importer/`
+The `mardi_importer` Python package is the heart of the system. Its modules:
 
 - **`importer.py` / `Importer`** — a class-level registry. Each data source registers itself with `Importer.register(name, cls, USER_ENV, PASS_ENV)`. `Importer.create_source(name)` instantiates the source from environment variables and authenticates against the Wikibase instance.
 - **`base/ADataSource.py`** — abstract base class for all sources. Sources are singletons; `setup()` runs once (tracked via `/tmp/mardi_importer/` marker files). Each source gets a `MardiClient` (from the `mardiclient` package) for writing to Wikibase, and optionally a `WikidataImporter` for pulling from Wikidata.
 - **`wikidata/WikidataImporter.py`** — imports Wikidata entities by QID into the local Wikibase. Used both directly and as a dependency within source `setup()` calls.
 - **Source modules** (`arxiv/`, `cran/`, `crossref/`, `polydb/`, `zbmath/`, `zenodo/`) — each implements `setup()`, `pull()`, and `push()` from `ADataSource`.
 
-### Flask API: `flask_app/app.py`
-HTTP endpoints served by gunicorn. All import logic is delegated to `services/import_service.py`. Two patterns:
+### Flask API: `src/mardi_portal/api/app.py`
+HTTP endpoints served by gunicorn. All import logic is delegated to `mardi_portal/services/import_service.py`. Two patterns:
 - **Sync** (`POST /import/wikidata`, `/import/doi`, `/import/cran`): imports happen in-process and return results directly.
 - **Async** (`POST /import/wikidata_async`, `/import/doi_async`): triggers a Prefect deployment and returns a flow run ID for polling.
 
-### Services layer: `services/import_service.py`
-Shared logic consumed by both `flask_app/app.py` and `cli/importer_cli.py`. Contains `import_wikidata_sync`, `import_doi_sync`, `import_cran_sync`, and functions to trigger/poll Prefect flows.
+### Services layer: `src/mardi_portal/services/import_service.py`
+Shared logic consumed by both the API and the CLI. Contains `import_wikidata_sync`, `import_doi_sync`, `import_cran_sync`, and functions to trigger/poll Prefect flows.
 
-### Prefect workflow: `prefect_workflow/prefect_mardi_importer.py`
-Defines the `mardi-importer` Prefect flow that runs batch imports. Secrets (passwords, DB credentials) are loaded from Prefect `Secret` blocks at task runtime. The flow is deployed as `mardi-importer/prefect-mardi-importer` and accepts `action`, `qids`, and `dois` parameters.
+### Prefect workflow: `src/mardi_portal/flows/mardi_importer.py`
+Defines the `mardi-importer` Prefect flow that runs batch imports. Secrets (passwords, DB credentials) are loaded from Prefect `Secret` blocks at task runtime. Deployments are declared in `prefect.yaml`; the flow accepts `action` (an `ImportAction`), `qids`, and `dois` parameters.
 
-### CLI: `cli/importer_cli.py`
-Thin wrapper over `services/import_service.py`. Credentials can be loaded from `cli/secrets.txt` (copy from `cli/secrets.example.txt`).
+### CLI: `src/mardi_portal/cli/importer_cli.py`
+Thin wrapper over the services layer, exposed as the `mardi-importer` console script. Credentials can be loaded from `secrets.txt` (copy from `secrets.example.txt` in the same directory).
+
+### Versioning
+Derived from git tags by setuptools-scm — there is no `VERSION` file. A release is a tag; untagged builds get a `.devN+g<sha>` suffix. The Docker build has no `.git`, so CI passes `SETUPTOOLS_SCM_PRETEND_VERSION`.
 
 ## Key environment variables
 

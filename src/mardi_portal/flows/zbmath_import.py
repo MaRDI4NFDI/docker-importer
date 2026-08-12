@@ -378,8 +378,8 @@ def verify_files(expected_paths: list[str]) -> bool:
 
 # ── Test flow (preserved) ───────────────────────────────────────────────────
 
-@flow(name="full-import-test", log_prints=True)
-def full_import_test_flow():
+@flow(name="zbmath-import-test", log_prints=True)
+def zbmath_import_test_flow():
     """
     Run 1: read_test() finds nothing, write_test() creates the file.
     Run 2: read_test() finds the file from run 1 → volume persists.
@@ -403,8 +403,8 @@ def full_import_test_flow():
 
 # ── Main import flow ─────────────────────────────────────────────────────────
 
-@flow(name="full-import", log_prints=True)
-def full_import_flow():
+@flow(name="zbmath-import", log_prints=True)
+def zbmath_import_flow():
     """Full zbMath import pipeline with checkpoint-based resumption.
 
     Steps:

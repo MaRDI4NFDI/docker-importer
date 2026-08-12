@@ -1,22 +1,40 @@
 name: docker-importer
 
-# The image is built by .github/workflows/main.yml, and the flow code is
-# installed into it, so there is nothing to build or pull at run time.
-#
-# `pull: []` must be an empty list, not null and not omitted. Prefect treats an
-# absent or null `pull` as "generate a default pull action for me", which adds a
-# set_working_directory step pointing at a directory this image does not have.
-# Only an explicit empty list disables pull steps.
+# `pull: []` must be an empty list; absent or null means "generate a default
+# pull action", which adds a set_working_directory step this image has no
+# directory for. `build: null` is repeated on each deployment because the
+# check that suppresses the image-build prompt ignores this level.
 build: null
 push: null
 pull: []
 
-# A dotted entrypoint is imported normally, unlike a path entrypoint which
-# would put its own directory at the front of sys.path.
 deployments:
   - name: staging
     entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
+    build: null
     work_pool:
       name: staging-k8s-pool
+
+  - name: production
+    entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
+    build: null
+    work_pool:
+      name: prod-k8s-pool
+
+  - name: production
+    entrypoint: mardi_portal.flows.zbmath_import:zbmath_import_flow
+    build: null
+    concurrency_limit: 1
+    work_pool:
+      name: prod-k8s-pool
       job_variables:
-        image: ghcr.io/mardi4nfdi/docker-importer:staging
+        env:
+          PREFECT_LOGGING_LEVEL: DEBUG
+          PREFECT_LOGGING_INTERNAL_LEVEL: DEBUG
+        volumes:
+          - name: workflow-data
+            persistentVolumeClaim:
+              claimName: importer-workflow-data
+        volume_mounts:
+          - name: workflow-data
+            mountPath: /mnt/workflow-data

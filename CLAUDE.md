@@ -56,7 +56,7 @@ The `mardi_importer` Python package is the heart of the system. Its modules:
 
 ### Flask API: `src/mardi_portal/api/app.py`
 HTTP endpoints served by gunicorn. All import logic is delegated to `mardi_portal/services/import_service.py`. Two patterns:
-- **Sync** (`POST /import/wikidata`, `/import/doi`, `/import/cran`): imports happen in-process and return results directly.
+- **Sync** (`POST /import/cran`): imports happen in-process and return results directly.
 - **Async** (`POST /import/wikidata_async`, `/import/doi_async`): triggers a Prefect deployment and returns a flow run ID for polling.
 
 ### Services layer: `src/mardi_portal/services/import_service.py`

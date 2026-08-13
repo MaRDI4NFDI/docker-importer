@@ -211,38 +211,6 @@ Response includes many additional Prefect fields not shown here.
   ]
 
 
-POST /import/wikidata
-~~~~~~~~~~~~~~~~~~~~~
-
-Runs the Wikidata import synchronously in the Flask process (no Prefect).
-
-**Request**
-
-curl::
-
-  curl -sS -X POST "http://localhost:3333/import/wikidata" \
-    -H "Content-Type: application/json" \
-    -d '{"qids":["Q42","Q1"]}' | jq .
-
-**Response (200)**
-
-.. code-block:: json
-
-  {
-    "qids": ["Q42","Q1"],
-    "count": 2,
-    "results": {
-      "Q42": {"qid": "Q123", "status": "success"},
-      "Q1": {"qid": null, "status": "error", "error": "..."}
-    },
-    "all_imported": false
-  }
-
-**Errors**
-
-- 400 if ``qids`` missing
-
-
 POST /import/wikidata_async
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -275,39 +243,6 @@ curl::
 
 - 400 if ``qids`` missing
 - 500 if triggering the Prefect deployment fails
-
-
-POST /import/doi
-~~~~~~~~~~~~~~~~
-
-Imports publications/resources given DOIs (or special pseudo-DOIs for arXiv/Zenodo per project logic).
-
-**Request**
-
-curl::
-
-  curl -sS -X POST "http://localhost:3333/import/doi" \
-    -H "Content-Type: application/json" \
-    -d '{"dois":["10.1000/xyz123","ARXIV.2101.00001","ZENODO.1234567"]}' | jq .
-
-**Response (200)**
-
-.. code-block:: json
-
-  {
-    "dois": ["10.1000/XYZ123","ARXIV.2101.00001","ZENODO.1234567"],
-    "count": 3,
-    "results": {
-      "10.1000/XYZ123": {"qid": "Q...", "status": "success"},
-      "ARXIV.2101.00001": {"qid": "Q...", "status": "success"},
-      "ZENODO.1234567": {"qid": null, "status": "not_found", "error": "DOI was not found."}
-    },
-    "all_imported": false
-  }
-
-**Errors**
-
-- 400 if ``dois`` missing
 
 
 POST /import/doi_async

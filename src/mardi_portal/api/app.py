@@ -14,8 +14,6 @@ from mardi_portal.services.import_service import (
     get_workflow_runs_last_n_hours,
     get_workflow_status,
     import_cran_sync,
-    import_doi_sync,
-    import_wikidata_sync,
     normalize_list,
     trigger_doi_async,
     trigger_wikidata_async,
@@ -24,7 +22,6 @@ from mardi_portal.services.import_service import (
 )
 from mardi_portal.services.item_schemas import KNOWN_TYPES
 from mardi_portal.services.version import get_version
-from mardi_importer.wikidata import WikidataImporter
 
 
 logging.basicConfig(
@@ -197,24 +194,6 @@ def import_workflow_runs():
         ), 500
 
 
-@app.post("/import/wikidata")
-def import_wikidata():
-    """Import Wikidata entities synchronously by QID.
-
-    Expects JSON with a ``qids`` field, which may be a list or a string of
-    comma/space-separated QIDs.
-
-    Returns:
-        Flask response tuple with per-QID import results.
-    """
-    data = request.get_json(silent=True) or {}
-    qids = normalize_list(data.get("qids"))
-    if not qids:
-        return jsonify(error="missing qids"), 400
-
-    payload, _all_ok = import_wikidata_sync(qids)
-    return jsonify(payload), 200
-
 @app.post("/update/wikidata")
 def update_wikidata_async():
     """Update person profile from wikidata; this is async and happens in Prefect
@@ -278,26 +257,6 @@ def import_doi_async():
     except Exception as exc:
         log.error("Failed to trigger Prefect flow: %s", exc)
         return jsonify(error="Could not start background job", details=str(exc)), 500
-
-
-@app.post("/import/doi")
-def import_doi():
-    """Import publications by DOI from supported sources.
-
-    Expects JSON with a ``dois`` field, which may be a list or a string of
-    comma/space-separated DOIs. Routes to arXiv, Zenodo, or Crossref based on
-    DOI patterns.
-
-    Returns:
-        Flask response tuple with per-DOI import results.
-    """
-    data = request.get_json(silent=True) or {}
-    dois = normalize_list(data.get("dois"))
-    if not dois:
-        return jsonify(error="missing doi"), 400
-
-    payload, _all_ok = import_doi_sync(dois)
-    return jsonify(payload), 200
 
 
 @app.post("/import/cran")

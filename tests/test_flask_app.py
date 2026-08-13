@@ -54,9 +54,7 @@ from mardi_portal.api.app import (
     import_wikidata_async,
     import_workflow_status,
     import_workflow_result,
-    import_wikidata,
     import_doi_async,
-    import_doi,
     import_cran,
 )
 from mardi_portal.services import import_service
@@ -225,64 +223,6 @@ class TestFlaskApp(unittest.TestCase):
         response, status = import_doi_async()
         self.assertEqual(status, 400)
         self.assertEqual(response["error"], "missing dois")
-
-    def test_import_wikidata_missing_qids(self) -> None:
-        """Test sync Wikidata import with missing QIDs."""
-        fake_request.get_json.return_value = {}
-        response, status = import_wikidata()
-        self.assertEqual(status, 400)
-        self.assertEqual(response["error"], "missing qids")
-
-    def test_import_wikidata_success(self) -> None:
-        """Test successful sync Wikidata import."""
-        fake_request.get_json.return_value = {"qids": ["Q1"]}
-        importer = Mock()
-        importer.import_entities.return_value = "Q1"
-
-        with patch(
-            "mardi_portal.services.import_service.WikidataImporter",
-            return_value=importer,
-        ):
-            response, status = import_wikidata()
-
-        self.assertEqual(status, 200)
-        self.assertEqual(response["results"]["Q1"]["status"], "success")
-
-    def test_import_doi_missing_dois(self) -> None:
-        """Test sync DOI import with missing DOIs."""
-        fake_request.get_json.return_value = {}
-        response, status = import_doi()
-        self.assertEqual(status, 400)
-        self.assertEqual(response["error"], "missing doi")
-
-    def test_import_doi_success(self) -> None:
-        """Test successful sync DOI import."""
-        fake_request.get_json.return_value = {"dois": ["10.1234/arxiv.0001"]}
-
-        arxiv_source = Mock()
-        zenodo_source = Mock()
-        crossref_source = Mock()
-
-        arxiv_publication = Mock()
-        arxiv_publication.create.return_value = "Q1"
-        arxiv_source.new_publication.return_value = arxiv_publication
-
-        zenodo_publication = Mock()
-        zenodo_publication.create.return_value = None
-        zenodo_source.new_resource.return_value = zenodo_publication
-
-        crossref_publication = Mock()
-        crossref_publication.create.return_value = None
-        crossref_source.new_publication.return_value = crossref_publication
-
-        with patch(
-            "mardi_portal.services.import_service.Importer.create_source",
-            side_effect=[arxiv_source, zenodo_source, crossref_source],
-        ):
-            response, status = import_doi()
-
-        self.assertEqual(status, 200)
-        self.assertEqual(response["results"]["10.1234/ARXIV.0001"]["status"], "success")
 
     def test_import_cran_missing_packages(self) -> None:
         """Test CRAN import with missing packages."""

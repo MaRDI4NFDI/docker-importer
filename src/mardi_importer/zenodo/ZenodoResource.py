@@ -1,7 +1,7 @@
 from mardiclient import MardiClient
 from mardi_importer import Importer
 from mardi_importer.wikidata import WikidataImporter
-from mardi_importer.utils import Author
+from mardi_importer.utils.Author import Author
 from .Community import Community
 from .Project import Project
 
@@ -33,17 +33,6 @@ class ZenodoResource:
     api: Optional[MardiClient] = None
 
     def __post_init__(self):
-        # Logic to determine if 'Author' is the class or the module containing the class
-        if hasattr(Author, "Author") and not isinstance(Author, type):
-            author_factory = Author.Author
-        else:
-            author_factory = Author
-
-        if not callable(author_factory):
-            raise TypeError(
-                "Could not resolve a callable Author class. Check your imports."
-            )
-
         if self.api is None:
             self.api = Importer.get_api("zenodo")
         if self.wdi is None:
@@ -75,7 +64,7 @@ class ZenodoResource:
                 if author_item.aliases.get("en"):
                     for alias in author_item.aliases.get("en"):
                         aliases.append(str(alias))
-                author = author_factory(
+                author = Author(
                     self.api, name=name, orcid=orcid, _aliases=aliases, _QID=QID
                 )
                 self._authors.append(author)
@@ -121,23 +110,12 @@ class ZenodoResource:
 
     @property
     def authors(self):
-        # Logic to determine if 'Author' is the class or the module containing the class
-        if hasattr(Author, "Author") and not isinstance(Author, type):
-            author_factory = Author.Author
-        else:
-            author_factory = Author
-
-        if not callable(author_factory):
-            raise TypeError(
-                "Could not resolve a callable Author class. Check your imports."
-            )
-
         if not self._authors:
             for creator in self.metadata.get("creators", []):
                 name = creator.get("name")
                 orcid = creator.get("orcid")
                 affiliation = creator.get("affiliation")
-                author = author_factory(
+                author = Author(
                     self.api, name=name, orcid=orcid, affiliation=affiliation
                 )
                 self._authors.append(author)

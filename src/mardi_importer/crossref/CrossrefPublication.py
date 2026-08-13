@@ -8,7 +8,7 @@ from httpx import HTTPStatusError
 from typing import List, Optional, Any
 
 from mardi_importer import Importer
-from mardi_importer.utils import Author
+from mardi_importer.utils.Author import Author
 from mardi_importer.logger.logging_utils import get_logger_safe
 
 
@@ -228,17 +228,6 @@ class CrossrefPublication:
                         if self.year and self.book:
                             self.description += f" ({self.year})"
 
-                # Logic to determine if 'Author' is the class or the module containing the class
-                if hasattr(Author, "Author") and not isinstance(Author, type):
-                    author_factory = Author.Author
-                else:
-                    author_factory = Author
-
-                if not callable(author_factory):
-                    raise TypeError(
-                        "Could not resolve a callable Author class. Check your imports."
-                    )
-
                 if "author" in metadata.keys():
                     for author in metadata["author"]:
                         if "given" in author.keys() and "family" in author.keys():
@@ -250,14 +239,10 @@ class CrossrefPublication:
                                     "\d{4}-\d{4}-\d{4}-.{4}", author["ORCID"]
                                 )[0]
                                 self.authors.append(
-                                    author_factory(
-                                        self.api, name=author_label, orcid=orcid_id
-                                    )
+                                    Author(self.api, name=author_label, orcid=orcid_id)
                                 )
                             else:
-                                self.authors.append(
-                                    author_factory(self.api, name=author_label)
-                                )
+                                self.authors.append(Author(self.api, name=author_label))
 
                 if "relation" in metadata.keys():
                     if "is-preprint-of" in metadata["relation"].keys():

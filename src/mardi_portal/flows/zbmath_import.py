@@ -10,9 +10,8 @@ import shutil
 from prefect import flow, task, get_run_logger
 from prefect.context import get_run_context
 
-from mardi_importer.zbmath.ZBMathSource import ZBMathSource
+from mardi_importer import Importer
 from mardi_importer.zbmath.misc import split_file, deduplicate_arxiv_file, run_references as run_references_impl
-from prefect.blocks.system import Secret
 
 
 
@@ -160,16 +159,14 @@ def check_existing_dumps() -> Optional[str]:
 
 @task(name="download_raw_dump", retries=2, retry_delay_seconds=60)
 def download_raw_dump(start_after: Optional[str] = None) -> str:
-    """Download the raw zbMath data dump via ZBMathSource.write_data_dump.
+    """Download the raw zbMath data dump via source.write_data_dump.
 
     Returns the path to the raw dump file.
     """
 
     log = get_run_logger()
 
-    user = "zbMATH-Importer"
-    password = Secret.load("importer-zbmath-password").get()
-    source = ZBMathSource(user=user, password=password)
+    source = Importer.create_source("zbmath")
     source.out_dir = DATA_DIR + "/"
 
     progress = _load_progress("download_raw_dump")
@@ -200,16 +197,14 @@ def download_raw_dump(start_after: Optional[str] = None) -> str:
 
 @task(name="convert_raw_to_processed")
 def convert_raw_to_processed(raw_dump_path: str) -> str:
-    """Convert a raw zbMath dump to the processed CSV via ZBMathSource.process_data.
+    """Convert a raw zbMath dump to the processed CSV via source.process_data.
 
     Returns the path to the processed dump file.
     """
 
     log = get_run_logger()
 
-    user = "zbMATH-Importer"
-    password = Secret.load("importer-zbmath-password").get()
-    source = ZBMathSource(user=user, password=password)
+    source = Importer.create_source("zbmath")
     source.out_dir = DATA_DIR + "/"
 
     progress = _load_progress("convert_raw_to_processed")
@@ -283,7 +278,7 @@ def deduplicate_arxiv(new_arxiv_path: str) -> str:
 
 @task(name="push_zbmath", retries=1, retry_delay_seconds=120)
 def push_zbmath(dump_path: str, label: str = "") -> str:
-    """Push a processed dump file to the MaRDI Wikibase via ZBMathSource.
+    """Push a processed dump file to the MaRDI Wikibase via source.
 
     Args:
         dump_path: Path to the processed CSV (arxiv or non-arxiv).
@@ -295,10 +290,7 @@ def push_zbmath(dump_path: str, label: str = "") -> str:
     log.info("Pushing zbMath data (%s) from %s", label, dump_path)
 
 
-    user = "zbMATH-Importer"
-    password = Secret.load("importer-zbmath-password").get()
-
-    source = ZBMathSource(user=user, password=password)
+    source = Importer.create_source("zbmath")
     source.processed_dump_path = dump_path
     step_key = f"push_zbmath_{label}"
     progress = _load_progress(step_key)
@@ -325,9 +317,7 @@ def run_references(dump_path: str, label: str = "") -> str:
     log = get_run_logger()
     log.info("Running reference pass (%s) for %s", label, dump_path)
 
-    user = "zbMATH-Importer"
-    password = Secret.load("importer-zbmath-password").get()
-    source = ZBMathSource(user=user, password=password)
+    source = Importer.create_source("zbmath")
 
     step_key = f"run_references_{label}"
     progress = _load_progress(step_key)
@@ -427,9 +417,6 @@ def zbmath_import_flow():
         "/config/import_config.config",
     )
 
-    os.environ["WIKIDATA_PASS"]        = Secret.load("wikidata-importer-wiki-password").get()
-    os.environ["IMPORTER_DB_PASSWORD"] = Secret.load("wikidata-importer-db-password").get()
-    os.environ["ZBMATH_PASS"]          = Secret.load("importer-zbmath-password").get()
     log = get_run_logger()
     ctx = get_run_context()
     log.info("Full import flow run: %s", ctx.flow_run.id)

@@ -129,8 +129,9 @@ def read_test() -> str:
 def check_existing_dumps() -> Optional[str]:
     """Look for existing wo_arxiv_zbmath_data_dump*.csv files.
 
-    If any are found, read the newest one and return the last de_number.
-    Otherwise return None.
+    Scans from newest to oldest and returns the last de_number from the
+    first file that actually contains data rows. Header-only files are skipped rather than treated as
+    "no history".
     """
     log = get_run_logger()
     pattern = os.path.join(DATA_DIR, WO_ARXIV_PATTERN)
@@ -140,24 +141,26 @@ def check_existing_dumps() -> Optional[str]:
         log.info("No existing dump files found matching %s", pattern)
         return None
 
-    newest = files[-1]
-    log.info("Found %d existing dump file(s), newest: %s", len(files), newest)
+    log.info("Found %d existing dump file(s)", len(files))
 
-    # Grab the de_number (first column) from the last line
-    last_line = subprocess.check_output(["tail", "-1", newest], text=True).strip()
-    last_de = last_line.split("\t")[0] if last_line else None
+    for path in reversed(files):
+        last_line = subprocess.check_output(["tail", "-1", path], text=True).strip()
+        last_de = last_line.split("\t")[0] if last_line else None
 
-    if last_de is None or not last_de.isdigit():
-        log.warning("Newest dump %s has no data rows (last line: %r)",
-                    os.path.basename(newest), last_line)
-        last_de = None
-    else:
-        log.info("Last de_number from %s: %s", os.path.basename(newest), last_de)
+        if last_de and last_de.isdigit():
+            log.info("Last de_number from %s: %s", os.path.basename(path), last_de)
+            return last_de
 
-    return last_de
+        log.warning(
+            "Skipping %s — no data rows (last line: %r)",
+            os.path.basename(path), last_line,
+        )
+
+    log.warning("All %d dump file(s) are header-only; starting from scratch", len(files))
+    return None
 
 
-@task(name="download_raw_dump", retries=2, retry_delay_seconds=60)
+@task(name="download_raw_dump", retries=1, retry_delay_seconds=60)
 def download_raw_dump(start_after: Optional[str] = None) -> str:
     """Download the raw zbMath data dump via source.write_data_dump.
 

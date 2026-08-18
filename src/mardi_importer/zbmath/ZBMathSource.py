@@ -219,21 +219,25 @@ class ZBMathSource(ADataSource):
                         sleep(120)
                         continue
                     else:
-                        print(f"Failed to retrieve data: {response.status_code}")
-                        break
+                        raise RuntimeError(
+                            f"zbMATH API returned {response.status_code} after "
+                            f"{max_retries} retries (start_after={start_after})"
+                        )
                 except (IncompleteRead, ChunkedEncodingError, ProtocolError) as e:
                     print(f"Exception occurred: {e}")
                     if retries < max_retries:
                         retries += 1
                         sleep(120)
                         continue
-                    else:
-                        print("Max retries reached for Exception.")
-                        print(f"response url is {response.url} and text is {response.text}")
-                        break
+                    raise RuntimeError(
+                        f"zbMATH API connection failed after {max_retries} retries "
+                        f"(start_after={start_after})"
+                    ) from e
                 except Exception as e:
-                    print(f"An unexpected error occurred: {e}")
-                    break
+                    raise RuntimeError(
+                        f"Unexpected error during zbMATH download "
+                        f"(start_after={start_after}): {e}"
+                    ) from e
         
     
     def old_write_data_dump(self):

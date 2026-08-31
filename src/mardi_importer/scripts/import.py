@@ -9,19 +9,37 @@ def get_parser():
     """Get arguments parser"""
     parser = ArgumentParser()
     parser.add_argument(
-        "--mode", type=str, required=True, choices=["zbmath", "cran", "polydb","openml", "zenodo"]
+        "--mode", type=str, required=True, choices=["zbmath", "cran", "polydb","openml", "zenodo", "miplib"]
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Import at most this many records. Useful for a trial run."
+    )
+    parser.add_argument(
+        "--instances", nargs="*", default=None,
+        help="Import only these named records, skipping the source listing."
+    )
+    parser.add_argument(
+        "--no-push", dest="push", action="store_false",
+        help="Fetch and parse, but write nothing to the Wikibase."
     )
     return parser
 
-def main(**args): 
+def main(**args):
 
     pull = True
-    push = True
+    push = args.get("push", True)
 
     if args["mode"] == "zbmath":
         pull = False
 
     source = Importer.create_source(args["mode"])
+
+    if args.get("limit") is not None:
+        source.instance_limit = args["limit"]
+    if args.get("instances"):
+        source.instance_names = args["instances"]
+
     if pull:
         source.pull()
     if push:

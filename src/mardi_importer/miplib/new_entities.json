@@ -1,0 +1,92 @@
+{
+    "properties": [
+        {
+            "label": "MIPLIB instance ID",
+            "description": "Identifier of a problem instance in the MIPLIB mixed-integer programming library",
+            "datatype": "external-id"
+        },
+        {
+            "label": "MIPLIB tag",
+            "description": "Classification tag assigned to an instance by MIPLIB, e.g. benchmark, easy, set_partitioning",
+            "datatype": "string"
+        },
+        {
+            "label": "MIPLIB instance group",
+            "description": "Family of related instances that a MIPLIB instance belongs to",
+            "datatype": "string"
+        },
+        {
+            "label": "MPS file name",
+            "description": "File name of the problem in MPS format",
+            "datatype": "string"
+        },
+        {
+            "label": "number of variables",
+            "description": "the number of variables",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of constraints",
+            "description": "the number of constraints",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of binary variables",
+            "description": "the number of binary variables",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of integer variables",
+            "description": "the number of integer variables",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of continuous variables",
+            "description": "the number of continuous variables",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of implicit integer variables",
+            "description": "the number of variables that are not declared integer but take integer values in every solution",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of fixed variables",
+            "description": "the number of variables whose lower and upper bounds coincide",
+            "datatype": "quantity"
+        },
+        {
+            "label": "number of nonzeros",
+            "description": "the number of nonzero entries in the constraint matrix",
+            "datatype": "quantity"
+        },
+        {
+            "label": "nonzero density",
+            "description": "fraction of entries of the constraint matrix that are nonzero",
+            "datatype": "quantity"
+        },
+        {
+            "label": "objective value",
+            "description": "value of the objective function in the best known solution",
+            "datatype": "quantity"
+        },
+        {
+            "label": "MaRDI profile type",
+            "description": "defines the types of MaRDI profiles expected to work for this item",
+            "datatype": "wikibase-item"
+        }
+    ],
+    "items": [
+        {
+            "label": "MIPLIB instance",
+            "description": "Problem instance from the MIPLIB mixed-integer programming library",
+            "claims": {
+                "wdt:P31": "wd:Q1172284"
+            }
+        },
+        {
+            "label": "MaRDI dataset profile",
+            "description": "type of MaRDI profile"
+        }
+    ]
+}

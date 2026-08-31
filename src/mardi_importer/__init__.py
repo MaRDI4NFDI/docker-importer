@@ -4,6 +4,7 @@ from .importer import Importer
 from .arxiv import ArxivSource
 from .cran import CRANSource
 from .crossref import CrossrefSource
+from .miplib import MIPLIBSource
 from .polydb import PolyDBSource
 from .zbmath import ZBMathSource
 from .zenodo import ZenodoSource
@@ -14,3 +15,4 @@ Importer.register('zbmath', ZBMathSource, 'ZBMATH_USER', 'ZBMATH_PASS')
 Importer.register('zenodo', ZenodoSource, 'ZENODO_USER', 'ZENODO_PASS')
 Importer.register('crossref', CrossrefSource, 'CROSSREF_USER', 'CROSSREF_PASS')
 Importer.register('arxiv', ArxivSource, 'ARXIV_USER', 'ARXIV_PASS')
+Importer.register('miplib', MIPLIBSource, 'MIPLIB_USER', 'MIPLIB_PASS')

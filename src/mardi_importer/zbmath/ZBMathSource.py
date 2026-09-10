@@ -221,7 +221,8 @@ class ZBMathSource(ADataSource):
                             body = response.json()
                         except ValueError:
                             body = {}
-                        if body.get("internal_code") == "successful access, but no result":
+                        status = body.get("status") or {}
+                        if status.get("internal_code") == "successful access, but no result":
                             print(f"Reached end of zbMATH collection at start_after={start_after}")
                             break
                         raise RuntimeError(

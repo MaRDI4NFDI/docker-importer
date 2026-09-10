@@ -213,6 +213,21 @@ class ZBMathSource(ADataSource):
                         os.fsync(f)
                         if progress_callback:
                             progress_callback(start_after)
+                    elif response.status_code == 404:
+                        # zbMATH signals "no entry after this id" with a 404 whose body
+                        # carries internal_code "successful access, but no result".
+                        # That is the normal end of the collection, not a failure.
+                        try:
+                            body = response.json()
+                        except ValueError:
+                            body = {}
+                        if body.get("internal_code") == "successful access, but no result":
+                            print(f"Reached end of zbMATH collection at start_after={start_after}")
+                            break
+                        raise RuntimeError(
+                            f"zbMATH API returned 404 for start_after={start_after}, "
+                            f"unexpected body: {body}"
+                        )
                     elif retries < max_retries:
                         print(f"Encountered {response.status_code} error, retrying...")
                         retries += 1

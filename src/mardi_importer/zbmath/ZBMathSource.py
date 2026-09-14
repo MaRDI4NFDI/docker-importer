@@ -577,7 +577,12 @@ class ZBMathSource(ADataSource):
                         authors.append(self.existing_authors[a_id])
                         print(f"Author with name {a} was already created this run.")
                     else:
-                        for attempt in range(5):
+                        attempt = 0
+                        backoff_base = 120      
+                        backoff_cap = 3600       # never sleep longer than 1h between attempts
+                        max_retry_seconds = 10 * 60 * 60  # give up after ~10h of retrying
+                        elapsed_retry_seconds = 0
+                        while True:
                             try:
                                 author = ZBMathAuthor(
                                     name=a,
@@ -586,13 +591,16 @@ class ZBMathSource(ADataSource):
                                 )
                                 local_author_id = author.create()
                             except Exception as e:
-                                print(f"Exception: {e}, sleeping")
+                                if elapsed_retry_seconds >= max_retry_seconds:
+                                    sys.exit("Uploading author did not work after retries!")
+                                delay = min(backoff_base * (2 ** attempt), backoff_cap)
+                                print(f"Exception: {e}, sleeping {delay}s (attempt {attempt + 1})")
                                 print(traceback.format_exc())
-                                time.sleep(120)
+                                time.sleep(delay)
+                                elapsed_retry_seconds += delay
+                                attempt += 1
                             else:
                                 break
-                        else:
-                            sys.exit("Uploading author did not work after retries!")
                         authors.append(local_author_id)
                         self.existing_authors[a_id] = local_author_id
 
@@ -618,7 +626,12 @@ class ZBMathSource(ADataSource):
                             f"Journal {journal_string} was already created in this run."
                         )
                     else:
-                        for attempt in range(5):
+                        attempt = 0
+                        backoff_base = 120       # seconds — same starting delay as before
+                        backoff_cap = 3600       # never sleep longer than 1h between attempts
+                        max_retry_seconds = 10 * 60 * 60  # give up after ~10h of retrying
+                        elapsed_retry_seconds = 0
+                        while True:
                             try:
                                 journal_item = ZBMathJournal(journal_string)
                                 if journal_item.exists():
@@ -628,13 +641,16 @@ class ZBMathSource(ADataSource):
                                     print(f"Creating journal {journal_string}")
                                     journal = journal_item.create()
                             except Exception as e:
-                                print(f"Exception: {e}, sleeping")
+                                if elapsed_retry_seconds >= max_retry_seconds:
+                                    sys.exit("Uploading journal did not work after retries!")
+                                delay = min(backoff_base * (2 ** attempt), backoff_cap)
+                                print(f"Exception: {e}, sleeping {delay}s (attempt {attempt + 1})")
                                 print(traceback.format_exc())
-                                time.sleep(120)
+                                time.sleep(delay)
+                                elapsed_retry_seconds += delay
+                                attempt += 1
                             else:
                                 break
-                        else:
-                            sys.exit("Uploading journal did not work after retries!")
                         self.existing_journals[journal_string] = journal
                 else:
                     journal = None
@@ -710,7 +726,12 @@ class ZBMathSource(ADataSource):
                                 f"Reviewer with name {a} was already created this run."
                             )
                         else:
-                            for attempt in range(5):
+                            attempt = 0
+                            backoff_base = 120       # seconds — same starting delay as before
+                            backoff_cap = 3600       # never sleep longer than 1h between attempts
+                            max_retry_seconds = 10 * 60 * 60  # give up after ~10h of retrying
+                            elapsed_retry_seconds = 0
+                            while True:
                                 try:
                                     reviewer_object = ZBMathAuthor(
                                         name=reviewer_name,
@@ -719,15 +740,18 @@ class ZBMathSource(ADataSource):
                                     )
                                     reviewer = reviewer_object.create()
                                 except Exception as e:
-                                    print(f"Exception: {e}, sleeping")
+                                    if elapsed_retry_seconds >= max_retry_seconds:
+                                        sys.exit(
+                                            "Uploading reviewer did not work after retries!"
+                                        )
+                                    delay = min(backoff_base * (2 ** attempt), backoff_cap)
+                                    print(f"Exception: {e}, sleeping {delay}s (attempt {attempt + 1})")
                                     print(traceback.format_exc())
-                                    time.sleep(120)
+                                    time.sleep(delay)
+                                    elapsed_retry_seconds += delay
+                                    attempt += 1
                                 else:
                                     break
-                            else:
-                                sys.exit(
-                                    "Uploading reviewer did not work after retries!"
-                                )
                             self.existing_authors[reviewer_id] = reviewer
                     else:
                         reviewer = None
@@ -763,7 +787,12 @@ class ZBMathSource(ADataSource):
                     keywords = [x.strip() for x in keywords if x.strip()]
                 else:
                     keywords = None
-                for attempt in range(5):
+                attempt = 0
+                backoff_base = 120       # seconds — same starting delay as before
+                backoff_cap = 3600       # never sleep longer than 1h between attempts
+                max_retry_seconds = 10 * 60 * 60  # give up after ~10h of retrying
+                elapsed_retry_seconds = 0
+                while True:
                     try:
                         publication = ZBMathPublication(
                             title=document_title,
@@ -829,13 +858,16 @@ class ZBMathSource(ADataSource):
                                 print(f"Creating publication {document_title}")
                                 publication.create()
                     except Exception as e:
-                        print(f"Exception: {e}, sleeping")
+                        if elapsed_retry_seconds >= max_retry_seconds:
+                            sys.exit("Uploading publication did not work after retries!")
+                        delay = min(backoff_base * (2 ** attempt), backoff_cap)
+                        print(f"Exception: {e}, sleeping {delay}s (attempt {attempt + 1})")
                         print(traceback.format_exc())
-                        time.sleep(120)
+                        time.sleep(delay)
+                        elapsed_retry_seconds += delay
+                        attempt += 1
                     else:
                         break
-                else:
-                    sys.exit("Uploading publication did not work after retries!")
                 if progress_callback:
                     progress_callback(info_dict["de_number"].strip())
 

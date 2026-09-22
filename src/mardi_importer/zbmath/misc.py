@@ -3,7 +3,7 @@ from requests.exceptions import HTTPError
 import requests
 import pandas as pd
 import os
-
+import time
 
 def search_item_by_property(property_id,value):
     """
@@ -77,6 +77,22 @@ def _chunked(seq, size):
     for i in range(0, len(seq), size):
         yield seq[i:i + size]
 
+
+def _with_backoff(fn, log, what, base=120, cap=3600, max_total=10 * 60 * 60):
+    attempt, waited = 0, 0
+    while True:
+        try:
+            return fn()
+        except Exception as e:
+            if waited >= max_total:
+                raise
+            delay = min(base * 2 ** attempt, cap)
+            log.warning("%s failed (%s: %s), retrying in %ds (attempt %d)",
+                        what, type(e).__name__, e, delay, attempt + 1)
+            time.sleep(delay)
+            waited += delay
+            attempt += 1
+
 def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=None,batch_size=100):
 
     df = pd.read_csv(dump_path, sep="\t")
@@ -100,8 +116,10 @@ def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=N
 
         if ref_qids:
             try:
-                root_qid = mc.search_entity_by_value("P1451", root_de)[0]
-            except Exception:
+                root_qid = _with_backoff(
+                    lambda: mc.search_entity_by_value("P1451", root_de),
+                    log, f"root lookup for de {root_de}")[0]
+            except (IndexError, TypeError):
                 continue
             root_item = mc.item.get(entity_id=root_qid)
 
@@ -109,7 +127,7 @@ def run_references(dump_path, mc, log, resume_after_de=None, progress_callback=N
                 root_item.add_claim("P223", rq)
 
             log.info(f"attempting write for item {root_qid} with de number {root_de}")
-            root_item.write()
+            _with_backoff(root_item.write, log, f"write for {root_qid} (de {root_de})")
 
         if progress_callback:
             progress_callback(root_de)

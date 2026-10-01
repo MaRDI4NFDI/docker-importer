@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this project does
 
-`docker-importer` is a Docker service that imports metadata from external sources (Wikidata, zbMATH, CRAN, arXiv, Crossref, Zenodo, polyDB, ORCID) into the [MaRDI knowledge graph](https://portal.mardi4nfdi.de) — a Wikibase instance. It exposes a Flask HTTP API, a CLI tool, and a Prefect workflow for background batch processing.
+`docker-importer` is a Docker service that imports metadata from external sources (Wikidata, zbMATH, CRAN, Julia General registry, arXiv, Crossref, Zenodo, polyDB, ORCID) into the [MaRDI knowledge graph](https://portal.mardi4nfdi.de) — a Wikibase instance. It exposes a Flask HTTP API, a CLI tool, and a Prefect workflow for background batch processing.
 
 ## Commands
 
@@ -41,6 +41,7 @@ mardi-importer health
 mardi-importer import-wikidata --qids Q42 Q43
 mardi-importer import-doi --dois 10.1234/example
 mardi-importer import-cran --packages dplyr ggplot2
+mardi-importer import-julia --dry-run
 # equivalent to: python -m mardi_portal.cli.importer_cli ...
 ```
 
@@ -52,7 +53,7 @@ The `mardi_importer` Python package is the heart of the system. Its modules:
 - **`importer.py` / `Importer`** — a class-level registry. Each data source registers itself with `Importer.register(name, cls, USER_ENV, PASS_ENV)`. `Importer.create_source(name)` instantiates the source from environment variables and authenticates against the Wikibase instance.
 - **`base/ADataSource.py`** — abstract base class for all sources. Sources are singletons; `setup()` runs once (tracked via `/tmp/mardi_importer/` marker files). Each source gets a `MardiClient` (from the `mardiclient` package) for writing to Wikibase, and optionally a `WikidataImporter` for pulling from Wikidata.
 - **`wikidata/WikidataImporter.py`** — imports Wikidata entities by QID into the local Wikibase. Used both directly and as a dependency within source `setup()` calls.
-- **Source modules** (`arxiv/`, `cran/`, `crossref/`, `polydb/`, `zbmath/`, `zenodo/`) — each implements `setup()`, `pull()`, and `push()` from `ADataSource`.
+- **Source modules** (`arxiv/`, `cran/`, `julia/`, `crossref/`, `polydb/`, `zbmath/`, `zenodo/`) — each implements `setup()`, `pull()`, and `push()` from `ADataSource`.
 
 ### Flask API: `src/mardi_portal/api/app.py`
 HTTP endpoints served by gunicorn. All import logic is delegated to `mardi_portal/services/import_service.py`. Two patterns:

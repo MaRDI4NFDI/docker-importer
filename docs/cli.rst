@@ -46,6 +46,8 @@ Run synchronous imports::
   mardi-importer import-wikidata --qids Q42 Q1
   mardi-importer import-doi --dois 10.1000/XYZ123
   mardi-importer import-cran --packages dplyr ggplot2
+  mardi-importer import-julia --dry-run
+  mardi-importer import-julia --packages Optim NLsolve
 
   The ``import-wikidata`` command accepts an optional ``--languages`` flag
   (comma-separated language codes, or ``all``) to control which label,

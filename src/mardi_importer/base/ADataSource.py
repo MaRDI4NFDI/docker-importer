@@ -96,6 +96,9 @@ class ADataSource(ABC):
             prop.labels.set(language='en', value=prop_element['label'])
             prop.descriptions.set(language='en', value=prop_element['description'])
             prop.datatype = prop_element['datatype']
+            # Optional, as for items: e.g. a formatter URL (wdt:P1630) for an identifier.
+            for key, value in prop_element.get('claims', {}).items():
+                prop.add_claim(key, value=value)
             if not prop.exists(): prop.write()
 
         for item_element in entities['items']:

@@ -18,6 +18,7 @@ from mardi_portal.services.import_service import (
     get_workflow_status,
     import_cran_sync,
     import_doi_sync,
+    import_julia_sync,
     import_wikidata_sync,
     normalize_list,
     trigger_doi_async,
@@ -329,6 +330,31 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     return 0 if all_ok else 1
 
 
+def cmd_import_julia(args: argparse.Namespace) -> int:
+    """Import Julia packages from the Julia General registry synchronously.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    packages = normalize_list(args.packages)
+    log.info(f"Starting Julia import for {packages or 'all packages in scope'}"
+             f"{' (dry run)' if args.dry_run else ''}")
+    try:
+        payload, all_ok = import_julia_sync(
+            packages, dry_run=args.dry_run, registry_path=args.registry,
+            orcid_links=args.orcid_links,
+        )
+    except LoginError:
+        log.error("Wikibase login failed - can not import Julia packages. (Hint: check JULIA_USER/JULIA_PASS.)")
+        return 1
+
+    print(json.dumps(payload))
+    return 0 if all_ok else 1
+
+
 def _resolve_credentials(args: argparse.Namespace) -> tuple[str, str] | None:
     """Resolve wiki credentials from args or environment variables.
 
@@ -536,6 +562,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--packages", nargs="*", help="CRAN package list or comma-separated."
     )
     sub.set_defaults(func=cmd_import_cran)
+
+    sub = subparsers.add_parser(
+        "import-julia",
+        help="Import Julia packages from the Julia General registry synchronously.",
+    )
+    sub.add_argument(
+        "--packages", nargs="*", help="Package names (default: all in scope), list or comma-separated."
+    )
+    sub.add_argument("--dry-run", action="store_true", help="Decide and report, write nothing.")
+    sub.add_argument("--registry", help="Existing clone of JuliaRegistries/General.")
+    sub.add_argument("--orcid-links", help="CSV of ORCIDs found by e-mail search (no addresses).")
+    sub.set_defaults(func=cmd_import_julia)
 
     sub = subparsers.add_parser(
         "create-item",

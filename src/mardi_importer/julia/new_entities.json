@@ -1,0 +1,28 @@
+{
+    "properties": [
+        {
+            "label": "Julia General registry package name",
+            "description": "name of a package in the Julia General registry (without .jl)",
+            "datatype": "external-id",
+            "claims": {
+                "wdt:P1630": "https://juliahub.com/ui/Packages/General/$1"
+            }
+        }
+    ],
+    "items": [
+        {
+            "label": "Julia package",
+            "description": "package of code for the Julia programming language",
+            "claims": {
+                "wdt:P279": "wd:Q188860"
+            }
+        },
+        {
+            "label": "Julia General registry",
+            "description": "default registry of packages for the Julia programming language",
+            "claims": {
+                "wdt:P856": "https://github.com/JuliaRegistries/General"
+            }
+        }
+    ]
+}

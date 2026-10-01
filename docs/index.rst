@@ -27,6 +27,7 @@ Table of contents
 
    scripts
    cran
+   julia
    importer
    polydb
    zbmath

@@ -3,9 +3,9 @@
 Scope: packages whose repository is under SciML, JuliaMath, JuliaLinearAlgebra,
 JuliaNLSolvers or JuliaDiff (no ``_jll`` binary wrappers, no sub-directory
 packages except StochasticDiffEq and DelayDiffEq). For each package the importer
-writes the registry facts (name, repository, latest version), the licence,
-authors, dependencies and the publications its citation file names — every
-statement with a reference to where it was read.
+writes the registry facts (name, repository, every registered version with the
+day it was registered), the licence, authors, dependencies and the publications
+its citation file names — every statement with a reference to where it was read.
 
 Decisions encoded here (recorded in the MaRDI agents project, D016–D024):
 
@@ -50,7 +50,8 @@ from mardi_importer.base import ADataSource
 from .JuliaPackage import JuliaPackage, Planned, add_planned, existing_values
 from .metadata import fetch_repo_metadata, is_zenodo
 from .people import Mention, People, Person, assert_no_emails, norm_name, same_person_possible
-from .registry import SEED_ORGS, clone_registry, in_scope, read_registry, repo_key
+from .registry import (SEED_ORGS, clone_registry, in_scope, read_registry, registration_dates,
+                       repo_key, version_dates)
 
 log = logging.getLogger("JuliaLogger")
 
@@ -144,6 +145,11 @@ class JuliaSource(ADataSource):
                       key=lambda p: p["name"])
         log.info("Julia General @ %s: %d packages in scope", self.registry_sha[:7], len(pkgs))
         today = date.today().isoformat()
+        dates = registration_dates(root)
+        versions = {p["name"]: version_dates(root, p, dates) for p in pkgs}
+        n_all = sum(len(v) for v in versions.values())
+        n_dated = sum(1 for v in versions.values() for _, day, _ in v if day)
+        log.info("  %d registered versions, %d with a registration day", n_all, n_dated)
 
         meta = {}
         for i, p in enumerate(pkgs, 1):
@@ -160,8 +166,12 @@ class JuliaSource(ADataSource):
             jp = JuliaPackage(name=p["name"], uuid=p["uuid"], repo=p["repo"], path=p["path"],
                               registry_sha=self.registry_sha, retrieved=today, metadata=md,
                               subdir=p.get("subdir"), version=p.get("version"),
+                              versions=versions[p["name"]],
                               wikidata_qid=wikidata.get(repo_key(p["repo"])),
                               wikidata_retrieved=today, notes=list(md.notes))
+            if undated := [v for v, day, _ in jp.versions if not day]:
+                jp.notes.append(f"{len(undated)} version(s) predate the registry's history: "
+                                "written without publication date")
             self._decide_package(jp, p, index)
             self.packages.append(jp)
 
@@ -494,7 +504,8 @@ class JuliaSource(ADataSource):
         report = {
             "registry_commit": self.registry_sha,
             "packages": {jp.name: {"action": jp.action, "qid": jp.qid, "matched_by": jp.matched_by,
-                                   "notes": jp.notes} for jp in self.packages},
+                                   "versions": len(jp.versions), "notes": jp.notes}
+                         for jp in self.packages},
             "persons": [{"name": p.canonical, "action": p.action or "name string", "qid": p.qid,
                          "linked_by": p.linked_by, "packages": sorted(p.packages),
                          "possible_duplicates": p.possible_duplicates} for p in self.persons],

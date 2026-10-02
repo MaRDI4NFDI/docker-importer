@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 from mardi_importer.julia import registry, metadata  # noqa: E402
 from mardi_importer.julia.JuliaPackage import (  # noqa: E402
     AUTHOR, AUTHOR_NAME_STRING, DESCRIBED_BY_SOURCE, LICENSE, OBJECT_NAMED_AS, PACKAGE_NAME,
-    SOURCE_REPOSITORY, VERSION, JuliaPackage, Planned, add_planned,
+    PUBLICATION_DATE, SOURCE_REPOSITORY, VERSION, JuliaPackage, Planned, add_planned, existing_values,
 )
 from mardi_importer.julia.JuliaSource import JuliaSource, decide_person, same_software  # noqa: E402
 from mardi_importer.julia.metadata import RepoMetadata  # noqa: E402
@@ -56,28 +56,81 @@ class TestRegistry(unittest.TestCase):
         self.assertEqual(registry.latest_version(
             {"1.9.0": {}, "1.10.0": {"yanked": True}, "1.9.0-beta": {}}), "1.9.0")
 
+    def test_live_versions_exclude_yanked_and_sort(self):
+        self.assertEqual(registry.live_versions(
+            {"1.10.0": {}, "1.9.0": {}, "1.9.1": {"yanked": True}, "0.2.0": {}}), ["0.2.0", "1.9.0", "1.10.0"])
+
     def test_read_registry(self):
         with tempfile.TemporaryDirectory() as d:
-            root = Path(d) / "General"
-            files = {
-                "Registry.toml": '[packages]\na-1 = { name = "Optim", path = "O/Optim" }\n'
-                                 'a-2 = { name = "Other", path = "O/Other" }\n',
-                "O/Optim/Package.toml": 'repo = "https://github.com/JuliaNLSolvers/Optim.jl.git"\n',
-                "O/Optim/Versions.toml": '["1.0.0"]\ngit-tree-sha1 = "x"\n["1.1.0"]\ngit-tree-sha1 = "y"\n',
-                "O/Other/Package.toml": 'repo = "https://github.com/someone/Other.jl.git"\n',
-            }
-            for rel, text in files.items():
-                (root / rel).parent.mkdir(parents=True, exist_ok=True)
-                (root / rel).write_text(text)
-            git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t",
-                   "-c", "commit.gpgsign=false"]
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
-            subprocess.run(git + ["add", "."], check=True)
-            subprocess.run(git + ["commit", "-qm", "x"], check=True)
+            root = _general_clone(Path(d) / "General")
             sha, pkgs = registry.read_registry(root)
             scoped = [p for p in pkgs if registry.in_scope(p)]
-            self.assertEqual([(p["name"], p["version"]) for p in scoped], [("Optim", "1.1.0")])
+            self.assertEqual([(p["name"], p["version"], p["versions"]) for p in scoped],
+                             [("Optim", "1.1.0", ["1.0.0", "1.0.5", "1.1.0"])])
             self.assertEqual(len(sha), 40)
+
+    def test_registration_log(self):
+        lines = ["c4\t2020-01-24T22:45:46+00:00\tNew version: NLsolve v4.3.0 (#8392)",
+                 "c3\t2019-12-01T00:00:00+00:00\tNew version: NLsolve v4.1.0 (#7000)",      # re-registration
+                 "c2\t2019-08-01T01:09:14+04:00\tMerge pull request #2418 from JuliaRegistries/register/NLsolve/v4.1.0",
+                 "c1\t2019-07-31T23:30:00+00:00\tNew package: Other v0.1.0",
+                 "c0\t2018-07-15T03:43:07-04:00\tautomatic sync with METADATA"]
+        self.assertEqual(registry.parse_registration_log(lines), {
+            "NLsolve": {"4.3.0": ("2020-01-24", "c4"), "4.1.0": ("2019-07-31", "c2")},   # UTC day; oldest wins
+            "Other": {"0.1.0": ("2019-07-31", "c1")}})
+
+    def test_version_history_patch(self):
+        patch = ("\x01s1\t2017-08-29T10:00:00+00:00\tRegistry data generated from METADATA.jl\n"
+                 "diff --git a/O/Optim/Versions.toml b/O/Optim/Versions.toml\n+++ b/O/Optim/Versions.toml\n"
+                 '+["1.0.0"]\n+git-tree-sha1 = "x"\n'
+                 "\x01s2\t2018-07-15T03:43:07-04:00\tautomatic sync with METADATA\n"
+                 '+["1.0.5"]\n+git-tree-sha1 = "y"\n-["1.0.0"]\n+["1.0.0"]\n')
+        self.assertEqual(registry.parse_version_history(patch), {
+            "1.0.0": ("2017-08-29", "s1", "Registry data generated from METADATA.jl"),
+            "1.0.5": ("2018-07-15", "s2", "automatic sync with METADATA")})
+
+    def test_version_dates_from_a_clone(self):
+        """Registration commits date most versions; a sync commit dates older ones;
+        the initial import dates nothing."""
+        with tempfile.TemporaryDirectory() as d:
+            root = _general_clone(Path(d) / "General")
+            _, pkgs = registry.read_registry(root)
+            optim = next(p for p in pkgs if p["name"] == "Optim")
+            index = registry.registration_dates(root)
+            self.assertEqual(list(index["Optim"]), ["1.1.0"])
+            dated = registry.version_dates(root, optim, index)
+            self.assertEqual([(v, day) for v, day, _ in dated],
+                             [("1.0.0", None), ("1.0.5", "2018-07-15"), ("1.1.0", "2026-09-30")])
+            self.assertEqual(dated[2][2], index["Optim"]["1.1.0"][1])
+            self.assertEqual(len(dated[1][2]), 40)
+
+
+def _general_clone(root: Path) -> Path:
+    """A three-commit General: initial import, a METADATA sync, an automated registration."""
+    def write(rel, text):
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+
+    def commit(subject, when):
+        env = {**os.environ, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+        git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t",
+               "-c", "commit.gpgsign=false"]
+        subprocess.run(git + ["add", "."], check=True, env=env)
+        subprocess.run(git + ["commit", "-qm", subject], check=True, env=env)
+
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    write("Registry.toml", '[packages]\na-1 = { name = "Optim", path = "O/Optim" }\n'
+                           'a-2 = { name = "Other", path = "O/Other" }\n')
+    write("O/Optim/Package.toml", 'repo = "https://github.com/JuliaNLSolvers/Optim.jl.git"\n')
+    write("O/Optim/Versions.toml", '["1.0.0"]\ngit-tree-sha1 = "x"\n')
+    write("O/Other/Package.toml", 'repo = "https://github.com/someone/Other.jl.git"\n')
+    commit(registry.INITIAL_IMPORT_SUBJECT, "2017-08-29T10:00:00+00:00")
+    write("O/Optim/Versions.toml", '["1.0.0"]\ngit-tree-sha1 = "x"\n["1.0.5"]\ngit-tree-sha1 = "y"\n')
+    commit("automatic sync with METADATA", "2018-07-15T03:43:07-04:00")
+    write("O/Optim/Versions.toml", '["1.0.0"]\ngit-tree-sha1 = "x"\n["1.0.5"]\ngit-tree-sha1 = "y"\n'
+                                   '["1.1.0"]\ngit-tree-sha1 = "z"\n["1.2.0"]\ngit-tree-sha1 = "w"\nyanked = true\n')
+    commit("New version: Optim v1.1.0 (#1234)", "2026-09-30T23:30:00+02:00")
+    return root
 
 
 class TestLicences(unittest.TestCase):
@@ -243,7 +296,8 @@ def package(**kw):
                       citation_url="https://github.com/o/r/blob/abc/CITATION.bib", deps=["NLSolversBase", "LinearAlgebra"])
     base = dict(name="Optim", uuid="u", repo="https://github.com/JuliaNLSolvers/Optim.jl.git",
                 path="O/Optim", registry_sha="sha1", retrieved="2026-10-01", metadata=md,
-                version="2.3.2", papers=["Q999"])
+                version="2.3.2", versions=[("2.0.0", None, None), ("2.3.2", "2026-09-30", "abc123")],
+                papers=["Q999"])
     base.update(kw)
     return JuliaPackage(**base)
 
@@ -262,10 +316,25 @@ class TestPlannedStatements(unittest.TestCase):
             self.assertTrue(st.referenced, st.prop)
 
     def test_registry_facts_are_stated_in_the_registry(self):
-        by = {st.prop: st for st in self.plan()}
-        for prop in (PACKAGE_NAME, SOURCE_REPOSITORY, VERSION):
-            self.assertTrue(by[prop].stated_in_registry)
-            self.assertIn("/JuliaRegistries/General/blob/sha1/", by[prop].ref_url)
+        sts = [st for st in self.plan() if st.prop in (PACKAGE_NAME, SOURCE_REPOSITORY, VERSION)]
+        self.assertEqual(len(sts), 4)
+        for st in sts:
+            self.assertTrue(st.stated_in_registry)
+            self.assertIn("https://github.com/JuliaRegistries/General/", st.ref_url)
+
+    def test_one_statement_per_version_dated_by_its_registering_commit(self):
+        """As for CRAN: every live version, qualified with the day it was published."""
+        sts = [st for st in self.plan() if st.prop == VERSION]
+        self.assertEqual([st.value for st in sts], ["2.0.0", "2.3.2"])
+        undated, dated = sts
+        self.assertEqual(dated.qualifiers, [(PUBLICATION_DATE, "+2026-09-30T00:00:00Z", {"precision": 11})])
+        self.assertEqual(dated.ref_url, "https://github.com/JuliaRegistries/General/commit/abc123")
+        self.assertEqual(undated.qualifiers, [])
+        self.assertIn("/blob/sha1/O/Optim/Versions.toml", undated.ref_url)
+
+    def test_without_version_history_the_latest_version_is_still_written(self):
+        sts = [st for st in package(versions=[]).plan("Q1") if st.prop == VERSION]
+        self.assertEqual([(st.value, st.qualifiers) for st in sts], [("2.3.2", [])])
 
     def test_identifier_without_jl_and_publications_as_described_by_source(self):
         by = {st.prop: st for st in self.plan()}
@@ -296,6 +365,16 @@ class TestUpdateRule(unittest.TestCase):
         add, conflicts = JuliaPackage.merge(planned, existing)
         self.assertEqual([(st.prop, st.value) for st in add], [(VERSION, "2.0.0"), (PACKAGE_NAME, "B")])
         self.assertEqual([c["property"] for c in conflicts], [LICENSE])
+
+    def test_a_version_without_publication_date_counts_as_absent(self):
+        """So that planning it again adds the date to the existing statement."""
+        api = Mock()
+        api.get_local_id_by_label.side_effect = lambda prop, kind: {VERSION: "P472", PUBLICATION_DATE: "P22"}[prop]
+        item = Mock()
+        snak = lambda v: {"mainsnak": {"datavalue": {"value": v, "type": "string"}}}
+        item.get_json.return_value = {"claims": {"P472": [
+            {**snak("1.0.0"), "qualifiers": {"P22": [{}]}}, snak("1.1.0")]}}
+        self.assertEqual(existing_values(api, item, [Planned(VERSION, "1.1.0", "u", "d")]), {VERSION: ["1.0.0"]})
 
 
 class _Container:
@@ -334,6 +413,13 @@ class TestWritingAStatement(unittest.TestCase):
         quals = self.item.add_claim.call_args.kwargs["qualifiers"]
         self.assertEqual(quals.added, [(OBJECT_NAMED_AS, "ChrisRackauckas")])
 
+    def test_publication_date_qualifier_has_day_precision(self):
+        add_planned(self.api, self.item, Planned(VERSION, "1.0.0", "u", "2026-10-01", True,
+                                                 [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", {"precision": 11})]), "Q42")
+        self.assertEqual(self.item.add_claim.call_args.kwargs["qualifiers"].added,
+                         [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z")])
+        self.api.get_claim.assert_any_call(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", precision=11)
+
     def test_refuses_an_address(self):
         with self.assertRaises(ValueError):
             add_planned(self.api, self.item, Planned(AUTHOR_NAME_STRING, "Jane <jd@example.org>", "u", "d"), "Q42")
@@ -351,6 +437,7 @@ class TestReport(unittest.TestCase):
         report = src.summary()
         self.assertNotIn("@", json.dumps(report))
         self.assertEqual(report["packages"]["Optim"]["action"], "create")
+        self.assertEqual(report["packages"]["Optim"]["versions"], 2)
 
 
 if __name__ == "__main__":

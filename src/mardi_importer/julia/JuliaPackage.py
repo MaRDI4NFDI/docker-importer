@@ -8,6 +8,11 @@ registry facts, *reference URL* of the exact file it was read from (pinned to a
 commit), and *retrieved*. Properties and items are given as Wikidata IDs and
 resolved to local IDs by mardiclient.
 
+Every registered (non-yanked) version becomes a *software version identifier*
+statement qualified with its *publication date*, the day the version was
+registered in General, as the CRAN source does for R packages; its reference URL
+is the registering commit.
+
 An existing item is only ever added to (never overwritten or pruned): a value
 already present is skipped, and a single-valued property that already holds a
 different value is left alone and reported as a conflict.
@@ -21,7 +26,7 @@ from typing import Any
 
 from .metadata import LICENSES, RepoMetadata
 from .people import Mention, Person, assert_no_emails
-from .registry import registry_url, repo_key
+from .registry import GENERAL_COMMIT_URL, registry_url, repo_key
 
 log = logging.getLogger("JuliaLogger")
 
@@ -30,6 +35,7 @@ INSTANCE_OF = "wdt:P31"
 PROGRAMMED_IN = "wdt:P277"
 SOURCE_REPOSITORY = "wdt:P1324"
 VERSION = "wdt:P348"
+PUBLICATION_DATE = "wdt:P577"
 LICENSE = "wdt:P275"
 AUTHOR = "wdt:P50"
 AUTHOR_NAME_STRING = "wdt:P2093"
@@ -52,13 +58,17 @@ SINGLE_VALUED = frozenset({INSTANCE_OF, PROGRAMMED_IN, SOURCE_REPOSITORY, LICENS
 
 @dataclass
 class Planned:
-    """One statement to write: property, value, qualifiers, and its reference."""
+    """One statement to write: property, value, qualifiers, and its reference.
+
+    A qualifier is ``(property, value)`` or ``(property, value, claim kwargs)``,
+    the kwargs going to ``get_claim`` (e.g. a time precision).
+    """
     prop: str
     value: Any
     ref_url: str | None
     retrieved: str | None
     stated_in_registry: bool = False
-    qualifiers: list[tuple[str, Any]] = field(default_factory=list)
+    qualifiers: list[tuple] = field(default_factory=list)
 
     @property
     def referenced(self) -> bool:
@@ -79,7 +89,10 @@ class JuliaPackage:
     retrieved: str
     metadata: RepoMetadata
     subdir: str | None = None
-    version: str | None = None
+    version: str | None = None        # latest live version
+    versions: list[tuple[str, str | None, str | None]] = field(default_factory=list)
+    # every live version: (version, registration day, registering commit); the
+    # last two are None for versions older than the registry's history
     action: str = "create"            # create | update | skip
     qid: str | None = None            # existing item (update) or the created one
     matched_by: str | None = None
@@ -107,10 +120,12 @@ class JuliaPackage:
             Planned(PROGRAMMED_IN, JULIA, reg, self.retrieved, True),
             Planned(SOURCE_REPOSITORY, self.repo, reg, self.retrieved, True),
         ]
-        if self.version:
-            out.append(Planned(VERSION, self.version,
-                               registry_url(self.registry_sha, pkg, "Versions.toml"),
-                               self.retrieved, True))
+        versions = self.versions or ([(self.version, None, None)] if self.version else [])
+        for v, day, sha in versions:
+            url = (GENERAL_COMMIT_URL.format(sha=sha) if sha
+                   else registry_url(self.registry_sha, pkg, "Versions.toml"))
+            quals = [(PUBLICATION_DATE, time_value(day), {"precision": 11})] if day else []
+            out.append(Planned(VERSION, v, url, self.retrieved, True, quals))
         if md.license and md.license_url:
             out.append(Planned(LICENSE, LICENSES[md.license], md.license_url, md.retrieved))
         if md.citation_url:
@@ -202,21 +217,33 @@ def resolve_items(api, planned: list[Planned]) -> list[Planned]:
     return out
 
 
+def _pid(api, prop: str) -> str | None:
+    pid = api.get_local_id_by_label(prop, "property")
+    return pid[0] if isinstance(pid, list) else pid
+
+
 def existing_values(api, item, planned: list[Planned]) -> dict[str, list[str]]:
     """Current values of the planned properties, including URL values.
 
     ``MardiItem.get_value`` skips URL-typed properties, which would make an
     existing repository look absent and be added twice.
+
+    A version without its publication date counts as absent, so that planning it
+    again completes the existing statement (append-or-replace keeps the value and
+    adds the qualifier) instead of skipping it.
     """
     claims = item.get_json().get("claims", {})
+    props = {st.prop for st in planned}
+    date_pid = _pid(api, PUBLICATION_DATE) if VERSION in props else None
     out: dict[str, list[str]] = {}
-    for prop in {st.prop for st in planned}:
-        pid = api.get_local_id_by_label(prop, "property")
-        pid = pid[0] if isinstance(pid, list) else pid
+    for prop in props:
+        pid = _pid(api, prop)
         values = []
         for c in claims.get(pid, []) if pid else []:
             dv = c.get("mainsnak", {}).get("datavalue")
             if not dv:
+                continue
+            if prop == VERSION and date_pid and date_pid not in c.get("qualifiers", {}):
                 continue
             v = dv["value"]
             values.append(v["id"] if isinstance(v, dict) and "id" in v
@@ -241,9 +268,9 @@ def add_planned(api, item, st: Planned, registry_item: str) -> None:
     kwargs: dict[str, Any] = {}
     if st.qualifiers:
         q = Qualifiers()
-        for prop, v in st.qualifiers:
+        for prop, v, *extra in st.qualifiers:
             assert_no_emails(str(v), f"qualifier {prop}")
-            q.add(api.get_claim(prop, v))
+            q.add(api.get_claim(prop, v, **(extra[0] if extra else {})))
         kwargs["qualifiers"] = q
     if st.referenced:
         ref = Reference()

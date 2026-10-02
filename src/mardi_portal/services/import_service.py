@@ -388,6 +388,42 @@ def import_wikidata_sync(qids: list[str], languages=None) -> tuple[dict, bool]:
     return payload, all_ok
 
 
+def import_julia_sync(
+    packages: list[str] | None = None,
+    dry_run: bool = False,
+    registry_path: str | None = None,
+    orcid_links: str | None = None,
+) -> tuple[dict, bool]:
+    """Import Julia packages from the Julia General registry synchronously.
+
+    Args:
+        packages: Package names to import; all packages in scope if empty.
+        dry_run: Decide every write and report it, but write nothing.
+        registry_path: Existing clone of JuliaRegistries/General (cloned if omitted).
+        orcid_links: Optional CSV of ORCIDs found by e-mail search (no addresses).
+
+    Returns:
+        Tuple of payload and overall success flag.
+    """
+    julia = Importer.create_source("julia")
+    try:
+        julia.pull(names=packages or None, registry_path=registry_path, orcid_links=orcid_links)
+    except Exception as exc:
+        log.error("importing Julia packages failed during pull: %s", exc, exc_info=True)
+        return {"packages": packages or [], "error": str(exc), "all_imported": False}, False
+
+    if dry_run:
+        report = julia.summary()
+        report["dry_run"] = True
+        return report, True
+
+    report = julia.push()
+    results = report.get("results", {})
+    all_ok = all(r.get("status") in ("created", "updated", "skipped") for r in results.values())
+    report["all_imported"] = all_ok
+    return report, all_ok
+
+
 def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
     """Import CRAN packages synchronously.
 

@@ -6,6 +6,7 @@ Currently the following sources are supported:
 * Wikidata
 * zbMATH
 * CRAN
+* Julia General registry
 * arXiv
 * polyDB
 * crossref

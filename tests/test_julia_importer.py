@@ -98,11 +98,9 @@ class TestRegistry(unittest.TestCase):
             optim = next(p for p in pkgs if p["name"] == "Optim")
             index = registry.registration_dates(root)
             self.assertEqual(list(index["Optim"]), ["1.1.0"])
-            dated = registry.version_dates(root, optim, index)
-            self.assertEqual([(v, day) for v, day, _ in dated],
+            self.assertEqual(len(index["Optim"]["1.1.0"][1]), 40)                    # the registering commit
+            self.assertEqual(registry.version_dates(root, optim, index),
                              [("1.0.0", None), ("1.0.5", "2018-07-15"), ("1.1.0", "2026-09-30")])
-            self.assertEqual(dated[2][2], index["Optim"]["1.1.0"][1])
-            self.assertEqual(len(dated[1][2]), 40)
 
 
 def _general_clone(root: Path) -> Path:
@@ -296,7 +294,7 @@ def package(**kw):
                       citation_url="https://github.com/o/r/blob/abc/CITATION.bib", deps=["NLSolversBase", "LinearAlgebra"])
     base = dict(name="Optim", uuid="u", repo="https://github.com/JuliaNLSolvers/Optim.jl.git",
                 path="O/Optim", registry_sha="sha1", retrieved="2026-10-01", metadata=md,
-                version="2.3.2", versions=[("2.0.0", None, None), ("2.3.2", "2026-09-30", "abc123")],
+                version="2.3.2", versions=[("2.0.0", None), ("2.3.2", "2026-09-30")],
                 papers=["Q999"])
     base.update(kw)
     return JuliaPackage(**base)
@@ -311,26 +309,22 @@ class TestPlannedStatements(unittest.TestCase):
                       (Mention("Optim", "Asbjørn Riseth", *REF), person("Asbjørn Riseth"))]
         return jp.plan("Q1")
 
-    def test_every_statement_is_referenced(self):
+    def test_every_statement_but_versions_is_referenced(self):
         for st in self.plan():
-            self.assertTrue(st.referenced, st.prop)
+            self.assertEqual(st.referenced, st.prop != VERSION, st.prop)
 
     def test_registry_facts_are_stated_in_the_registry(self):
-        sts = [st for st in self.plan() if st.prop in (PACKAGE_NAME, SOURCE_REPOSITORY, VERSION)]
-        self.assertEqual(len(sts), 4)
-        for st in sts:
-            self.assertTrue(st.stated_in_registry)
-            self.assertIn("https://github.com/JuliaRegistries/General/", st.ref_url)
+        by = {st.prop: st for st in self.plan()}
+        for prop in (PACKAGE_NAME, SOURCE_REPOSITORY):
+            self.assertTrue(by[prop].stated_in_registry)
+            self.assertIn("/JuliaRegistries/General/blob/sha1/", by[prop].ref_url)
 
-    def test_one_statement_per_version_dated_by_its_registering_commit(self):
-        """As for CRAN: every live version, qualified with the day it was published."""
+    def test_one_statement_per_version_with_its_publication_date_only(self):
+        """As for CRAN: every live version, qualified with the day it was published, no reference."""
         sts = [st for st in self.plan() if st.prop == VERSION]
-        self.assertEqual([st.value for st in sts], ["2.0.0", "2.3.2"])
-        undated, dated = sts
-        self.assertEqual(dated.qualifiers, [(PUBLICATION_DATE, "+2026-09-30T00:00:00Z", {"precision": 11})])
-        self.assertEqual(dated.ref_url, "https://github.com/JuliaRegistries/General/commit/abc123")
-        self.assertEqual(undated.qualifiers, [])
-        self.assertIn("/blob/sha1/O/Optim/Versions.toml", undated.ref_url)
+        self.assertEqual([(st.value, st.qualifiers, st.ref_url) for st in sts],
+                         [("2.0.0", [], None),
+                          ("2.3.2", [(PUBLICATION_DATE, "+2026-09-30T00:00:00Z", {"precision": 11})], None)])
 
     def test_without_version_history_the_latest_version_is_still_written(self):
         sts = [st for st in package(versions=[]).plan("Q1") if st.prop == VERSION]
@@ -401,10 +395,10 @@ class TestWritingAStatement(unittest.TestCase):
         self.item = Mock()
 
     def test_reference_block(self):
-        add_planned(self.api, self.item, Planned(VERSION, "2.3.2", "https://x/Versions.toml", "2026-10-01", True), "Q42")
+        add_planned(self.api, self.item, Planned(PACKAGE_NAME, "Optim", "https://x/Package.toml", "2026-10-01", True), "Q42")
         refs = self.item.add_claim.call_args.kwargs["references"]
         (ref,) = refs.added
-        self.assertEqual(ref.added, [("wdt:P248", "Q42"), ("wdt:P854", "https://x/Versions.toml"),
+        self.assertEqual(ref.added, [("wdt:P248", "Q42"), ("wdt:P854", "https://x/Package.toml"),
                                      ("wdt:P813", "+2026-10-01T00:00:00Z")])
 
     def test_qualifier_keeps_the_name_as_stated(self):
@@ -413,11 +407,12 @@ class TestWritingAStatement(unittest.TestCase):
         quals = self.item.add_claim.call_args.kwargs["qualifiers"]
         self.assertEqual(quals.added, [(OBJECT_NAMED_AS, "ChrisRackauckas")])
 
-    def test_publication_date_qualifier_has_day_precision(self):
-        add_planned(self.api, self.item, Planned(VERSION, "1.0.0", "u", "2026-10-01", True,
-                                                 [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", {"precision": 11})]), "Q42")
-        self.assertEqual(self.item.add_claim.call_args.kwargs["qualifiers"].added,
-                         [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z")])
+    def test_version_has_a_dated_qualifier_and_no_reference(self):
+        add_planned(self.api, self.item, Planned(VERSION, "1.0.0", None, None,
+                                                 qualifiers=[(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", {"precision": 11})]), "Q42")
+        kwargs = self.item.add_claim.call_args.kwargs
+        self.assertEqual(kwargs["qualifiers"].added, [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z")])
+        self.assertNotIn("references", kwargs)
         self.api.get_claim.assert_any_call(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", precision=11)
 
     def test_refuses_an_address(self):

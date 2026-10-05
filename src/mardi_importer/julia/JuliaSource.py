@@ -5,7 +5,8 @@ JuliaNLSolvers or JuliaDiff (no ``_jll`` binary wrappers, no sub-directory
 packages except StochasticDiffEq and DelayDiffEq). For each package the importer
 writes the registry facts (name, repository, every registered version with the
 day it was registered), the licence, authors, dependencies and the publications
-its citation file names — every statement with a reference to where it was read.
+its citation file names — every statement with a reference to where it was read,
+except the versions, which carry their date only, as for CRAN.
 
 Decisions encoded here (recorded in the MaRDI agents project, D016–D024):
 
@@ -148,7 +149,7 @@ class JuliaSource(ADataSource):
         dates = registration_dates(root)
         versions = {p["name"]: version_dates(root, p, dates) for p in pkgs}
         n_all = sum(len(v) for v in versions.values())
-        n_dated = sum(1 for v in versions.values() for _, day, _ in v if day)
+        n_dated = sum(1 for v in versions.values() for _, day in v if day)
         log.info("  %d registered versions, %d with a registration day", n_all, n_dated)
 
         meta = {}
@@ -169,7 +170,7 @@ class JuliaSource(ADataSource):
                               versions=versions[p["name"]],
                               wikidata_qid=wikidata.get(repo_key(p["repo"])),
                               wikidata_retrieved=today, notes=list(md.notes))
-            if undated := [v for v, day, _ in jp.versions if not day]:
+            if undated := [v for v, day in jp.versions if not day]:
                 jp.notes.append(f"{len(undated)} version(s) predate the registry's history: "
                                 "written without publication date")
             self._decide_package(jp, p, index)

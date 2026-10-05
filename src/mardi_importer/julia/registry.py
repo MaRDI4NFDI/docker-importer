@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Iterable
 
 GENERAL_URL = "https://github.com/JuliaRegistries/General.git"
-GENERAL_COMMIT_URL = "https://github.com/JuliaRegistries/General/commit/{sha}"
 
 # The registry's first commit imported METADATA.jl wholesale; the versions it
 # carries were published earlier, on days the registry does not know.
@@ -178,8 +177,8 @@ def version_history(root: Path, path: str) -> dict[str, tuple[str, str, str]]:
     return parse_version_history(patch)
 
 
-def version_dates(root: Path, pkg: dict, index: dict) -> list[tuple[str, str | None, str | None]]:
-    """``(version, registration day, registering commit)`` for each live version of ``pkg``.
+def version_dates(root: Path, pkg: dict, index: dict) -> list[tuple[str, str | None]]:
+    """``(version, registration day)`` for each live version of ``pkg``, lowest first.
 
     Days come from the registration commits (``index``, see
     :func:`registration_dates`). Versions older than automated registration are
@@ -193,7 +192,7 @@ def version_dates(root: Path, pkg: dict, index: dict) -> list[tuple[str, str | N
         for v in missing:
             if v in history and history[v][2] != INITIAL_IMPORT_SUBJECT:
                 known[v] = history[v][:2]
-    return [(v, *known.get(v, (None, None))) for v in pkg.get("versions", [])]
+    return [(v, known[v][0] if v in known else None) for v in pkg.get("versions", [])]
 
 
 def registry_url(sha: str, pkg: dict, fname: str) -> str:

@@ -5,13 +5,12 @@ tested without a Wikibase; :meth:`JuliaPackage.write` then turns them into claim
 
 Every statement carries a reference — *stated in* the Julia General registry for
 registry facts, *reference URL* of the exact file it was read from (pinned to a
-commit), and *retrieved*. Properties and items are given as Wikidata IDs and
-resolved to local IDs by mardiclient.
-
-Every registered (non-yanked) version becomes a *software version identifier*
-statement qualified with its *publication date*, the day the version was
-registered in General, as the CRAN source does for R packages; its reference URL
-is the registering commit.
+commit), and *retrieved* — except versions: every registered (non-yanked) version
+becomes a *software version identifier* statement qualified with its *publication
+date*, the day it was registered in General, and nothing more, as the CRAN source
+does for R packages; a reference on each of hundreds of versions would outweigh
+the rest of the item. Properties and items are given as Wikidata IDs and resolved
+to local IDs by mardiclient.
 
 An existing item is only ever added to (never overwritten or pruned): a value
 already present is skipped, and a single-valued property that already holds a
@@ -26,7 +25,7 @@ from typing import Any
 
 from .metadata import LICENSES, RepoMetadata
 from .people import Mention, Person, assert_no_emails
-from .registry import GENERAL_COMMIT_URL, registry_url, repo_key
+from .registry import registry_url, repo_key
 
 log = logging.getLogger("JuliaLogger")
 
@@ -90,9 +89,8 @@ class JuliaPackage:
     metadata: RepoMetadata
     subdir: str | None = None
     version: str | None = None        # latest live version
-    versions: list[tuple[str, str | None, str | None]] = field(default_factory=list)
-    # every live version: (version, registration day, registering commit); the
-    # last two are None for versions older than the registry's history
+    versions: list[tuple[str, str | None]] = field(default_factory=list)
+    # every live version with its registration day (None if older than the registry's history)
     action: str = "create"            # create | update | skip
     qid: str | None = None            # existing item (update) or the created one
     matched_by: str | None = None
@@ -120,12 +118,9 @@ class JuliaPackage:
             Planned(PROGRAMMED_IN, JULIA, reg, self.retrieved, True),
             Planned(SOURCE_REPOSITORY, self.repo, reg, self.retrieved, True),
         ]
-        versions = self.versions or ([(self.version, None, None)] if self.version else [])
-        for v, day, sha in versions:
-            url = (GENERAL_COMMIT_URL.format(sha=sha) if sha
-                   else registry_url(self.registry_sha, pkg, "Versions.toml"))
+        for v, day in self.versions or ([(self.version, None)] if self.version else []):
             quals = [(PUBLICATION_DATE, time_value(day), {"precision": 11})] if day else []
-            out.append(Planned(VERSION, v, url, self.retrieved, True, quals))
+            out.append(Planned(VERSION, v, None, None, qualifiers=quals))
         if md.license and md.license_url:
             out.append(Planned(LICENSE, LICENSES[md.license], md.license_url, md.retrieved))
         if md.citation_url:

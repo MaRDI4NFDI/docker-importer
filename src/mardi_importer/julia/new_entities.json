@@ -16,13 +16,6 @@
             "claims": {
                 "wdt:P279": "wd:Q188860"
             }
-        },
-        {
-            "label": "Julia General registry",
-            "description": "default registry of packages for the Julia programming language",
-            "claims": {
-                "wdt:P856": "https://github.com/JuliaRegistries/General"
-            }
         }
     ]
 }

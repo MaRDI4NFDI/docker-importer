@@ -1,4 +1,4 @@
-"""Julia General importer: decision rules, references, update rule, e-mail guard.
+"""Julia General importer: decision rules, update rule, e-mail guard.
 
 No network and no Wikibase: the registry is a throwaway git repository and the
 MaRDI client is a stub. Cases are the real ones met in the first full batch.
@@ -28,8 +28,6 @@ from mardi_importer.julia.metadata import RepoMetadata  # noqa: E402
 from mardi_importer.julia.people import (  # noqa: E402
     Mention, People, Person, assert_no_emails, same_person_possible,
 )
-
-REF = ("https://github.com/o/r/blob/abc/Project.toml", "2026-10-01")
 
 
 def person(name="Jane Doe", packages=("A",), evidence=(), orcids=()):
@@ -194,7 +192,7 @@ class TestPeople(unittest.TestCase):
     def test_email_joins_spellings_across_packages(self):
         ppl = People()
         for pkg, name in (("A", "Chris Rackauckas"), ("B", "ChrisRackauckas"), ("C", "Christopher Rackauckas")):
-            ppl.add(Mention(pkg, name, *REF, email="cr@example.org"))
+            ppl.add(Mention(pkg, name, email="cr@example.org"))
         persons, _ = ppl.clusters()
         self.assertEqual(len(persons), 1)
         self.assertEqual(persons[0].packages, {"A", "B", "C"})
@@ -202,7 +200,7 @@ class TestPeople(unittest.TestCase):
 
     def test_person_carries_no_address(self):
         ppl = People()
-        ppl.add(Mention("A", "Jane Doe", *REF, email="jd@example.org"))
+        ppl.add(Mention("A", "Jane Doe", email="jd@example.org"))
         persons, _ = ppl.clusters()
         assert_no_emails(repr(persons), "persons")
 
@@ -290,11 +288,10 @@ class TestPersonDecision(unittest.TestCase):
 
 
 def package(**kw):
-    md = RepoMetadata(retrieved="2026-10-01", project_url=REF[0], license="MIT",
+    md = RepoMetadata(project_url="https://github.com/o/r/blob/abc/Project.toml", license="MIT",
                       license_url="https://github.com/o/r/blob/abc/LICENSE.md",
                       citation_url="https://github.com/o/r/blob/abc/CITATION.bib", deps=["NLSolversBase", "LinearAlgebra"])
-    base = dict(name="Optim", uuid="u", repo="https://github.com/JuliaNLSolvers/Optim.jl.git",
-                path="O/Optim", registry_sha="sha1", retrieved="2026-10-01", metadata=md,
+    base = dict(name="Optim", uuid="u", repo="https://github.com/JuliaNLSolvers/Optim.jl.git", metadata=md,
                 version="2.3.2", versions=[("2.0.0", None), ("2.3.2", "2026-09-30")],
                 papers=["Q999"])
     base.update(kw)
@@ -306,30 +303,21 @@ class TestPlannedStatements(unittest.TestCase):
         jp = package()
         linked = person("Patrick Kofod Mogensen")
         linked.qid = "Q5"
-        jp.authors = [(Mention("Optim", "Patrick K. Mogensen", *REF), linked),
-                      (Mention("Optim", "Asbjørn Riseth", *REF), person("Asbjørn Riseth"))]
+        jp.authors = [(Mention("Optim", "Patrick K. Mogensen"), linked),
+                      (Mention("Optim", "Asbjørn Riseth"), person("Asbjørn Riseth"))]
         return jp.plan("Q1", "Q2")
 
-    def test_every_statement_is_referenced_except_versions_and_profile_type(self):
-        for st in self.plan():
-            self.assertEqual(st.referenced, st.prop not in (VERSION, PROFILE_TYPE), st.prop)
-
-    def test_every_package_is_a_julia_package_with_the_software_profile(self):
+    def test_registry_facts(self):
         by = {st.prop: st.value for st in self.plan()}
-        self.assertEqual((by[INSTANCE_OF], by[PROFILE_TYPE]), ("Q1", "Q2"))
+        self.assertEqual((by[PACKAGE_NAME], by[INSTANCE_OF], by[PROFILE_TYPE], by[SOURCE_REPOSITORY]),
+                         ("Optim", "Q1", "Q2", "https://github.com/JuliaNLSolvers/Optim.jl.git"))
 
-    def test_registry_facts_are_stated_in_the_registry(self):
-        by = {st.prop: st for st in self.plan()}
-        for prop in (PACKAGE_NAME, SOURCE_REPOSITORY):
-            self.assertTrue(by[prop].stated_in_registry)
-            self.assertIn("/JuliaRegistries/General/blob/sha1/", by[prop].ref_url)
-
-    def test_one_statement_per_version_with_its_publication_date_only(self):
-        """As for CRAN: every live version, qualified with the day it was published, no reference."""
+    def test_one_statement_per_version_with_its_publication_date(self):
+        """As for CRAN: every live version, qualified with the day it was published."""
         sts = [st for st in self.plan() if st.prop == VERSION]
-        self.assertEqual([(st.value, st.qualifiers, st.ref_url) for st in sts],
-                         [("2.0.0", [], None),
-                          ("2.3.2", [(PUBLICATION_DATE, "+2026-09-30T00:00:00Z", {"precision": 11})], None)])
+        self.assertEqual([(st.value, st.qualifiers) for st in sts],
+                         [("2.0.0", []),
+                          ("2.3.2", [(PUBLICATION_DATE, "+2026-09-30T00:00:00Z", {"precision": 11})])])
 
     def test_without_version_history_the_latest_version_is_still_written(self):
         sts = [st for st in package(versions=[]).plan("Q1", "Q2") if st.prop == VERSION]
@@ -349,16 +337,15 @@ class TestPlannedStatements(unittest.TestCase):
 
     def test_dependencies_only_to_known_packages(self):
         deps = package().plan_dependencies({"NLSolversBase": "Q7"})
-        self.assertEqual([(d.value, d.ref_url) for d in deps], [("Q7", REF[0])])
+        self.assertEqual([d.value for d in deps], ["Q7"])
 
 
 class TestUpdateRule(unittest.TestCase):
     """Updates only add: present values are skipped, single-valued conflicts left alone."""
 
     def test_add_only(self):
-        planned = [Planned(LICENSE, "Q56842", "u", "d"), Planned(VERSION, "2.0.0", "u", "d"),
-                   Planned(SOURCE_REPOSITORY, "https://github.com/A/B.jl.git", "u", "d"),
-                   Planned(PACKAGE_NAME, "B", "u", "d")]
+        planned = [Planned(LICENSE, "Q56842"), Planned(VERSION, "2.0.0"),
+                   Planned(SOURCE_REPOSITORY, "https://github.com/A/B.jl.git"), Planned(PACKAGE_NAME, "B")]
         existing = {LICENSE: ["Q56634"], VERSION: ["1.0.0"],
                     SOURCE_REPOSITORY: ["https://github.com/a/b.jl"], PACKAGE_NAME: []}
         add, conflicts = JuliaPackage.merge(planned, existing)
@@ -366,7 +353,7 @@ class TestUpdateRule(unittest.TestCase):
         self.assertEqual([c["property"] for c in conflicts], [LICENSE])
 
     def test_profile_type_is_added_when_missing_and_never_changed(self):
-        planned = [Planned(PROFILE_TYPE, "Q2", None, None)]
+        planned = [Planned(PROFILE_TYPE, "Q2")]
         self.assertEqual(JuliaPackage.merge(planned, {PROFILE_TYPE: []})[0], planned)      # missing: added
         self.assertEqual(JuliaPackage.merge(planned, {PROFILE_TYPE: ["Q2"]}), ([], []))    # present: skipped
         add, conflicts = JuliaPackage.merge(planned, {PROFILE_TYPE: ["Q7"]})               # other profile: kept
@@ -380,7 +367,7 @@ class TestUpdateRule(unittest.TestCase):
         snak = lambda v: {"mainsnak": {"datavalue": {"value": v, "type": "string"}}}
         item.get_json.return_value = {"claims": {"P472": [
             {**snak("1.0.0"), "qualifiers": {"P22": [{}]}}, snak("1.1.0")]}}
-        self.assertEqual(existing_values(api, item, [Planned(VERSION, "1.1.0", "u", "d")]), {VERSION: ["1.0.0"]})
+        self.assertEqual(existing_values(api, item, [Planned(VERSION, "1.1.0")]), {VERSION: ["1.0.0"]})
 
 
 class _Container:
@@ -399,37 +386,32 @@ class TestWritingAStatement(unittest.TestCase):
     def setUp(self):
         # the package re-exports the class under the module's name, so take the module itself
         jp_module = sys.modules["mardi_importer.julia.JuliaPackage"]
-        self._orig = jp_module._wbi_models
-        jp_module._wbi_models = lambda: (_Container, _Container, _Container)
-        self.addCleanup(setattr, jp_module, "_wbi_models", self._orig)
+        self._orig = jp_module._wbi_qualifiers
+        jp_module._wbi_qualifiers = lambda: _Container
+        self.addCleanup(setattr, jp_module, "_wbi_qualifiers", self._orig)
         self.api = Mock()
         self.api.get_claim.side_effect = lambda prop, value, **kw: (prop, value)
         self.item = Mock()
 
-    def test_reference_block(self):
-        add_planned(self.api, self.item, Planned(PACKAGE_NAME, "Optim", "https://x/Package.toml", "2026-10-01", True), "Q42")
-        refs = self.item.add_claim.call_args.kwargs["references"]
-        (ref,) = refs.added
-        self.assertEqual(ref.added, [("wdt:P248", "Q42"), ("wdt:P854", "https://x/Package.toml"),
-                                     ("wdt:P813", "+2026-10-01T00:00:00Z")])
+    def test_statement_without_qualifiers_carries_nothing_else(self):
+        add_planned(self.api, self.item, Planned(PACKAGE_NAME, "Optim"))
+        self.item.add_claim.assert_called_once_with(PACKAGE_NAME, "Optim")
 
     def test_qualifier_keeps_the_name_as_stated(self):
-        add_planned(self.api, self.item, Planned(AUTHOR, "Q5", "u", "2026-10-01",
-                                                 qualifiers=[(OBJECT_NAMED_AS, "ChrisRackauckas")]), "Q42")
-        quals = self.item.add_claim.call_args.kwargs["qualifiers"]
-        self.assertEqual(quals.added, [(OBJECT_NAMED_AS, "ChrisRackauckas")])
-
-    def test_version_has_a_dated_qualifier_and_no_reference(self):
-        add_planned(self.api, self.item, Planned(VERSION, "1.0.0", None, None,
-                                                 qualifiers=[(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", {"precision": 11})]), "Q42")
+        add_planned(self.api, self.item, Planned(AUTHOR, "Q5", [(OBJECT_NAMED_AS, "ChrisRackauckas")]))
         kwargs = self.item.add_claim.call_args.kwargs
-        self.assertEqual(kwargs["qualifiers"].added, [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z")])
-        self.assertNotIn("references", kwargs)
+        self.assertEqual((kwargs["qualifiers"].added, set(kwargs)), ([(OBJECT_NAMED_AS, "ChrisRackauckas")], {"qualifiers"}))
+
+    def test_version_has_a_day_precision_date_qualifier(self):
+        add_planned(self.api, self.item,
+                    Planned(VERSION, "1.0.0", [(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", {"precision": 11})]))
+        kwargs = self.item.add_claim.call_args.kwargs
+        self.assertEqual((kwargs["qualifiers"].added, set(kwargs)), ([(PUBLICATION_DATE, "+2019-07-31T00:00:00Z")], {"qualifiers"}))
         self.api.get_claim.assert_any_call(PUBLICATION_DATE, "+2019-07-31T00:00:00Z", precision=11)
 
     def test_refuses_an_address(self):
         with self.assertRaises(ValueError):
-            add_planned(self.api, self.item, Planned(AUTHOR_NAME_STRING, "Jane <jd@example.org>", "u", "d"), "Q42")
+            add_planned(self.api, self.item, Planned(AUTHOR_NAME_STRING, "Jane <jd@example.org>"))
         self.item.add_claim.assert_not_called()
 
 
@@ -439,7 +421,7 @@ class TestReport(unittest.TestCase):
         src.registry_sha, src.publications = "sha1", {}
         src.packages = [package()]
         ppl = People()
-        ppl.add(Mention("Optim", "Jane Doe", *REF, email="jd@example.org"))
+        ppl.add(Mention("Optim", "Jane Doe", email="jd@example.org"))
         src.persons, _ = ppl.clusters()
         report = src.summary()
         self.assertNotIn("@", json.dumps(report))

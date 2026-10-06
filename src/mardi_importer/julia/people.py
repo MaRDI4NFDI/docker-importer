@@ -30,8 +30,6 @@ def norm_name(name: str) -> str:
 class Mention:
     package: str
     name: str                      # as stated in the source
-    ref_url: str                   # file the name was read from
-    retrieved: str
     email: str | None = field(default=None, repr=False)
     orcid: str | None = None
 
@@ -43,7 +41,6 @@ class Person:
     packages: set[str]
     orcids: set[str]
     evidence: set[str]             # kinds only: {"orcid", "email", "name"}
-    first_ref: tuple[str, str] = ("", "")
     qid: str | None = None         # existing item, or set once created
     linked_by: str | None = None   # "orcid" | "cited paper author"
     action: str | None = None      # "link" | "create"; None → author name string
@@ -106,8 +103,7 @@ class People:
                 evidence.add("orcid")
             built.append((idxs, Person(
                 id="", names=Counter(m.name for m in ms), packages={m.package for m in ms},
-                orcids={m.orcid for m in ms if m.orcid}, evidence=evidence,
-                first_ref=(ms[0].ref_url, ms[0].retrieved))))
+                orcids={m.orcid for m in ms if m.orcid}, evidence=evidence)))
         built.sort(key=lambda b: (b[1].canonical.casefold(), min(b[0])))
         by_mention: dict[int, Person] = {}
         for n, (idxs, person) in enumerate(built, 1):

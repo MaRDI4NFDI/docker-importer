@@ -5,8 +5,8 @@ JuliaNLSolvers or JuliaDiff (no ``_jll`` binary wrappers, no sub-directory
 packages except StochasticDiffEq and DelayDiffEq). For each package the importer
 writes the registry facts (name, repository, every registered version with the
 day it was registered), the licence, authors, dependencies and the publications
-its citation file names — every statement with a reference to where it was read,
-except the versions, which carry their date only, as for CRAN.
+its citation file names. Statements carry no references, as for CRAN; the run's
+log and report say what was read from where.
 
 Decisions encoded here (recorded in the MaRDI agents project, D016–D024):
 
@@ -39,7 +39,6 @@ import json
 import logging
 import re
 import tempfile
-from datetime import date
 from pathlib import Path
 from typing import Iterable
 
@@ -59,7 +58,6 @@ log = logging.getLogger("JuliaLogger")
 
 USER_AGENT = "mardi-importer (https://portal.mardi4nfdi.de; Julia General import)"
 JULIA_PACKAGE_CLASS = "Julia package"
-REGISTRY_ITEM = "Julia General registry"
 
 
 # -- pure decision rules ---------------------------------------------------------------
@@ -146,7 +144,6 @@ class JuliaSource(ADataSource):
         pkgs = sorted((p for p in all_pkgs if in_scope(p) and (not wanted or p["name"] in wanted)),
                       key=lambda p: p["name"])
         log.info("Julia General @ %s: %d packages in scope", self.registry_sha[:7], len(pkgs))
-        today = date.today().isoformat()
         dates = registration_dates(root)
         versions = {p["name"]: version_dates(root, p, dates) for p in pkgs}
         n_all = sum(len(v) for v in versions.values())
@@ -165,12 +162,10 @@ class JuliaSource(ADataSource):
         self.packages = []
         for p in pkgs:
             md = meta[p["name"]]
-            jp = JuliaPackage(name=p["name"], uuid=p["uuid"], repo=p["repo"], path=p["path"],
-                              registry_sha=self.registry_sha, retrieved=today, metadata=md,
+            jp = JuliaPackage(name=p["name"], uuid=p["uuid"], repo=p["repo"], metadata=md,
                               subdir=p.get("subdir"), version=p.get("version"),
                               versions=versions[p["name"]],
-                              wikidata_qid=wikidata.get(repo_key(p["repo"])),
-                              wikidata_retrieved=today, notes=list(md.notes))
+                              wikidata_qid=wikidata.get(repo_key(p["repo"])), notes=list(md.notes))
             if undated := [v for v, day in jp.versions if not day]:
                 jp.notes.append(f"{len(undated)} version(s) predate the registry's history: "
                                 "written without publication date")
@@ -325,11 +320,10 @@ class JuliaSource(ADataSource):
             md = meta[p["name"]]
             if md.project_url:
                 for name, email in md.author_entries:
-                    people.add(Mention(p["name"], name, md.project_url, md.retrieved, email=email))
+                    people.add(Mention(p["name"], name, email=email))
             if md.cff_url:
                 for a in md.cff_authors:
-                    people.add(Mention(p["name"], a["name"], md.cff_url, md.retrieved,
-                                       email=a["email"], orcid=a["orcid"]))
+                    people.add(Mention(p["name"], a["name"], email=a["email"], orcid=a["orcid"]))
         self.persons, by_mention = people.clusters()
         if orcid_links:
             self._apply_orcid_links(orcid_links)
@@ -397,12 +391,10 @@ class JuliaSource(ADataSource):
         """Write people, then publications, then packages, then dependencies."""
         cls = self._local_item(JULIA_PACKAGE_CLASS)
         software_profile = self._local_item(SOFTWARE_PROFILE)
-        registry_item = self._local_item(REGISTRY_ITEM)
-        today = date.today().isoformat()
 
         for person in self.persons:
             try:
-                self._write_person(person, today)
+                self._write_person(person)
             except Exception as exc:
                 log.error("Person %s not written: %s", person.canonical, exc, exc_info=True)
 
@@ -425,7 +417,7 @@ class JuliaSource(ADataSource):
                 continue
             jp.papers = sorted({q for k in self.cited.get(jp.name, []) for q in self.targets.get(k, [])})
             try:
-                qid = jp.write(self.api, jp.plan(cls, software_profile), registry_item)
+                qid = jp.write(self.api, jp.plan(cls, software_profile))
                 results[jp.name] = {"qid": qid, "status": "updated" if jp.matched_by else "created",
                                     "conflicts": jp.conflicts}
             except Exception as exc:
@@ -440,7 +432,7 @@ class JuliaSource(ADataSource):
                     item = self.api.item.get(entity_id=jp.qid)
                     add, _ = JuliaPackage.merge(deps, existing_values(self.api, item, deps))
                     for st in add:
-                        add_planned(self.api, item, st, registry_item)
+                        add_planned(self.api, item, st)
                     if add:
                         item.write()
                 except Exception as exc:
@@ -456,7 +448,7 @@ class JuliaSource(ADataSource):
             raise RuntimeError(f"Local item '{label}' is missing; run setup()")
         return qid
 
-    def _write_person(self, person: Person, today: str) -> None:
+    def _write_person(self, person: Person) -> None:
         if person.action == "link":
             # An existing item gains the ORCID only if it has none; a different
             # ORCID already there is a conflict for a person, not a second value.
@@ -464,10 +456,10 @@ class JuliaSource(ADataSource):
                 return
             orcid = next(iter(person.orcids))
             item = self.api.item.get(entity_id=person.qid)
-            planned = [Planned("wdt:P496", orcid, f"https://orcid.org/{orcid}", today)]
+            planned = [Planned("wdt:P496", orcid)]
             have = existing_values(self.api, item, planned).get("wdt:P496", [])
             if not have:
-                add_planned(self.api, item, planned[0], "")
+                add_planned(self.api, item, planned[0])
                 item.write()
             elif orcid not in have:
                 log.warning("%s (%s) has ORCID %s, not %s; left unchanged",
@@ -481,10 +473,9 @@ class JuliaSource(ADataSource):
                 assert_no_emails(a, "person alias")
             if aliases:
                 item.aliases.set(language="en", values=aliases)
-            url, retrieved = person.first_ref
-            add_planned(self.api, item, Planned("wdt:P31", "wd:Q5", url, retrieved), "")
+            add_planned(self.api, item, Planned("wdt:P31", "wd:Q5"))
             for o in sorted(person.orcids):
-                add_planned(self.api, item, Planned("wdt:P496", o, f"https://orcid.org/{o}", today), "")
+                add_planned(self.api, item, Planned("wdt:P496", o))
             item.add_claim(PROFILE_TYPE, PERSON_PROFILE)
             person.qid = item.write().id
             if person.possible_duplicates:

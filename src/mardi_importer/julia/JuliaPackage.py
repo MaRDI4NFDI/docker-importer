@@ -3,15 +3,11 @@
 Statements are first planned as plain data (:class:`Planned`) so the rules can be
 tested without a Wikibase; :meth:`JuliaPackage.write` then turns them into claims.
 
-Every statement carries a reference — *stated in* the Julia General registry for
-registry facts, *reference URL* of the exact file it was read from (pinned to a
-commit), and *retrieved* — except versions: every registered (non-yanked) version
-becomes a *software version identifier* statement qualified with its *publication
-date*, the day it was registered in General, and nothing more, as the CRAN source
-does for R packages; a reference on each of hundreds of versions would outweigh
-the rest of the item. The *MaRDI profile type*, a portal-internal classification,
-carries no reference either. Properties and items are given as Wikidata IDs and
-resolved to local IDs by mardiclient.
+Statements carry no references, as for CRAN packages; what was read from where
+is kept in the run's log and report. Every registered (non-yanked) version
+becomes a *software version identifier* statement qualified with its
+*publication date*, the day it was registered in General. Properties and items
+are given as Wikidata IDs and resolved to local IDs by mardiclient.
 
 An existing item is only ever added to (never overwritten or pruned): a value
 already present is skipped, and a single-valued property that already holds a
@@ -26,7 +22,7 @@ from typing import Any
 
 from .metadata import LICENSES, RepoMetadata
 from .people import Mention, Person, assert_no_emails
-from .registry import registry_url, repo_key
+from .registry import repo_key
 
 log = logging.getLogger("JuliaLogger")
 
@@ -42,9 +38,6 @@ AUTHOR_NAME_STRING = "wdt:P2093"
 OBJECT_NAMED_AS = "wdt:P1932"
 DEPENDS_ON = "wdt:P1547"
 DESCRIBED_BY_SOURCE = "wdt:P1343"
-STATED_IN = "wdt:P248"
-REFERENCE_URL = "wdt:P854"
-RETRIEVED = "wdt:P813"
 # Local properties and items (see new_entities.json).
 PACKAGE_NAME = "Julia General registry package name"
 WIKIDATA_QID = "Wikidata QID"
@@ -60,21 +53,14 @@ SINGLE_VALUED = frozenset({INSTANCE_OF, PROGRAMMED_IN, SOURCE_REPOSITORY, LICENS
 
 @dataclass
 class Planned:
-    """One statement to write: property, value, qualifiers, and its reference.
+    """One statement to write: property, value and qualifiers.
 
     A qualifier is ``(property, value)`` or ``(property, value, claim kwargs)``,
     the kwargs going to ``get_claim`` (e.g. a time precision).
     """
     prop: str
     value: Any
-    ref_url: str | None
-    retrieved: str | None
-    stated_in_registry: bool = False
     qualifiers: list[tuple] = field(default_factory=list)
-
-    @property
-    def referenced(self) -> bool:
-        return bool(self.ref_url and self.retrieved)
 
 
 def time_value(day: str) -> str:
@@ -86,9 +72,6 @@ class JuliaPackage:
     name: str
     uuid: str
     repo: str
-    path: str
-    registry_sha: str
-    retrieved: str
     metadata: RepoMetadata
     subdir: str | None = None
     version: str | None = None        # latest live version
@@ -98,7 +81,6 @@ class JuliaPackage:
     qid: str | None = None            # existing item (update) or the created one
     matched_by: str | None = None
     wikidata_qid: str | None = None
-    wikidata_retrieved: str | None = None
     papers: list[str] = field(default_factory=list)    # QIDs of cited publications
     authors: list[tuple[Mention, Person]] = field(default_factory=list)
     conflicts: list[dict] = field(default_factory=list)
@@ -117,28 +99,22 @@ class JuliaPackage:
         *Julia package* class and the *MaRDI software profile*; every Julia package
         item, created or updated, is an instance of the one and carries the other.
         """
-        pkg = {"path": self.path}
-        reg = registry_url(self.registry_sha, pkg, "Package.toml")
         md = self.metadata
         out = [
-            Planned(PACKAGE_NAME, self.name, reg, self.retrieved, True),
-            Planned(INSTANCE_OF, julia_package_class, reg, self.retrieved, True),
-            Planned(PROFILE_TYPE, software_profile, None, None),
-            Planned(PROGRAMMED_IN, JULIA, reg, self.retrieved, True),
-            Planned(SOURCE_REPOSITORY, self.repo, reg, self.retrieved, True),
+            Planned(PACKAGE_NAME, self.name),
+            Planned(INSTANCE_OF, julia_package_class),
+            Planned(PROFILE_TYPE, software_profile),
+            Planned(PROGRAMMED_IN, JULIA),
+            Planned(SOURCE_REPOSITORY, self.repo),
         ]
         for v, day in self.versions or ([(self.version, None)] if self.version else []):
             quals = [(PUBLICATION_DATE, time_value(day), {"precision": 11})] if day else []
-            out.append(Planned(VERSION, v, None, None, qualifiers=quals))
-        if md.license and md.license_url:
-            out.append(Planned(LICENSE, LICENSES[md.license], md.license_url, md.retrieved))
-        if md.citation_url:
-            out += [Planned(DESCRIBED_BY_SOURCE, q, md.citation_url, md.retrieved)
-                    for q in self.papers]
+            out.append(Planned(VERSION, v, quals))
+        if md.license:
+            out.append(Planned(LICENSE, LICENSES[md.license]))
+        out += [Planned(DESCRIBED_BY_SOURCE, q) for q in self.papers]
         if self.wikidata_qid:
-            out.append(Planned(WIKIDATA_QID, self.wikidata_qid,
-                               f"https://www.wikidata.org/wiki/{self.wikidata_qid}",
-                               self.wikidata_retrieved))
+            out.append(Planned(WIKIDATA_QID, self.wikidata_qid))
         out += self.plan_authors()
         return out
 
@@ -153,19 +129,17 @@ class JuliaPackage:
                 continue
             done.add(person.id)
             if person.qid:
-                out.append(Planned(AUTHOR, person.qid, m.ref_url, m.retrieved,
-                                   qualifiers=[(OBJECT_NAMED_AS, m.name)]))
+                out.append(Planned(AUTHOR, person.qid, [(OBJECT_NAMED_AS, m.name)]))
             else:
-                out.append(Planned(AUTHOR_NAME_STRING, m.name, m.ref_url, m.retrieved))
+                out.append(Planned(AUTHOR_NAME_STRING, m.name))
         return out
 
     def plan_dependencies(self, qid_of: dict[str, str]) -> list[Planned]:
         """``depends on software`` to packages that exist or were created in this run."""
         md = self.metadata
-        if not md.project_url:
+        if not md.project_url:          # no Project.toml read: dependencies unknown
             return []
-        return [Planned(DEPENDS_ON, qid_of[d], md.project_url, md.retrieved)
-                for d in md.deps if d in qid_of]
+        return [Planned(DEPENDS_ON, qid_of[d]) for d in md.deps if d in qid_of]
 
     # -- update rule (pure) -------------------------------------------------------
 
@@ -187,7 +161,7 @@ class JuliaPackage:
 
     # -- writing --------------------------------------------------------------------
 
-    def write(self, api, planned: list[Planned], registry_item: str) -> str | None:
+    def write(self, api, planned: list[Planned]) -> str | None:
         """Create the item, or add the planned statements to the existing one."""
         planned = resolve_items(api, planned)
         if self.qid:
@@ -202,7 +176,7 @@ class JuliaPackage:
         if not planned:
             return self.qid
         for st in planned:
-            add_planned(api, item, st, registry_item)
+            add_planned(api, item, st)
         written = item.write()
         self.qid = written.id
         return self.qid
@@ -215,7 +189,7 @@ def resolve_items(api, planned: list[Planned]) -> list[Planned]:
         if isinstance(st.value, str) and st.value.startswith("wd:"):
             local = api.get_local_id_by_label(st.value, "item")
             local = local[0] if isinstance(local, list) else local
-            st = Planned(st.prop, local, st.ref_url, st.retrieved, st.stated_in_registry, st.qualifiers)
+            st = Planned(st.prop, local, st.qualifiers)
         out.append(st)
     return out
 
@@ -255,33 +229,22 @@ def existing_values(api, item, planned: list[Planned]) -> dict[str, list[str]]:
     return out
 
 
-def _wbi_models():
-    """WikibaseIntegrator's qualifier and reference containers (replaceable in tests)."""
-    from wikibaseintegrator.models import Qualifiers, Reference, References
-    return Qualifiers, Reference, References
+def _wbi_qualifiers():
+    """WikibaseIntegrator's qualifier container (replaceable in tests)."""
+    from wikibaseintegrator.models import Qualifiers
+    return Qualifiers
 
 
-def add_planned(api, item, st: Planned, registry_item: str) -> None:
-    """Add one planned statement with its qualifiers and reference."""
-    Qualifiers, Reference, References = _wbi_models()
-
+def add_planned(api, item, st: Planned) -> None:
+    """Add one planned statement with its qualifiers; statements carry no references."""
     value = st.value
     if isinstance(value, str):
         assert_no_emails(value, f"{st.prop} of {item.labels.get('en')}")
     kwargs: dict[str, Any] = {}
     if st.qualifiers:
-        q = Qualifiers()
+        q = _wbi_qualifiers()()
         for prop, v, *extra in st.qualifiers:
             assert_no_emails(str(v), f"qualifier {prop}")
             q.add(api.get_claim(prop, v, **(extra[0] if extra else {})))
         kwargs["qualifiers"] = q
-    if st.referenced:
-        ref = Reference()
-        if st.stated_in_registry:
-            ref.add(api.get_claim(STATED_IN, registry_item))
-        ref.add(api.get_claim(REFERENCE_URL, st.ref_url))
-        ref.add(api.get_claim(RETRIEVED, time_value(st.retrieved), precision=11))
-        refs = References()
-        refs.add(ref)
-        kwargs["references"] = refs
     item.add_claim(st.prop, value, **kwargs)

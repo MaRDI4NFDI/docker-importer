@@ -15,7 +15,6 @@ import re
 import subprocess
 import tomllib
 from dataclasses import dataclass, field
-from datetime import date
 
 import requests
 
@@ -242,7 +241,6 @@ def cff_authors(text: str) -> list[dict]:
 class RepoMetadata:
     """What one package's repository says about it, each fact with its source URL."""
     commit: str | None = None
-    retrieved: str = ""
     project_url: str | None = None
     author_entries: list[tuple[str, str | None]] = field(default_factory=list, repr=False)
     deps: list[str] = field(default_factory=list)
@@ -281,7 +279,7 @@ def blob_url(repo: str, sha: str, subdir: str | None, fname: str) -> str:
 
 def fetch_repo_metadata(pkg: dict, session: requests.Session) -> RepoMetadata:
     """Project.toml, licence and citation files of one package at a pinned commit."""
-    md = RepoMetadata(retrieved=date.today().isoformat())
+    md = RepoMetadata()
     sha = head_commit(pkg["repo"])
     if not sha:
         md.notes.append("repository unreachable")

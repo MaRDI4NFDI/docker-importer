@@ -194,7 +194,3 @@ def version_dates(root: Path, pkg: dict, index: dict) -> list[tuple[str, str | N
                 known[v] = history[v][:2]
     return [(v, known[v][0] if v in known else None) for v in pkg.get("versions", [])]
 
-
-def registry_url(sha: str, pkg: dict, fname: str) -> str:
-    """Reference URL for a registry fact, pinned to the registry commit."""
-    return f"https://github.com/JuliaRegistries/General/blob/{sha}/{pkg['path']}/{fname}"

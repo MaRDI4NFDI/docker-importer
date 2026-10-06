@@ -15,7 +15,10 @@ Decisions encoded here (recorded in the MaRDI agents project, D016–D024):
   own repository; or it has the package's name and a repository named
   ``<Name>.jl`` (the same package before its repository moved). A name shared
   with other software (SUNDIALS vs. Sundials.jl) creates a new item and leaves
-  the existing one untouched. Updates only add, never overwrite.
+  the existing one untouched. Candidates are found by label through the wiki's
+  own search, not the triple store, so a rerun sees what the previous run wrote;
+  the triple store only adds items recording the repository under another label.
+  Updates only add, never overwrite.
 * **People.** An existing person item is reused only when it is certainly the
   same person: it carries the person's ORCID, or it is the same-named author of
   a paper the person's own package cites. Otherwise an identifiable person —
@@ -47,8 +50,8 @@ from wikibaseintegrator.wbi_helpers import execute_sparql_query
 
 from mardi_importer.base import ADataSource
 
-from .JuliaPackage import (PERSON_PROFILE, PROFILE_TYPE, SOFTWARE_PROFILE, JuliaPackage, Planned,
-                           add_planned, existing_values)
+from .JuliaPackage import (PACKAGE_NAME, PERSON_PROFILE, PROFILE_TYPE, SOFTWARE_PROFILE, JuliaPackage,
+                           Planned, add_planned, existing_values)
 from .metadata import fetch_repo_metadata, is_zenodo
 from .people import Mention, People, Person, assert_no_emails, norm_name, same_person_possible
 from .registry import (SEED_ORGS, clone_registry, in_scope, read_registry, registration_dates,
@@ -96,6 +99,17 @@ def decide_person(person: Person, by_orcid: dict[str, list[str]],
                         or person.new_papers or person.orcids or len(coauthor) > 1)
         if identifiable and not person.is_handle:
             person.action = "create"
+
+
+def _values(claims: list[dict]) -> list[str]:
+    """Main values of one property's claims: item QIDs or the value as a string."""
+    out = []
+    for c in claims:
+        dv = c.get("mainsnak", {}).get("datavalue")
+        if dv:
+            v = dv["value"]
+            out.append(v["id"] if isinstance(v, dict) and "id" in v else str(v))
+    return out
 
 
 def norm_title(title: str) -> str:
@@ -156,7 +170,7 @@ class JuliaSource(ADataSource):
             if i % 50 == 0:
                 log.info("  read %d/%d repositories", i, len(pkgs))
 
-        index = self._mardi_index()
+        repo_index = self._repo_index()
         wikidata = self._wikidata_by_repo()
 
         self.packages = []
@@ -169,7 +183,7 @@ class JuliaSource(ADataSource):
             if undated := [v for v, day in jp.versions if not day]:
                 jp.notes.append(f"{len(undated)} version(s) predate the registry's history: "
                                 "written without publication date")
-            self._decide_package(jp, p, index)
+            self._decide_package(jp, p, repo_index)
             self.packages.append(jp)
 
         self._resolve_citations(meta)
@@ -184,50 +198,58 @@ class JuliaSource(ADataSource):
         pid = self.api.get_local_id_by_label(prop, "property")
         return pid[0] if isinstance(pid, list) else pid
 
-    def _mardi_index(self) -> dict:
-        """Existing items by registry name, repository and label — whole sets, matched locally.
+    def _repo_index(self) -> dict[str, set[str]]:
+        """Items recording a repository, by repository key — from the SPARQL store, best effort.
 
-        No multi-value VALUES blocks: on the Blazegraph endpoint they return zero
-        rows instead of failing.
+        The primary lookup reads the live wiki by label (:meth:`_candidates`). This
+        index only adds items whose label is not the package name but which record
+        its repository; a failing or stale endpoint costs those matches, not the run.
         """
-        qid = lambda uri: uri.rsplit("/", 1)[-1]
-        index = {"by_package_name": {}, "by_repo": {}, "by_label": {}}
-        name_pid = self._pid("Julia General registry package name")
-        if name_pid:
-            for r in self._sparql(f"SELECT ?item ?v WHERE {{ ?item wdt:{name_pid} ?v }}"):
-                index["by_package_name"].setdefault(r["v"], set()).add(qid(r["item"]))
-        repo_pid = self._pid("wdt:P1324")
-        for r in self._sparql(f"SELECT ?item ?v WHERE {{ ?item wdt:{repo_pid} ?v }}"):
-            if (k := repo_key(r["v"])):
-                index["by_repo"].setdefault(k, set()).add(qid(r["item"]))
-        for prop in ("swMATH work ID", "wdt:P1324"):
-            pid = self._pid(prop)
-            if not pid:
-                continue
-            for r in self._sparql(f"""SELECT ?item ?l WHERE {{ ?item wdt:{pid} ?x .
-                ?item <http://www.w3.org/2000/01/rdf-schema#label> ?l FILTER(LANG(?l) = "en") }}"""):
-                index["by_label"].setdefault(r["l"].casefold(), set()).add(qid(r["item"]))
+        index: dict[str, set[str]] = {}
+        try:
+            repo_pid = self._pid("wdt:P1324")
+            for r in self._sparql(f"SELECT ?item ?v WHERE {{ ?item wdt:{repo_pid} ?v }}"):
+                if (k := repo_key(r["v"])):
+                    index.setdefault(k, set()).add(r["item"].rsplit("/", 1)[-1])
+        except Exception as exc:
+            log.warning("SPARQL repository index unavailable, matching by label only: %s", exc)
+        log.info("  %d repositories known to the SPARQL store", len(index))
         return index
 
-    def _decide_package(self, jp: JuliaPackage, pkg: dict, index: dict) -> None:
-        known = index["by_package_name"].get(jp.name, set())
-        by_repo = index["by_repo"].get(repo_key(jp.repo), set())
-        by_name = (index["by_label"].get(jp.name.casefold(), set())
-                   | index["by_label"].get(f"{jp.name}.jl".casefold(), set()))
-        urls_of = {q: self._item_urls(q) for q in by_name - by_repo}
-        same = sorted(known) or same_software(pkg, by_repo, by_name, urls_of)
+    def _candidates(self, jp: JuliaPackage) -> dict[str, dict]:
+        """Existing items labelled ``Name.jl`` or ``Name``, read from the live wiki.
+
+        Each with the registry package names and the repository and website URLs
+        it records. The label search goes through the importer-api, a database
+        query over labels (not aliases), so an item written a moment ago is found;
+        nothing here touches the triple store.
+        """
+        qids: set[str] = set()
+        for label in (jp.label, jp.name):
+            found = self.api.get_local_id_by_label(label, "item")
+            qids.update(found if isinstance(found, list) else [found] if found else [])
+        pids = [self._pid(PACKAGE_NAME), self._pid("wdt:P1324"), self._pid("wdt:P856")]
+        out = {}
+        for qid in sorted(qids, key=lambda q: int(q[1:])):
+            claims = self.api.item.get(entity_id=qid).get_json().get("claims", {})
+            names, repos, sites = (_values(claims.get(pid, [])) if pid else [] for pid in pids)
+            out[qid] = {"names": set(names), "urls": repos + sites}
+        return out
+
+    def _decide_package(self, jp: JuliaPackage, pkg: dict, repo_index: dict[str, set[str]]) -> None:
+        cands = self._candidates(jp)
+        key = repo_key(jp.repo)
+        known = {q for q, c in cands.items() if jp.name in c["names"]}
+        by_repo = ({q for q, c in cands.items() if key in {repo_key(u) for u in c["urls"]}}
+                   | repo_index.get(key, set()))
+        urls_of = {q: c["urls"] for q, c in cands.items()}
+        same = sorted(known) or same_software(pkg, by_repo, set(cands), urls_of)
         if same:
             jp.action, jp.qid = "update", same[0]
             jp.matched_by = "registry name" if known else "same software"
         if jp.metadata.license_unclear:
             jp.action = "skip"
             jp.notes.append("licence unclear: not written")
-
-    def _item_urls(self, qid: str) -> list[str]:
-        item = self.api.item.get(entity_id=qid)
-        planned = [Planned(p, None) for p in ("wdt:P1324", "wdt:P856")]
-        vals = existing_values(self.api, item, planned)
-        return vals.get("wdt:P1324", []) + vals.get("wdt:P856", [])
 
     def _wikidata_by_repo(self) -> dict[str, str]:
         rx = "|".join(o.lower() for o in SEED_ORGS)

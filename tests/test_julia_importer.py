@@ -415,22 +415,54 @@ class TestWritingAStatement(unittest.TestCase):
         self.item.add_claim.assert_not_called()
 
 
-class TestExistingItemLookups(unittest.TestCase):
-    """The helpers that read existing items build Planned() probes with no reference fields."""
+class TestPackageMatching(unittest.TestCase):
+    """Existing items are found by label through the wiki (not the triple store) and verified
+    from their statements; the SPARQL repository index is a supplement that may be missing."""
 
-    def api_and_item(self, claims):
-        api = Mock()
-        api.get_local_id_by_label.side_effect = lambda prop, kind: {"wdt:P1324": "P30", "wdt:P856": "P29", "wdt:P50": "P16"}.get(prop)
-        item = Mock()
-        item.get_json.return_value = {"claims": claims}
-        api.item.get.return_value = item
-        return api
+    PIDS = {"Julia General registry package name": "P1382", "wdt:P1324": "P30", "wdt:P856": "P29"}
 
-    def test_item_urls(self):
+    def source(self, by_label: dict, items: dict) -> JuliaSource:
+        """``by_label``: label → QIDs the wiki search returns; ``items``: QID → {pid: [values]}."""
         src = object.__new__(JuliaSource)
-        src.api = self.api_and_item({"P30": [{"mainsnak": {"datavalue": {"value": "https://github.com/a/B.jl", "type": "string"}}}],
-                                     "P29": [{"mainsnak": {"datavalue": {"value": "https://b.org", "type": "string"}}}]})
-        self.assertEqual(src._item_urls("Q1"), ["https://github.com/a/B.jl", "https://b.org"])
+        src.api = Mock()
+        src.api.get_local_id_by_label.side_effect = (
+            lambda s, kind: self.PIDS.get(s) if kind == "property" else list(by_label.get(s, [])))
+        snak = lambda v: {"mainsnak": {"datavalue": {"value": v, "type": "string"}}}
+        def get(entity_id):
+            item = Mock()
+            item.get_json.return_value = {"claims": {pid: [snak(v) for v in vals] for pid, vals in items[entity_id].items()}}
+            return item
+        src.api.item.get.side_effect = get
+        return src
+
+    def pkg(self):
+        return {"name": "Optim", "repo": "https://github.com/JuliaNLSolvers/Optim.jl.git", "subdir": None}
+
+    def test_own_item_is_found_by_registry_name_even_with_an_empty_sparql_store(self):
+        src = self.source({"Optim.jl": ["Q10"], "Optim": ["Q10", "Q77"]},
+                          {"Q10": {"P1382": ["Optim"]}, "Q77": {"P30": ["https://github.com/cran/optim"]}})
+        jp = package(); src._decide_package(jp, self.pkg(), {})
+        self.assertEqual((jp.action, jp.qid, jp.matched_by), ("update", "Q10", "registry name"))
+
+    def test_same_software_by_recorded_repository(self):
+        src = self.source({"Optim": ["Q41"]}, {"Q41": {"P30": ["https://github.com/JuliaNLSolvers/Optim.jl"]}})
+        jp = package(); src._decide_package(jp, self.pkg(), {})
+        self.assertEqual((jp.action, jp.qid, jp.matched_by), ("update", "Q41", "same software"))
+
+    def test_namesake_without_the_repository_creates_a_new_item(self):
+        src = self.source({"Optim": ["Q77"]}, {"Q77": {"P30": ["https://github.com/cran/optim"]}})
+        jp = package(); src._decide_package(jp, self.pkg(), {})
+        self.assertEqual((jp.action, jp.qid), ("create", None))
+
+    def test_sparql_index_adds_an_item_labelled_differently(self):
+        src = self.source({}, {})
+        jp = package(); src._decide_package(jp, self.pkg(), {"github.com/julianlsolvers/optim.jl": {"Q55"}})
+        self.assertEqual((jp.action, jp.qid, jp.matched_by), ("update", "Q55", "same software"))
+
+    def test_failing_sparql_store_does_not_stop_the_run(self):
+        src = self.source({}, {})
+        src._sparql = Mock(side_effect=RuntimeError("endpoint down"))
+        self.assertEqual(src._repo_index(), {})
 
 
 class TestReport(unittest.TestCase):

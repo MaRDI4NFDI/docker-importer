@@ -42,8 +42,9 @@ import json
 import logging
 import re
 import tempfile
+import time
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable, TypeVar
 
 import requests
 from wikibaseintegrator.wbi_helpers import execute_sparql_query
@@ -99,6 +100,27 @@ def decide_person(person: Person, by_orcid: dict[str, list[str]],
                         or person.new_papers or person.orcids or len(coauthor) > 1)
         if identifiable and not person.is_handle:
             person.action = "create"
+
+
+T = TypeVar("T")
+
+
+def with_retry(fn: Callable[[], T], what: str, attempts: int = 4, sleep: Callable[[float], None] = time.sleep) -> T:
+    """Call ``fn``; on a connection-level failure retry after 1, 3 and 9 seconds.
+
+    The importer-api recycles each worker after ~1000 requests and may reset the
+    connection it is serving at that moment; a lookup must survive that.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except requests.exceptions.RequestException as exc:     # connection reset, timeout, 5xx
+            if attempt == attempts:
+                raise
+            delay = 3 ** (attempt - 1)
+            log.warning("%s failed (%s); retrying in %ds (%d/%d)", what, exc, delay, attempt, attempts)
+            sleep(delay)
+    raise AssertionError("unreachable")
 
 
 def _values(claims: list[dict]) -> list[str]:
@@ -195,8 +217,12 @@ class JuliaSource(ADataSource):
         return [{k: v["value"] for k, v in b.items()} for b in res["results"]["bindings"]]
 
     def _pid(self, prop: str) -> str | None:
-        pid = self.api.get_local_id_by_label(prop, "property")
-        return pid[0] if isinstance(pid, list) else pid
+        """Local property ID for a label or Wikidata ID, resolved once per run."""
+        cache = self.__dict__.setdefault("_pid_cache", {})
+        if prop not in cache:
+            pid = with_retry(lambda: self.api.get_local_id_by_label(prop, "property"), f"resolving {prop}")
+            cache[prop] = pid[0] if isinstance(pid, list) else pid
+        return cache[prop]
 
     def _repo_index(self) -> dict[str, set[str]]:
         """Items recording a repository, by repository key — from the SPARQL store, best effort.
@@ -226,7 +252,7 @@ class JuliaSource(ADataSource):
         """
         qids: set[str] = set()
         for label in (jp.label, jp.name):
-            found = self.api.get_local_id_by_label(label, "item")
+            found = with_retry(lambda: self.api.get_local_id_by_label(label, "item"), f"searching items labelled {label!r}")
             qids.update(found if isinstance(found, list) else [found] if found else [])
         pids = [self._pid(PACKAGE_NAME), self._pid("wdt:P1324"), self._pid("wdt:P856")]
         out = {}

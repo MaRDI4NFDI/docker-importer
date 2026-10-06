@@ -23,7 +23,7 @@ from mardi_importer.julia.JuliaPackage import (  # noqa: E402
     PROFILE_TYPE, PUBLICATION_DATE, SOURCE_REPOSITORY, VERSION, JuliaPackage, Planned, add_planned,
     existing_values,
 )
-from mardi_importer.julia.JuliaSource import JuliaSource, decide_person, same_software  # noqa: E402
+from mardi_importer.julia.JuliaSource import JuliaSource, decide_person, same_software, with_retry  # noqa: E402
 from mardi_importer.julia.metadata import RepoMetadata  # noqa: E402
 from mardi_importer.julia.people import (  # noqa: E402
     Mention, People, Person, assert_no_emails, same_person_possible,
@@ -463,6 +463,41 @@ class TestPackageMatching(unittest.TestCase):
         src = self.source({}, {})
         src._sparql = Mock(side_effect=RuntimeError("endpoint down"))
         self.assertEqual(src._repo_index(), {})
+
+    def test_property_ids_are_resolved_once_per_run(self):
+        src = self.source({"Optim.jl": ["Q10"]}, {"Q10": {"P1382": ["Optim"]}})
+        for _ in range(3):
+            src._decide_package(package(), self.pkg(), {})
+        property_lookups = [c for c in src.api.get_local_id_by_label.call_args_list if c.args[1] == "property"]
+        self.assertEqual(len(property_lookups), 3)          # one per property, not one per package
+
+
+class TestRetry(unittest.TestCase):
+    """A connection reset by the importer-api (worker recycling) is retried, not fatal."""
+
+    def test_recovers_after_connection_errors(self):
+        import requests
+        calls, slept = [], []
+        def flaky():
+            calls.append(1)
+            if len(calls) < 3:
+                raise requests.exceptions.RequestException("Connection reset by peer")
+            return ["Q1"]
+        self.assertEqual(with_retry(flaky, "lookup", sleep=slept.append), ["Q1"])
+        self.assertEqual(slept, [1, 3])
+
+    def test_gives_up_after_the_last_attempt(self):
+        import requests
+        def down():
+            raise requests.exceptions.RequestException("down")
+        with self.assertRaises(requests.exceptions.RequestException):
+            with_retry(down, "lookup", attempts=2, sleep=lambda s: None)
+
+    def test_other_errors_are_not_retried(self):
+        def broken():
+            raise ValueError("bug")
+        with self.assertRaises(ValueError):
+            with_retry(broken, "lookup", sleep=lambda s: None)
 
 
 class TestReport(unittest.TestCase):

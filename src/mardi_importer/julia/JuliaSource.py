@@ -225,7 +225,7 @@ class JuliaSource(ADataSource):
 
     def _item_urls(self, qid: str) -> list[str]:
         item = self.api.item.get(entity_id=qid)
-        planned = [Planned(p, None, None, None) for p in ("wdt:P1324", "wdt:P856")]
+        planned = [Planned(p, None) for p in ("wdt:P1324", "wdt:P856")]
         vals = existing_values(self.api, item, planned)
         return vals.get("wdt:P1324", []) + vals.get("wdt:P856", [])
 
@@ -367,7 +367,7 @@ class JuliaSource(ADataSource):
         out: dict[str, dict[str, str]] = {}
         for paper in papers:
             item = self.api.item.get(entity_id=paper)
-            for author_qid in existing_values(self.api, item, [Planned("wdt:P50", None, None, None)]).get("wdt:P50", []):
+            for author_qid in existing_values(self.api, item, [Planned("wdt:P50", None)]).get("wdt:P50", []):
                 author = self.api.item.get(entity_id=author_qid)
                 label = author.labels.get("en")
                 if label:

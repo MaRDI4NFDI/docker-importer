@@ -415,6 +415,24 @@ class TestWritingAStatement(unittest.TestCase):
         self.item.add_claim.assert_not_called()
 
 
+class TestExistingItemLookups(unittest.TestCase):
+    """The helpers that read existing items build Planned() probes with no reference fields."""
+
+    def api_and_item(self, claims):
+        api = Mock()
+        api.get_local_id_by_label.side_effect = lambda prop, kind: {"wdt:P1324": "P30", "wdt:P856": "P29", "wdt:P50": "P16"}.get(prop)
+        item = Mock()
+        item.get_json.return_value = {"claims": claims}
+        api.item.get.return_value = item
+        return api
+
+    def test_item_urls(self):
+        src = object.__new__(JuliaSource)
+        src.api = self.api_and_item({"P30": [{"mainsnak": {"datavalue": {"value": "https://github.com/a/B.jl", "type": "string"}}}],
+                                     "P29": [{"mainsnak": {"datavalue": {"value": "https://b.org", "type": "string"}}}]})
+        self.assertEqual(src._item_urls("Q1"), ["https://github.com/a/B.jl", "https://b.org"])
+
+
 class TestReport(unittest.TestCase):
     def test_summary_has_no_addresses(self):
         src = object.__new__(JuliaSource)

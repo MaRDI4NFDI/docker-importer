@@ -19,8 +19,9 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 
 from mardi_importer.julia import registry, metadata  # noqa: E402
 from mardi_importer.julia.JuliaPackage import (  # noqa: E402
-    AUTHOR, AUTHOR_NAME_STRING, DESCRIBED_BY_SOURCE, LICENSE, OBJECT_NAMED_AS, PACKAGE_NAME,
-    PUBLICATION_DATE, SOURCE_REPOSITORY, VERSION, JuliaPackage, Planned, add_planned, existing_values,
+    AUTHOR, AUTHOR_NAME_STRING, DESCRIBED_BY_SOURCE, INSTANCE_OF, LICENSE, OBJECT_NAMED_AS, PACKAGE_NAME,
+    PROFILE_TYPE, PUBLICATION_DATE, SOURCE_REPOSITORY, VERSION, JuliaPackage, Planned, add_planned,
+    existing_values,
 )
 from mardi_importer.julia.JuliaSource import JuliaSource, decide_person, same_software  # noqa: E402
 from mardi_importer.julia.metadata import RepoMetadata  # noqa: E402
@@ -307,11 +308,15 @@ class TestPlannedStatements(unittest.TestCase):
         linked.qid = "Q5"
         jp.authors = [(Mention("Optim", "Patrick K. Mogensen", *REF), linked),
                       (Mention("Optim", "Asbjørn Riseth", *REF), person("Asbjørn Riseth"))]
-        return jp.plan("Q1")
+        return jp.plan("Q1", "Q2")
 
-    def test_every_statement_but_versions_is_referenced(self):
+    def test_every_statement_is_referenced_except_versions_and_profile_type(self):
         for st in self.plan():
-            self.assertEqual(st.referenced, st.prop != VERSION, st.prop)
+            self.assertEqual(st.referenced, st.prop not in (VERSION, PROFILE_TYPE), st.prop)
+
+    def test_every_package_is_a_julia_package_with_the_software_profile(self):
+        by = {st.prop: st.value for st in self.plan()}
+        self.assertEqual((by[INSTANCE_OF], by[PROFILE_TYPE]), ("Q1", "Q2"))
 
     def test_registry_facts_are_stated_in_the_registry(self):
         by = {st.prop: st for st in self.plan()}
@@ -327,7 +332,7 @@ class TestPlannedStatements(unittest.TestCase):
                           ("2.3.2", [(PUBLICATION_DATE, "+2026-09-30T00:00:00Z", {"precision": 11})], None)])
 
     def test_without_version_history_the_latest_version_is_still_written(self):
-        sts = [st for st in package(versions=[]).plan("Q1") if st.prop == VERSION]
+        sts = [st for st in package(versions=[]).plan("Q1", "Q2") if st.prop == VERSION]
         self.assertEqual([(st.value, st.qualifiers) for st in sts], [("2.3.2", [])])
 
     def test_identifier_without_jl_and_publications_as_described_by_source(self):
@@ -359,6 +364,13 @@ class TestUpdateRule(unittest.TestCase):
         add, conflicts = JuliaPackage.merge(planned, existing)
         self.assertEqual([(st.prop, st.value) for st in add], [(VERSION, "2.0.0"), (PACKAGE_NAME, "B")])
         self.assertEqual([c["property"] for c in conflicts], [LICENSE])
+
+    def test_profile_type_is_added_when_missing_and_never_changed(self):
+        planned = [Planned(PROFILE_TYPE, "Q2", None, None)]
+        self.assertEqual(JuliaPackage.merge(planned, {PROFILE_TYPE: []})[0], planned)      # missing: added
+        self.assertEqual(JuliaPackage.merge(planned, {PROFILE_TYPE: ["Q2"]}), ([], []))    # present: skipped
+        add, conflicts = JuliaPackage.merge(planned, {PROFILE_TYPE: ["Q7"]})               # other profile: kept
+        self.assertEqual((add, [c["property"] for c in conflicts]), ([], [PROFILE_TYPE]))
 
     def test_a_version_without_publication_date_counts_as_absent(self):
         """So that planning it again adds the date to the existing statement."""

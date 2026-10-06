@@ -9,8 +9,9 @@ commit), and *retrieved* — except versions: every registered (non-yanked) vers
 becomes a *software version identifier* statement qualified with its *publication
 date*, the day it was registered in General, and nothing more, as the CRAN source
 does for R packages; a reference on each of hundreds of versions would outweigh
-the rest of the item. Properties and items are given as Wikidata IDs and resolved
-to local IDs by mardiclient.
+the rest of the item. The *MaRDI profile type*, a portal-internal classification,
+carries no reference either. Properties and items are given as Wikidata IDs and
+resolved to local IDs by mardiclient.
 
 An existing item is only ever added to (never overwritten or pruned): a value
 already present is skipped, and a single-valued property that already holds a
@@ -48,11 +49,13 @@ RETRIEVED = "wdt:P813"
 PACKAGE_NAME = "Julia General registry package name"
 WIKIDATA_QID = "Wikidata QID"
 PROFILE_TYPE = "MaRDI profile type"
+SOFTWARE_PROFILE = "MaRDI software profile"
+PERSON_PROFILE = "MaRDI person profile"
 JULIA = "wd:Q2613697"
 
 # Properties an update may only fill when empty.
 SINGLE_VALUED = frozenset({INSTANCE_OF, PROGRAMMED_IN, SOURCE_REPOSITORY, LICENSE,
-                           PACKAGE_NAME, WIKIDATA_QID})
+                           PACKAGE_NAME, WIKIDATA_QID, PROFILE_TYPE})
 
 
 @dataclass
@@ -107,14 +110,20 @@ class JuliaPackage:
 
     # -- planning (pure) -------------------------------------------------------
 
-    def plan(self, julia_package_class: str) -> list[Planned]:
-        """Every statement for this package except dependencies (planned later)."""
+    def plan(self, julia_package_class: str, software_profile: str) -> list[Planned]:
+        """Every statement for this package except dependencies (planned later).
+
+        ``julia_package_class`` and ``software_profile`` are the local QIDs of the
+        *Julia package* class and the *MaRDI software profile*; every Julia package
+        item, created or updated, is an instance of the one and carries the other.
+        """
         pkg = {"path": self.path}
         reg = registry_url(self.registry_sha, pkg, "Package.toml")
         md = self.metadata
         out = [
             Planned(PACKAGE_NAME, self.name, reg, self.retrieved, True),
             Planned(INSTANCE_OF, julia_package_class, reg, self.retrieved, True),
+            Planned(PROFILE_TYPE, software_profile, None, None),
             Planned(PROGRAMMED_IN, JULIA, reg, self.retrieved, True),
             Planned(SOURCE_REPOSITORY, self.repo, reg, self.retrieved, True),
         ]
@@ -190,7 +199,6 @@ class JuliaPackage:
             item.labels.set(language="en", value=self.label)
             item.descriptions.set(language="en", value="Julia package")
             item.aliases.set(language="en", values=[self.name])
-            planned = planned + [Planned(PROFILE_TYPE, "MaRDI software profile", None, None)]
         if not planned:
             return self.qid
         for st in planned:

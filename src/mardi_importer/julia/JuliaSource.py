@@ -48,7 +48,8 @@ from wikibaseintegrator.wbi_helpers import execute_sparql_query
 
 from mardi_importer.base import ADataSource
 
-from .JuliaPackage import JuliaPackage, Planned, add_planned, existing_values
+from .JuliaPackage import (PERSON_PROFILE, PROFILE_TYPE, SOFTWARE_PROFILE, JuliaPackage, Planned,
+                           add_planned, existing_values)
 from .metadata import fetch_repo_metadata, is_zenodo
 from .people import Mention, People, Person, assert_no_emails, norm_name, same_person_possible
 from .registry import (SEED_ORGS, clone_registry, in_scope, read_registry, registration_dates,
@@ -395,6 +396,7 @@ class JuliaSource(ADataSource):
     def push(self) -> dict:
         """Write people, then publications, then packages, then dependencies."""
         cls = self._local_item(JULIA_PACKAGE_CLASS)
+        software_profile = self._local_item(SOFTWARE_PROFILE)
         registry_item = self._local_item(REGISTRY_ITEM)
         today = date.today().isoformat()
 
@@ -423,7 +425,7 @@ class JuliaSource(ADataSource):
                 continue
             jp.papers = sorted({q for k in self.cited.get(jp.name, []) for q in self.targets.get(k, [])})
             try:
-                qid = jp.write(self.api, jp.plan(cls), registry_item)
+                qid = jp.write(self.api, jp.plan(cls, software_profile), registry_item)
                 results[jp.name] = {"qid": qid, "status": "updated" if jp.matched_by else "created",
                                     "conflicts": jp.conflicts}
             except Exception as exc:
@@ -483,7 +485,7 @@ class JuliaSource(ADataSource):
             add_planned(self.api, item, Planned("wdt:P31", "wd:Q5", url, retrieved), "")
             for o in sorted(person.orcids):
                 add_planned(self.api, item, Planned("wdt:P496", o, f"https://orcid.org/{o}", today), "")
-            item.add_claim("MaRDI profile type", "MaRDI person profile")
+            item.add_claim(PROFILE_TYPE, PERSON_PROFILE)
             person.qid = item.write().id
             if person.possible_duplicates:
                 log.info("Created %s for %s; possible duplicates: %s",

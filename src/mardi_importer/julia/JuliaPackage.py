@@ -35,7 +35,6 @@ PUBLICATION_DATE = "wdt:P577"
 LICENSE = "wdt:P275"
 AUTHOR = "wdt:P50"
 AUTHOR_NAME_STRING = "wdt:P2093"
-OBJECT_NAMED_AS = "wdt:P1932"
 DEPENDS_ON = "wdt:P1547"
 DESCRIBED_BY_SOURCE = "wdt:P1343"
 # Local properties and items (see new_entities.json).
@@ -119,19 +118,13 @@ class JuliaPackage:
         return out
 
     def plan_authors(self) -> list[Planned]:
-        """One statement per person: an item where the person has one, else a name string.
-
-        The name as the source states it is kept in *object named as*.
-        """
+        """One statement per person: an item where the person has one, else a name string."""
         out, done = [], set()
         for m, person in sorted(self.authors, key=lambda mp: mp[0].orcid is None):
             if person.id in done:
                 continue
             done.add(person.id)
-            if person.qid:
-                out.append(Planned(AUTHOR, person.qid, [(OBJECT_NAMED_AS, m.name)]))
-            else:
-                out.append(Planned(AUTHOR_NAME_STRING, m.name))
+            out.append(Planned(AUTHOR, person.qid) if person.qid else Planned(AUTHOR_NAME_STRING, m.name))
         return out
 
     def plan_dependencies(self, qid_of: dict[str, str]) -> list[Planned]:

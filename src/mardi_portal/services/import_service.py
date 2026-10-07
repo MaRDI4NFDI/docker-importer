@@ -424,6 +424,26 @@ def import_julia_sync(
     return report, all_ok
 
 
+def sync_cran_archive(dry_run: bool = False) -> tuple[dict, bool]:
+    """Bring the CRAN archive status (*end time* of *CRAN project*) in line with CRAN.
+
+    Args:
+        dry_run: Plan every change and report it, but write nothing.
+
+    Returns:
+        Tuple of report and overall success flag.
+    """
+    cran = Importer.create_source("cran")
+    try:
+        report = cran.sync_archive_status(dry_run=dry_run)
+    except Exception as exc:
+        log.error("syncing CRAN archive status failed: %s", exc, exc_info=True)
+        return {"dry_run": dry_run, "error": str(exc), "all_imported": False}, False
+    all_ok = report["errors"] == 0
+    report["all_imported"] = all_ok
+    return report, all_ok
+
+
 def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
     """Import CRAN packages synchronously.
 

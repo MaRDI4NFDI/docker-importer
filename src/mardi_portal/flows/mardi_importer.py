@@ -26,6 +26,7 @@ class ImportAction(str, Enum):
     IMPORT_WIKIDATA = "import/wikidata"
     UPDATE_WIKIDATA = "update/wikidata"
     IMPORT_DOI = "import/doi"
+    SYNC_CRAN_ARCHIVE = "sync/cran-archive"
 
 
 @task(retries=1, retry_delay_seconds=30)
@@ -201,11 +202,23 @@ def import_wikidata_batch(qids: List[str]) -> Dict[str, Any]:
     }
 
 
+@task(retries=1, retry_delay_seconds=30)
+def sync_cran_archive_task(dry_run: bool) -> Dict[str, Any]:
+    """Set the end time of CRAN packages that have left CRAN; remove it from those on CRAN."""
+    log = get_run_logger()
+    report = Importer.create_source("cran").sync_archive_status(dry_run=dry_run)
+    log.info("CRAN archive status: changes=%s errors=%d unresolved=%d dry_run=%s",
+             report["changes"], report["errors"], len(report["unresolved"]), dry_run)
+    report["all_imported"] = report["errors"] == 0
+    return report
+
+
 @flow(name="mardi-importer")
 def mardi_importer_flow(
     action: ImportAction,
     qids: Optional[List[str]] = None,
     dois: Optional[List[str]] = None,
+    dry_run: bool = False,
 ) -> Dict[str, Any]:
     log = get_run_logger()
     qids: List[str] = qids or []
@@ -237,6 +250,9 @@ def mardi_importer_flow(
             raise ValueError("missing dois")
 
         result = import_doi_batch(dois)
+
+    elif action is ImportAction.SYNC_CRAN_ARCHIVE:
+        result = sync_cran_archive_task(dry_run)
 
     else:
         raise ValueError(f"Unsupported action: {action}")

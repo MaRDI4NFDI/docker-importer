@@ -1,5 +1,6 @@
 from mardi_importer.base import ADataSource
 from .RPackage import RPackage
+from . import archive
 
 import pandas as pd
 import time
@@ -87,3 +88,12 @@ class CRANSource(ADataSource):
                 package.create()
 
             time.sleep(2)
+
+        self.sync_archive_status()
+
+    def sync_archive_status(self, dry_run: bool = False) -> dict:
+        """Set or remove the *end time* of every *CRAN project* statement.
+
+        See :mod:`mardi_importer.cran.archive`.
+        """
+        return archive.sync(self.api, dry_run=dry_run)

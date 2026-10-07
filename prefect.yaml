@@ -21,6 +21,20 @@ deployments:
     work_pool:
       name: prod-k8s-pool
 
+  # Weekly CRAN archive status (end time of CRAN project). Inactive until the
+  # first dry run has been reviewed; set `active: true` to enable it.
+  - name: cran-archive-sync
+    entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
+    build: null
+    parameters:
+      action: sync/cran-archive
+    schedules:
+      - cron: "0 4 * * 1"
+        timezone: Europe/Berlin
+        active: false
+    work_pool:
+      name: prod-k8s-pool
+
   - name: production
     entrypoint: mardi_portal.flows.zbmath_import:zbmath_import_flow
     build: null

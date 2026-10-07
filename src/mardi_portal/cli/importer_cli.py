@@ -21,6 +21,7 @@ from mardi_portal.services.import_service import (
     import_julia_sync,
     import_wikidata_sync,
     normalize_list,
+    sync_cran_archive,
     trigger_doi_async,
     trigger_wikidata_async,
     update_item_sync,
@@ -330,6 +331,26 @@ def cmd_import_cran(args: argparse.Namespace) -> int:
     return 0 if all_ok else 1
 
 
+def cmd_sync_cran_archive(args: argparse.Namespace) -> int:
+    """Set the end time of CRAN packages that have left CRAN, and remove it from those on CRAN.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    log.info(f"Starting CRAN archive status sync{' (dry run)' if args.dry_run else ''}")
+    try:
+        payload, all_ok = sync_cran_archive(dry_run=args.dry_run)
+    except LoginError:
+        log.error("Wikibase login failed - can not sync CRAN archive status. (Hint: check CRAN_USER/CRAN_PASS.)")
+        return 1
+
+    print(json.dumps(payload))
+    return 0 if all_ok else 1
+
+
 def cmd_import_julia(args: argparse.Namespace) -> int:
     """Import Julia packages from the Julia General registry synchronously.
 
@@ -574,6 +595,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("--registry", help="Existing clone of JuliaRegistries/General.")
     sub.add_argument("--orcid-links", help="CSV of ORCIDs found by e-mail search (no addresses).")
     sub.set_defaults(func=cmd_import_julia)
+
+    sub = subparsers.add_parser(
+        "sync-cran-archive",
+        help="Set or remove the end time of CRAN project statements from CRAN's archive records.",
+    )
+    sub.add_argument("--dry-run", action="store_true", help="Report the changes, write nothing.")
+    sub.set_defaults(func=cmd_sync_cran_archive)
 
     sub = subparsers.add_parser(
         "create-item",

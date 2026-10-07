@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "src"))
 
 from mardi_importer.julia import registry, metadata  # noqa: E402
 from mardi_importer.julia.JuliaPackage import (  # noqa: E402
-    AUTHOR, AUTHOR_NAME_STRING, DESCRIBED_BY_SOURCE, INSTANCE_OF, LICENSE, OBJECT_NAMED_AS, PACKAGE_NAME,
+    AUTHOR, AUTHOR_NAME_STRING, DESCRIBED_BY_SOURCE, INSTANCE_OF, LICENSE, PACKAGE_NAME,
     PROFILE_TYPE, PUBLICATION_DATE, SOURCE_REPOSITORY, VERSION, JuliaPackage, Planned, add_planned,
     existing_values,
 )
@@ -329,11 +329,10 @@ class TestPlannedStatements(unittest.TestCase):
         self.assertEqual(by[DESCRIBED_BY_SOURCE].value, "Q999")
         self.assertEqual(by[LICENSE].value, "wd:Q334661")
 
-    def test_authors_item_with_name_as_stated_else_string(self):
+    def test_authors_item_where_known_else_name_string_without_qualifiers(self):
         sts = [st for st in self.plan() if st.prop in (AUTHOR, AUTHOR_NAME_STRING)]
-        self.assertEqual([(st.prop, st.value) for st in sts],
-                         [(AUTHOR, "Q5"), (AUTHOR_NAME_STRING, "Asbjørn Riseth")])
-        self.assertEqual(sts[0].qualifiers, [(OBJECT_NAMED_AS, "Patrick K. Mogensen")])
+        self.assertEqual([(st.prop, st.value, st.qualifiers) for st in sts],
+                         [(AUTHOR, "Q5", []), (AUTHOR_NAME_STRING, "Asbjørn Riseth", [])])
 
     def test_dependencies_only_to_known_packages(self):
         deps = package().plan_dependencies({"NLSolversBase": "Q7"})
@@ -396,11 +395,6 @@ class TestWritingAStatement(unittest.TestCase):
     def test_statement_without_qualifiers_carries_nothing_else(self):
         add_planned(self.api, self.item, Planned(PACKAGE_NAME, "Optim"))
         self.item.add_claim.assert_called_once_with(PACKAGE_NAME, "Optim")
-
-    def test_qualifier_keeps_the_name_as_stated(self):
-        add_planned(self.api, self.item, Planned(AUTHOR, "Q5", [(OBJECT_NAMED_AS, "ChrisRackauckas")]))
-        kwargs = self.item.add_claim.call_args.kwargs
-        self.assertEqual((kwargs["qualifiers"].added, set(kwargs)), ([(OBJECT_NAMED_AS, "ChrisRackauckas")], {"qualifiers"}))
 
     def test_version_has_a_day_precision_date_qualifier(self):
         add_planned(self.api, self.item,

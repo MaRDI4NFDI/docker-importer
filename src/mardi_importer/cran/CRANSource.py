@@ -1,12 +1,17 @@
 from mardi_importer.base import ADataSource
 from .RPackage import RPackage
 from . import archive
+from .authors import fetch_packages_rds, package_entries, read_packages_rds
+from .people import read_graph
+from .resolve import MardiWiki, OrcidRegistry, People
 
 import pandas as pd
+import tempfile
 import time
 import json
 import os
 import logging
+from pathlib import Path
 log = logging.getLogger('CRANlogger')
 
 class CRANSource(ADataSource):
@@ -25,6 +30,8 @@ class CRANSource(ADataSource):
     def __init__(self, user: str, password: str):
         super().__init__(user, password)
         self.packages = ""
+        self.entries_by_package = {}
+        self.people = None
 
     def setup(self):
         """Create all necessary properties and entities for CRAN
@@ -47,7 +54,37 @@ class CRANSource(ADataSource):
 
         tables = pd.read_html(url)
         self.packages = tables[0]
+        self.load_people()
         return self.packages
+
+    def load_people(self, packages_rds: str | None = None, sparql=None) -> None:
+        """Read the people of every package from CRAN's package database, and their items.
+
+        Mentions are joined into people across all packages and matched to the
+        person items the packages link now (see :mod:`mardi_importer.cran.resolve`).
+        If the database or the SPARQL store cannot be read, packages fall back to
+        their page and to resolving people without that overview.
+        """
+        try:
+            path = Path(packages_rds) if packages_rds else fetch_packages_rds(
+                Path(tempfile.gettempdir()) / "mardi_importer" / "packages.rds")
+            entries = []
+            for row in read_packages_rds(path):
+                found, notes = package_entries(row)
+                self.entries_by_package[row["Package"]] = found
+                entries += found
+                for note in notes:
+                    log.warning("%s: %s", row["Package"], note)
+            graph = read_graph(sparql or _sparql)
+            self.people = People.build(MardiWiki(self.api), entries, graph, OrcidRegistry())
+            log.info("CRAN people: %d mentions in %d packages, %d person items linked",
+                     len(entries), len(self.entries_by_package), len(graph))
+        except Exception as exc:
+            log.warning("CRAN people overview unavailable (%s); resolving per package", exc)
+            self.people = People(MardiWiki(self.api), OrcidRegistry())
+
+    def new_package(self, date: str, label: str, title: str) -> RPackage:
+        return RPackage(date, label, title, entries=self.entries_by_package.get(label), people=self.people)
 
     def push(self):
         """Updates the MaRDI Wikibase entities corresponding to R packages.
@@ -76,7 +113,7 @@ class CRANSource(ADataSource):
             #flag = True
             #if package_label == "GeoModels":
 
-            package = RPackage(package_date, package_label, package_title)
+            package = self.new_package(package_date, package_label, package_title)
             if package.exists():
                 if not package.is_updated():
                     print(f"Package {package_label} found: Not up to date. Attempting update...")
@@ -97,3 +134,9 @@ class CRANSource(ADataSource):
         See :mod:`mardi_importer.cran.archive`.
         """
         return archive.sync(self.api, dry_run=dry_run)
+
+
+def _sparql(query: str) -> list[dict]:
+    from wikibaseintegrator.wbi_helpers import execute_sparql_query
+    res = execute_sparql_query(query)
+    return [{k: v["value"] for k, v in b.items()} for b in res["results"]["bindings"]]

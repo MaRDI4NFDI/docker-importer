@@ -5,6 +5,7 @@ habanero
 httpx
 nameparser
 pandas
+rdata
 requests
 sickle
 sqlalchemy

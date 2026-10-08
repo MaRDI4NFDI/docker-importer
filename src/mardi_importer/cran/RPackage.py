@@ -4,8 +4,10 @@ from mardi_importer.wikidata import WikidataImporter
 from mardi_importer.arxiv import ArxivSource, ArxivPublication
 from mardi_importer.crossref import CrossrefSource, CrossrefPublication
 from mardi_importer.zenodo import ZenodoSource, ZenodoResource
-from mardi_importer.utils.Author import Author
 from wikibaseintegrator.wbi_helpers import search_entities, remove_claims
+
+from .authors import Entry, parse_author_text, parse_maintainer
+from .resolve import MardiWiki, OrcidRegistry, People, Resolved, agrees
 
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Tuple
@@ -40,16 +42,17 @@ class RPackage:
           Version of the R package
         versions:
           Previous published versions
-        author:
-          Author(s) of the package
+        entries:
+          People named by the package (authors, maintainer), from CRAN's
+          package database or, failing that, the package page
+        people:
+          Resolution of people to items, shared by the packages of one run
         license:
           Software license
         dependency:
           Dependencies to R and other packages
         imports:
           Imported R packages
-        maintainer:
-          Software maintainer
         _QID:
           Package QID
     """
@@ -61,12 +64,11 @@ class RPackage:
     url: str = ""
     version: str = ""
     versions: List[Tuple[str, str]] = field(default_factory=list)
-    authors: List[Author] = field(default_factory=list)
+    entries: Optional[List[Entry]] = None
+    people: Optional[People] = None
     license_data: List[Tuple[str, str]] = field(default_factory=list)
     dependencies: List[Tuple[str, str]] = field(default_factory=list)
     imports: List[Tuple[str, str]] = field(default_factory=list)
-    maintainer: str = ""
-    author_pool: List[Author] = field(default_factory=list)
     crossref_publications: List[CrossrefPublication] = field(default_factory=list)
     arxiv_publications: List[ArxivPublication] = field(default_factory=list)
     zenodo_resources: List[ZenodoResource] = field(default_factory=list)
@@ -89,6 +91,8 @@ class RPackage:
             self.arxiv = Importer.create_source("arxiv")
         if self.zenodo is None:
             self.zenodo = Importer.create_source("zenodo")
+        if self.people is None:
+            self.people = People(MardiWiki(self.api), OrcidRegistry())
 
     @property
     def QID(self) -> str:
@@ -145,9 +149,10 @@ class RPackage:
     def pull(self):
         """Imports metadata from CRAN corresponding to the R package.
 
-        Imports **Version**, **Dependencies**, **Imports**m **Authors**,
-        **Maintainer** and **License** and saves them as instance
-        attributes.
+        Imports **Version**, **Dependencies**, **Imports** and **License**
+        and saves them as instance attributes. Authors and maintainer come
+        from :attr:`entries`; only when none were given are they read from
+        the package page.
         """
         self.url = f"https://CRAN.R-project.org/package={self.label}"
 
@@ -169,16 +174,14 @@ class RPackage:
 
                 if "Version" in package_df.columns:
                     self.version = package_df.loc[1, "Version"]
-                if "Author" in package_df.columns:
-                    self.authors = package_df.loc[1, "Author"]
+                if self.entries is None:
+                    self.entries = self.page_entries(package_df)
                 if "License" in package_df.columns:
                     self.license_data = package_df.loc[1, "License"]
                 if "Depends" in package_df.columns:
                     self.dependencies = package_df.loc[1, "Depends"]
                 if "Imports" in package_df.columns:
                     self.imports = package_df.loc[1, "Imports"]
-                if "Maintainer" in package_df.columns:
-                    self.maintainer = package_df.loc[1, "Maintainer"]
 
                 self.get_versions()
             else:
@@ -248,29 +251,8 @@ class RPackage:
             qualifier = [self.api.get_claim("wdt:P577", f"+{self.date}T00:00:00Z")]
             self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
-        pool_for_items = []
-        for a in self.author_pool:
-            if a.orcid or a is self.maintainer:
-                pool_for_items.append(a)
-
-        self.author_pool = Author.disambiguate_authors(pool_for_items)
-
-        # Authors
-        for author in self.authors:
-            if author.orcid:
-                author.pull_QID(self.author_pool)
-                if not author.QID:
-                    author.create()
-                self.item.add_claim("wdt:P50", author.QID)
-            else:
-                if author.name:
-                    self.item.add_claim("wdt:P2093", author.name)
-
-        # Maintainer
-        self.maintainer.pull_QID(self.author_pool)
-        if not self.maintainer.QID:
-            self.maintainer.create()
-        self.item.add_claim("wdt:P126", self.maintainer.QID)
+        # Authors and maintainer
+        self.apply_people()
 
         # Licenses
         if self.license_data:
@@ -296,8 +278,6 @@ class RPackage:
             self.zenodo_resources,
         ]:
             for publication in publications:
-                for author in publication.authors:
-                    author.pull_QID(self.author_pool)
                 publication.create()
                 self.item.add_claim(cites_work, publication.QID)
 
@@ -326,28 +306,11 @@ class RPackage:
           str: ID of the updated R package.
         """
         if self.pull():
-            # Obtain current Authors
-            current_authors = self.item.get_value("wdt:P50")
-            for author_qid in current_authors:
-                author_item = self.api.item.get(entity_id=author_qid)
-                author_label = str(author_item.labels.get("en"))
-                current_author = Author(self.api, name=author_label)
-                current_author._QID = author_qid
-                self.author_pool += [current_author]
-
-            # Disambiguate Authors and create corresponding Author items
-            pool_for_items = []
-            for a in self.author_pool:
-                if a.orcid or a.QID or a is self.maintainer:
-                    pool_for_items.append(a)
-
-            self.author_pool = Author.disambiguate_authors(pool_for_items)
-
-            # GUID to remove
+            # GUID to remove. Authors and maintainer are not among them: their
+            # links are only added to (see apply_people), so that links
+            # corrected by hand stay.
             remove_guid = []
             props_to_delete = [
-                "wdt:P50",
-                "wdt:P2093",
                 "wdt:P275",
                 "wdt:P1547",
                 "imports",
@@ -389,20 +352,8 @@ class RPackage:
                 qualifier = [self.api.get_claim("wdt:P577", f"+{self.date}T00:00:00Z")]
                 self.item.add_claim("wdt:P348", self.version, qualifiers=qualifier)
 
-            # Authors
-            for author in self.authors:
-                if author.orcid:
-                    author.pull_QID(self.author_pool)
-                    if not author.QID:
-                        author.create()
-                    self.item.add_claim("wdt:P50", author.QID)
-                else:
-                    if author.name:
-                        self.item.add_claim("wdt:P2093", author.name)
-
-            # Maintainer
-            self.maintainer.pull_QID(self.author_pool)
-            self.item.add_claim("wdt:P126", self.maintainer.QID, action="replace_all")
+            # Authors and maintainer
+            self.apply_people()
 
             # Licenses
             if self.license_data:
@@ -428,8 +379,6 @@ class RPackage:
                 self.zenodo_resources,
             ]:
                 for publication in publications:
-                    for author in publication.authors:
-                        author.pull_QID(self.author_pool)
                     publication.create()
                     self.item.add_claim(cites_work, publication.QID)
 
@@ -504,20 +453,17 @@ class RPackage:
 
         for doi in crossref_references:
             publication = self.crossref.new_publication(doi.upper())
-            self.author_pool += publication.authors
             self.crossref_publications.append(publication)
 
         for arxiv_id in arxiv_references:
             arxiv_id = arxiv_id.replace(":", ".")
             publication = self.arxiv.new_publication(arxiv_id)
             if publication.title != "Error":
-                self.author_pool += publication.authors
                 self.arxiv_publications.append(publication)
 
         for zenodo_id in zenodo_references:
             zenodo_id = zenodo_id.replace(":", ".")
             publication = self.zenodo.new_resource(zenodo_id)
-            self.author_pool += publication.authors
             self.zenodo_resources.append(publication)
 
     def get_last_update(self):
@@ -534,8 +480,6 @@ class RPackage:
 
         - Package dependencies are splitted at the comma position.
         - License information is processed using the :meth:`parse_license` method.
-        - Author information is processed using the :meth:`parse_authors` method.
-        - Maintainer information is processed using the :meth:`parse_maintainer` method.
 
         Args:
             table_html:
@@ -544,8 +488,8 @@ class RPackage:
         Returns:
             (Pandas dataframe):
               Dataframe with processed data from a single R package including columns:
-              **Version**, **Author**, **License**, **Depends**, **Imports**
-              and **Maintainer**.
+              **Version**, **License**, **Depends** and **Imports** (processed),
+              **Author** and **Maintainer** (as on the page).
         """
         package_df = pd.read_html(StringIO(str(table_html)))
         package_df = package_df[0].set_index(0).T
@@ -556,17 +500,6 @@ class RPackage:
             package_df["Imports"] = package_df["Imports"].apply(self.parse_software)
         if "License" in package_df.columns:
             package_df["License"] = package_df["License"].apply(self.parse_license)
-        if "Author" in package_df.columns:
-            package_df["Author"] = (
-                str(table_html.find("td", text="Author:").find_next_sibling("td"))
-                .replace("\n", "")
-                .replace("\r", "")
-            )
-            package_df["Author"] = package_df["Author"].apply(self.parse_authors)
-        if "Maintainer" in package_df.columns:
-            package_df["Maintainer"] = package_df["Maintainer"].apply(
-                self.parse_maintainer
-            )
         return package_df
 
     def parse_software(self, software_str: str) -> List[Tuple[str, str]]:
@@ -718,108 +651,94 @@ class RPackage:
             license_tuples.append((license_QID, license_qualifier))
         return license_tuples
 
-    def parse_authors(self, x):
-        """Splits the string corresponding to the authors into a dictionary.
+    # -- authors and maintainer ---------------------------------------------------------
 
-        Author information in CRAN is not registered uniformly. This function
-        parses the imported string and returns just the names of the individuals
-        that can be unequivocally identified as authors (i.e. they are followed
-        by the *[aut]* abbreviation).
+    def page_entries(self, package_df) -> List[Entry]:
+        """People named on the package page, for a package without database entries."""
+        entries = []
+        if "Author" in package_df.columns and isinstance(package_df.loc[1, "Author"], str):
+            entries += parse_author_text(package_df.loc[1, "Author"], self.label)
+        if "Maintainer" in package_df.columns and isinstance(package_df.loc[1, "Maintainer"], str):
+            if (m := parse_maintainer(package_df.loc[1, "Maintainer"], self.label)):
+                entries.append(m)
+        return entries
 
-        Generally, authors in CRAN are indicated with the abbreviation *[aut]*.
-        When no abbreviations are included, only the first individual is imported
-        to Wikibase (otherwise it can often not be established whether
-        information after the first author refers to another individual,
-        an institution, a funder, etc.)
+    def _prop(self, prop: str) -> str:
+        pid = self.api.get_local_id_by_label(prop, "property")
+        return pid[0] if isinstance(pid, list) else pid
 
-        Args:
-            x (String): String imported from CRAN representing author
-              information.
+    def _linked(self, props: List[str]) -> Dict[str, List[Tuple[object, str, str]]]:
+        """Current statements of ``props``: (claim, QID it resolves to, label) per property."""
+        out = {}
+        for prop in props:
+            rows = []
+            for claim in self.item.claims.get(self._prop(prop)):
+                value = (claim.mainsnak.datavalue or {}).get("value")
+                if isinstance(value, dict) and value.get("id"):
+                    hit = self.people.wiki.lookup(value["id"])
+                    rows.append((claim, hit[0], hit[1]) if hit else (claim, value["id"], ""))
+            out[prop] = rows
+        return out
 
-        Returns:
-            (Dict): Dictionary of authors and corresponding ORCID ID, if provided.
+    def plan_people(self, linked: List[Tuple[str, str]]) -> Tuple[List[Resolved], Optional[Resolved]]:
+        """Resolved authors (Authors@R ``aut``, or everyone in a free-text Author field) and maintainer."""
+        entries = self.entries or []
+        maintainer, m = None, next((e for e in entries if e.source == "Maintainer"), None)
+        is_maintainer = lambda e: m is not None and "cre" in e.roles and agrees(m.name, e.name, e.family)
+        if m is not None:
+            if not m.orcid:          # the maintainer's ORCID is on their Authors@R entry
+                m.orcid = next((e.orcid for e in entries if e.source != "Maintainer" and is_maintainer(e)
+                                and e.orcid), None)
+            # First: the maintainer has an address, so is identifiable; their author entry
+            # (often without one) then resolves to the same item.
+            maintainer = self.people.resolve(m, linked)
+        authors = [maintainer if maintainer is not None and maintainer.kind == "item" and is_maintainer(e)
+                   else self.people.resolve(e, linked)
+                   for e in entries if e.source != "Maintainer" and e.is_author]
+        return authors, maintainer
+
+    def apply_people(self) -> None:
+        """Bring the author and maintainer statements in line with CRAN, only adding where possible.
+
+        Links already on the package stay; an author name string is dropped
+        when that person is now linked as an item; a maintainer link is
+        removed only when CRAN names another maintainer or ORPHANED. Without
+        any people for the package (none read), nothing is changed. Labels and
+        aliases of person items are never changed.
         """
-        td_match = re.match(r"<td>(.*?)</td>", x)
-        if td_match:
-            x = td_match.groups()[0]
+        if not self.entries:
+            log.warning("%s: no authors or maintainer read; their statements are left as they are", self.label)
+            return
+        current = self._linked(["wdt:P50", "wdt:P126"]) if self.item.id else {"wdt:P50": [], "wdt:P126": []}
+        linked = [(q, lab) for rows in current.values() for _, q, lab in rows]
+        authors, maintainer = self.plan_people(linked)
 
-        x = re.sub("<img alt.*?a>", "", x)  # Delete img tags
-        x = re.sub(r"\(.*?\)", "", x)  # Delete text in brackets
-        x = re.sub(r'"', "", x)  # Delete quotation marks
-        x = re.sub("\t", "", x)  # Delete tabs
-        x = re.sub("ORCID iD", "", x)  # Delete orcid id refs
-        author_list = re.findall(r".*?\]", x)
+        have = {q for _, q, _ in current["wdt:P50"]}
+        for r in authors:
+            if r.kind == "item" and r.qid not in have:
+                self.item.add_claim("wdt:P50", r.qid)
+                have.add(r.qid)
+        linked_names = [r.name for r in authors if r.kind == "item"]
+        strings = []
+        for claim in self.item.claims.get(self._prop("wdt:P2093")):
+            value = (claim.mainsnak.datavalue or {}).get("value")
+            if isinstance(value, str) and any(agrees(value, n) for n in linked_names):
+                claim.remove()
+            elif isinstance(value, str):
+                strings.append(value)
+        for r in authors:
+            if r.kind == "string" and r.name not in strings:
+                self.item.add_claim("wdt:P2093", r.name)
+                strings.append(r.name)
 
-        authors = []
-        if author_list:
-            for author in author_list:
-                labels = re.findall(r"\[.*?\]", author)
-                if labels:
-                    is_author = re.findall("aut", labels[0])
-                    if is_author:
-                        orcid = re.findall(r"\d{4}-\d{4}-\d{4}-.{4}", author)
-                        if orcid:
-                            orcid = orcid[0]
-                        author = re.sub(r"<a href=.*?>", "", author)
-                        author = re.sub(r"\[.*?\]", "", author)
-                        author = re.sub(r"^\s?,", "", author)
-                        author = re.sub(r"^\s?and\s?", "", author)
-                        author = re.sub(
-                            r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
-                            "",
-                            author,
-                        )
-                        author = author.strip()
-                        multiple_words = author.split(" ")
-                        if len(multiple_words) > 1:
-                            if author:
-                                authors.append(Author(self.api, author, orcid))
-        else:
-            authors_comma = x.split(", ")
-            authors_and = x.split(" and ")
-            if len(authors_and) > len(authors_comma):
-                author = re.sub(
-                    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
-                    "",
-                    authors_and[0],
-                )
-            else:
-                author = re.sub(
-                    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
-                    "",
-                    authors_comma[0],
-                )
-            if len(author.split(" ")) > 5 or re.findall(r"[@\(\)\[\]&]", author):
-                author = ""
-            if author:
-                authors.append(Author(self.api, author))
-        self.author_pool += authors
-        return authors
-
-    def parse_maintainer(self, name: str) -> str:
-        """Remove unnecessary information from maintainer string.
-
-        Args:
-            x (str): String imported from CRAN which may contain e-mail
-                        address and comments within brackets
-
-        Returns:
-            (str): Name of the maintainer
-        """
-        if pd.isna(name):
-            return name
-
-        quotes = re.match(r'"(.*?)"', name)
-        if quotes:
-            name = quotes.groups()[0]
-
-        name = re.sub(r"<.*?>", "", name)
-        name = re.sub(r"\(.*?\)", "", name)
-        name = name.strip()
-        name = name.split(",")
-        maintainer = Author(self.api, name=name[0])
-        self.author_pool += [maintainer]
-        return maintainer
+        for claim, q, lab in current["wdt:P126"]:
+            replaced = maintainer is not None and maintainer.kind == "item" and \
+                q != maintainer.qid and not agrees(maintainer.name, lab)
+            if replaced or (maintainer is not None and maintainer.kind == "none"):
+                claim.remove()
+        if maintainer is not None and maintainer.kind == "item" and \
+                maintainer.qid not in {q for _, q, _ in current["wdt:P126"]}:
+            self.item.add_claim("wdt:P126", maintainer.qid)
 
     def get_license_QID(self, license_str: str) -> str:
         """Returns the Wikidata item ID corresponding to a software license.

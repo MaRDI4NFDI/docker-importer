@@ -246,12 +246,13 @@ class TestFlaskApp(unittest.TestCase):
         software.is_updated.return_value = True
         software.QID = "Q1"
 
+        cran_source.new_package.return_value = software
+
         with patch(
             "mardi_portal.services.import_service.Importer.create_source",
             return_value=cran_source,
         ):
-            with patch("mardi_portal.services.import_service.RPackage", return_value=software):
-                response, status = import_cran()
+            response, status = import_cran()
 
         self.assertEqual(status, 200)
         self.assertEqual(response["results"]["dplyr"]["status"], "success")

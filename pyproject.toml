@@ -25,6 +25,7 @@ dependencies = [
     "nameparser",
     "openml",
     "pandas",
+    "rdata",
     "sickle",
     "sparqlwrapper",
     "sqlalchemy",

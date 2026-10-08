@@ -10,7 +10,6 @@ import requests
 from mardiclient import MardiClient
 
 from mardi_importer import Importer
-from mardi_importer.cran.RPackage import RPackage
 from mardi_importer.wikidata import WikidataImporter
 from mardi_portal.services.item_schemas import resolve_typed_item
 
@@ -488,7 +487,7 @@ def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
             package_label = matches.iloc[0]["Package"]
             package_title = matches.iloc[0]["Title"]
 
-            r_package = RPackage(package_date, package_label, package_title)
+            r_package = cran.new_package(package_date, package_label, package_title)
             if r_package.exists():
                 if not r_package.is_updated():
                     r_package.update()

@@ -285,18 +285,16 @@ class TestImportService(unittest.TestCase):
                 return new_package
             raise ValueError("boom")
 
+        cran_source.new_package.side_effect = rpackage_side_effect
+
         with patch("mardi_portal.services.import_service.log.error"):
             with patch(
                 "mardi_portal.services.import_service.Importer.create_source",
                 return_value=cran_source,
             ):
-                with patch(
-                    "mardi_portal.services.import_service.RPackage",
-                    side_effect=rpackage_side_effect,
-                ):
-                    payload, all_ok = import_service.import_cran_sync(
-                        ["dplyr", "ggplot2", "badpkg"]
-                    )
+                payload, all_ok = import_service.import_cran_sync(
+                    ["dplyr", "ggplot2", "badpkg"]
+                )
 
         self.assertFalse(all_ok)
         self.assertEqual(payload["results"]["dplyr"]["status"], "success")

@@ -101,35 +101,30 @@ class CRANSource(ADataSource):
         It creates a :class:`mardi_importer.cran.RPackage` instance
         for each package.
         """
-        # Limit the query to only 30 packages (Comment next line to process data on all ~19000 packages)
-        #self.packages = self.packages.loc[:100, :]
-
-        flag = False
-        
-        for _, row in self.packages.iterrows():
-            package_date = row["Date"]
+        failed = []
+        for n, (_, row) in enumerate(self.packages.iterrows(), 1):
             package_label = row["Package"]
-            package_title = row["Title"]
-
-            #if not flag and package_label != "BeSS":
-            #    continue
-            #flag = True
-            #if package_label == "GeoModels":
-
-            package = self.new_package(package_date, package_label, package_title)
-            if package.exists():
-                if not package.is_updated():
-                    print(f"Package {package_label} found: Not up to date. Attempting update...")
-                    package.update()
+            try:
+                package = self.new_package(row["Date"], package_label, row["Title"])
+                if package.exists():
+                    if not package.is_updated():
+                        log.info("[%d/%d] %s: not up to date, updating", n, len(self.packages), package_label)
+                        package.update()
+                    else:
+                        log.info("[%d/%d] %s: up to date", n, len(self.packages), package_label)
                 else:
-                    print(f"Package {package_label} found: Already up to date.")
-            else:
-                print(f"Package {package_label} not found: Attempting item creation...")
-                package.create()
+                    log.info("[%d/%d] %s: not found, creating", n, len(self.packages), package_label)
+                    package.create()
+            except Exception:
+                log.exception("[%d/%d] %s: failed", n, len(self.packages), package_label)
+                failed.append(package_label)
 
             time.sleep(2)
 
+        if failed:
+            log.warning("%d packages failed: %s", len(failed), ", ".join(failed))
         self.sync_archive_status()
+        return failed
 
     def sync_archive_status(self, dry_run: bool = False) -> dict:
         """Set or remove the *end time* of every *CRAN project* statement.

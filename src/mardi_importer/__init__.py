@@ -1,5 +1,6 @@
 __version__ = "0.0.1"
 
+from . import wbi_datatypes  # noqa: F401
 from .importer import Importer
 from .arxiv import ArxivSource
 from .cran import CRANSource

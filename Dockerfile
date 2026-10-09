@@ -54,11 +54,6 @@ COPY pyproject.toml README.md /src/
 COPY src /src/src
 RUN MARDICLIENT_REF="${MARDICLIENT_REF}" pip install --no-cache-dir /src
 
-# Add contentmath datatype to WikibaseIntegrator
-COPY config/contentmath.py /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/
-RUN echo "from .contentmath import ContentMath" \
-    >> /usr/local/lib/python3.11/site-packages/wikibaseintegrator/datatypes/__init__.py
-
 # Copy configurations to the image
 COPY config /config
 

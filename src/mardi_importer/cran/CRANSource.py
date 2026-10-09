@@ -1,5 +1,5 @@
 from mardi_importer.base import ADataSource
-from .RPackage import RPackage
+from .RPackage import RPackage, wikidata_r_packages
 from . import archive
 from .authors import fetch_packages_rds, package_entries, read_packages_rds
 from .people import read_graph
@@ -32,6 +32,7 @@ class CRANSource(ADataSource):
         self.packages = ""
         self.entries_by_package = {}
         self.people = None
+        self.wikidata_ids = None
 
     def setup(self):
         """Create all necessary properties and entities for CRAN
@@ -55,6 +56,7 @@ class CRANSource(ADataSource):
         tables = pd.read_html(url)
         self.packages = tables[0]
         self.load_people()
+        self.wikidata_ids = wikidata_r_packages()
         return self.packages
 
     def load_people(self, packages_rds: str | None = None, sparql=None) -> None:
@@ -84,7 +86,8 @@ class CRANSource(ADataSource):
             self.people = People(MardiWiki(self.api), OrcidRegistry())
 
     def new_package(self, date: str, label: str, title: str) -> RPackage:
-        return RPackage(date, label, title, entries=self.entries_by_package.get(label), people=self.people)
+        return RPackage(date, label, title, entries=self.entries_by_package.get(label), people=self.people,
+                        wikidata_ids=self.wikidata_ids)
 
     def push(self):
         """Updates the MaRDI Wikibase entities corresponding to R packages.

@@ -230,7 +230,11 @@ def _install_wikibaseintegrator_stub() -> None:
             self.sitelinks = {}
 
     class ActionIfExists:
-        pass
+        APPEND_OR_REPLACE = "APPEND_OR_REPLACE"
+        FORCE_APPEND = "FORCE_APPEND"
+        KEEP = "KEEP"
+        REPLACE_ALL = "REPLACE_ALL"
+        MERGE_REFS_OR_APPEND = "MERGE_REFS_OR_APPEND"
 
     class URL:
         pass

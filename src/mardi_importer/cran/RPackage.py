@@ -4,7 +4,7 @@ from mardi_importer.wikidata import WikidataImporter
 from mardi_importer.arxiv import ArxivSource, ArxivPublication
 from mardi_importer.crossref import CrossrefSource, CrossrefPublication
 from mardi_importer.zenodo import ZenodoSource, ZenodoResource
-from wikibaseintegrator.wbi_helpers import search_entities, remove_claims
+from wikibaseintegrator.wbi_enums import ActionIfExists
 
 from .authors import Entry, parse_author_text, parse_maintainer
 from .resolve import MardiWiki, OrcidRegistry, People, Resolved, agrees
@@ -21,6 +21,40 @@ import re
 import logging
 
 log = logging.getLogger("CRANlogger")
+
+WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
+USER_AGENT = "mardi-importer (https://portal.mardi4nfdi.de; CRAN import)"
+
+
+def wikidata_r_packages(session=None) -> Dict[str, str]:
+    """CRAN package name → Wikidata QID, in one query per run.
+
+    Items with the package's *CRAN project* (P5565) first, then items that are
+    an *R package* (Q73539779) with the package's name as English label. A name
+    shared by several items is left out. Empty if Wikidata cannot be reached:
+    the Wikidata QID is then not added, nothing else changes.
+    """
+    session = session or requests.Session()
+    query = ("SELECT ?item ?name ?kind WHERE { { ?item wdt:P5565 ?name BIND(1 AS ?kind) } UNION "
+             "{ ?item wdt:P31 wd:Q73539779 ; rdfs:label ?name FILTER(LANG(?name) = \"en\") BIND(2 AS ?kind) } }")
+    try:
+        r = session.get(WIKIDATA_SPARQL, params={"query": query},
+                        headers={"Accept": "application/sparql-results+json", "User-Agent": USER_AGENT}, timeout=120)
+        r.raise_for_status()
+        rows = r.json()["results"]["bindings"]
+    except Exception as exc:
+        log.warning("Wikidata R packages not read (%s); no Wikidata QIDs will be added", exc)
+        return {}
+    found: Dict[str, Dict[int, set]] = {}
+    for b in rows:
+        qid = b["item"]["value"].rsplit("/", 1)[-1]
+        found.setdefault(b["name"]["value"], {}).setdefault(int(b["kind"]["value"]), set()).add(qid)
+    out = {}
+    for name, by_kind in found.items():
+        best = by_kind[min(by_kind)]
+        if len(best) == 1:
+            out[name] = next(iter(best))
+    return out
 
 
 @dataclass
@@ -66,6 +100,7 @@ class RPackage:
     versions: List[Tuple[str, str]] = field(default_factory=list)
     entries: Optional[List[Entry]] = None
     people: Optional[People] = None
+    wikidata_ids: Optional[Dict[str, str]] = None
     license_data: List[Tuple[str, str]] = field(default_factory=list)
     dependencies: List[Tuple[str, str]] = field(default_factory=list)
     imports: List[Tuple[str, str]] = field(default_factory=list)
@@ -306,27 +341,8 @@ class RPackage:
           str: ID of the updated R package.
         """
         if self.pull():
-            # GUID to remove. Authors and maintainer are not among them: their
-            # links are only added to (see apply_people), so that links
-            # corrected by hand stay.
-            remove_guid = []
-            props_to_delete = [
-                "wdt:P275",
-                "wdt:P1547",
-                "imports",
-                "wdt:P2860",
-            ]
-            for prop_str in props_to_delete:
-                prop_nr = self.api.get_local_id_by_label(prop_str, "property")
-                for claim in self.item.claims.get(prop_nr):
-                    remove_guid.append(claim.id)
-
-            for guid in remove_guid:
-                remove_claims(guid, login=self.api.login, is_bot=True)
-
-            # Restart item state
-            self.exists()
-
+            # Everything is changed in the item and written once at the end: an
+            # error on the way (a source not answering) leaves the item as it was.
             if self.item.descriptions.values.get("en") != self.description:
                 description = self.description
                 if self.label == self.description:
@@ -355,24 +371,12 @@ class RPackage:
             # Authors and maintainer
             self.apply_people()
 
-            # Licenses
-            if self.license_data:
-                claims = self.process_claims(self.license_data, "wdt:P275", "wdt:P9767")
-                self.item.add_claims(claims)
-
-            # Dependencies
-            if self.dependencies:
-                claims = self.process_claims(self.dependencies, "wdt:P1547", "wdt:P348")
-                self.item.add_claims(claims)
-
-            # Imports
-            if self.imports:
-                prop_nr = self.api.get_local_id_by_label("imports", "property")
-                claims = self.process_claims(self.imports, prop_nr, "wdt:P348")
-                self.item.add_claims(claims)
-
-            # Related publications and sources
-            cites_work = "wdt:P2860"
+            # Licenses, dependencies, imports and cited works: replaced by CRAN's
+            self.replace_statements("wdt:P275", self.process_claims(self.license_data, "wdt:P275", "wdt:P9767"))
+            self.replace_statements("wdt:P1547", self.process_claims(self.dependencies, "wdt:P1547", "wdt:P348"))
+            imports = self._prop("imports")
+            self.replace_statements("imports", self.process_claims(self.imports, imports, "wdt:P348"))
+            cited = []
             for publications in [
                 self.crossref_publications,
                 self.arxiv_publications,
@@ -380,7 +384,9 @@ class RPackage:
             ]:
                 for publication in publications:
                     publication.create()
-                    self.item.add_claim(cites_work, publication.QID)
+                    if publication.QID:
+                        cited.append(self.api.get_claim("wdt:P2860", publication.QID))
+            self.replace_statements("wdt:P2860", cited)
 
             # CRAN Project
             self.item.add_claim("wdt:P5565", self.label, action="replace_all")
@@ -396,6 +402,20 @@ class RPackage:
                 print(f"Package with QID updated: {package['QID']}.")
             else:
                 print(f"Package could not be updated.")
+
+    def replace_statements(self, prop: str, claims: list) -> None:
+        """Make ``claims`` the statements of ``prop`` in the item, to be written with it.
+
+        Statements equal to one of ``claims`` (value and qualifiers) stay as
+        they are; the others are removed, and the new ones added.
+        """
+        current = list(self.item.claims.get(self._prop(prop)))
+        for claim in current:
+            if claim not in claims:
+                claim.remove()
+        for claim in claims:
+            if claim not in current:
+                self.item.claims.add(claim, ActionIfExists.FORCE_APPEND)
 
     def process_claims(self, data, prop_nr, qualifier_nr=None):
         claims = []
@@ -826,38 +846,10 @@ class RPackage:
             return license_info
 
     def get_wikidata_QID(self) -> Optional[str]:
-        """Get the Wikidata QID for the R package.
-
-        Searches for the R package in Wikidata using its label. Retrieves
-        the QID of matching entities and checks if there is an instance of
-        an R package. If so, returns the QID.
-
-        Returns:
-            Optional[str]:
-                The Wikidata QID of the R package if found, or None otherwise.
-        """
-        results = search_entities(
-            search_string=self.label,
-            mediawiki_api_url="https://www.wikidata.org/w/api.php",
-        )
-
-        for result in results:
-            item = self.api.item.get(
-                entity_id=result, mediawiki_api_url="https://www.wikidata.org/w/api.php"
-            )
-            if "P31" in item.claims.get_json().keys():
-                instance_claims = item.claims.get("P31")
-                if instance_claims:
-                    for claim in instance_claims:
-                        claim = claim.get_json()
-                        if claim["mainsnak"]["datatype"] == "wikibase-item":
-                            # If instance of R package
-                            if "datavalue" in claim["mainsnak"].keys():
-                                if (
-                                    claim["mainsnak"]["datavalue"]["value"]["id"]
-                                    == "Q73539779"
-                                ):
-                                    return result
+        """The Wikidata QID of the R package, from :func:`wikidata_r_packages` (read once per run)."""
+        if self.wikidata_ids is None:
+            self.wikidata_ids = wikidata_r_packages()
+        return self.wikidata_ids.get(self.label)
 
     def get_versions(self):
         url = f"https://cran.r-project.org/src/contrib/Archive/{self.label}"

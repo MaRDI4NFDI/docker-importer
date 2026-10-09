@@ -95,12 +95,28 @@ class TestUpdate(unittest.TestCase):
         self.assertEqual(sorted(imports), [("Q57482", False), ("Q73373", True), ("Q99999", False)])
         self.assertEqual([c.removed for c in pkg.item.claims.get("P163")], [False])   # unchanged licence kept
 
+    def test_software_profile_type(self):
+        pkg = vcr([])
+        pkg.item.add_claim = Mock()
+        pkg.update()
+        pkg.item.add_claim.assert_any_call("MaRDI profile type", "MaRDI software profile")
+
     def test_an_error_before_the_write_changes_nothing(self):
         pkg = vcr([claim("P163", "Q57086"), claim("P585", "Q73373")])
         pkg.get_wikidata_QID = Mock(side_effect=RuntimeError("429 Client Error: Too Many Requests"))
         with self.assertRaises(RuntimeError):
             pkg.update()
         pkg.item.write.assert_not_called()
+
+
+class TestLicence(unittest.TestCase):
+    def test_unknown_licence_is_skipped(self):
+        pkg = vcr([])
+        pkg.label = "restatapi"
+        pkg.get_license_QID = lambda s: {"GPL-3": "wd:Q10513445"}.get(s)
+        with patch.object(module.pd, "isna", lambda x: x is None, create=True):
+            self.assertEqual(pkg.parse_license("EUPL version 1.1 | GPL-3"), [("wd:Q10513445", "")])
+        self.assertEqual(len(pkg.process_claims([(None, ""), ("Q1", "")], "P163")), 1)
 
 
 class TestWikidata(unittest.TestCase):

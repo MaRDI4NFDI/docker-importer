@@ -266,6 +266,7 @@ class RPackage:
     def insert_claims(self):
         # Instance of: R package
         self.item.add_claim("wdt:P31", "wd:Q73539779")
+        self.item.add_claim("MaRDI profile type", "MaRDI software profile")
 
         # Programmed in: R
         self.item.add_claim("wdt:P277", "wd:Q206904")
@@ -349,6 +350,8 @@ class RPackage:
                     description += " (R Package)"
                 self.item.descriptions.set(language="en", value=description)
 
+            self.item.add_claim("MaRDI profile type", "MaRDI software profile")
+
             # Long description
             self.item.add_claim(
                 "description", self.long_description, action="replace_all"
@@ -420,6 +423,8 @@ class RPackage:
     def process_claims(self, data, prop_nr, qualifier_nr=None):
         claims = []
         for value, qualifier_value in data:
+            if not value:
+                continue
             qualifier_prop_nr = (
                 "wdt:P2699" if qualifier_value.startswith("https") else qualifier_nr
             )
@@ -562,6 +567,7 @@ class RPackage:
                     # Software = New instance of R package
                     item.add_claim("wdt:P31", "wd:Q73539779")
                     item.add_claim("wdt:P277", "wd:Q206904")
+                    item.add_claim("MaRDI profile type", "MaRDI software profile")
                     software_QID = item.write().id
 
             software_tuples.append((software_QID, software_version))
@@ -668,7 +674,10 @@ class RPackage:
                 )
 
             license_QID = self.get_license_QID(license_str)
-            license_tuples.append((license_QID, license_qualifier))
+            if license_QID:
+                license_tuples.append((license_QID, license_qualifier))
+            else:
+                log.warning("%s: licence %r not known", self.label, license_str)
         return license_tuples
 
     # -- authors and maintainer ---------------------------------------------------------

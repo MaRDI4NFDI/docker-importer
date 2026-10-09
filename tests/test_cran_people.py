@@ -54,6 +54,14 @@ class TestAuthorsR(unittest.TestCase):
         self.assertEqual([(e.name, e.roles, e.email) for e in got],
                          [("Jane Roe", ("aut", "cre"), "jane@example.org")])
 
+    def test_empty_named_argument(self):
+        # robust: person(given = "Alfio", family = "Marazzi", role = "aut", email=)
+        got = authors.parse_authors_r('c(person(given = "Alfio", family = "Marazzi", role = "aut", email=), '
+                                      'person(given = "Valentin", family = "Todorov", email = "v@x.org", '
+                                      'role = c("aut", "cre")))', "robust")
+        self.assertEqual([(e.name, e.roles, e.email) for e in got],
+                         [("Alfio Marazzi", ("aut",), None), ("Valentin Todorov", ("aut", "cre"), "v@x.org")])
+
     def test_unreadable_falls_back_to_author_text(self):
         entries, notes = authors.package_entries({
             "Package": "robust", "Authors@R": 'c(person("A", "B"), ))',

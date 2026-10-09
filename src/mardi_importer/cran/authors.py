@@ -169,6 +169,11 @@ class _Parser:
                     self.i + 1 < len(self.toks) and self.toks[self.i + 1][1] == "=":
                 key = self.take()[1].strip("\"'")
                 self.take("=")
+                if self.peek(",") or self.peek(")"):       # an empty argument: email=)
+                    args.append((key, None))
+                    if self.peek(","):
+                        self.take(",")
+                    continue
             args.append((key, self.expr()))
             if self.peek(","):
                 self.take(",")

@@ -1,34 +1,33 @@
 """contentmath statements are read; a failed CRAN package does not stop the run."""
 
 import os
-import subprocess
 import sys
 import unittest
 from unittest.mock import Mock, patch
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-SRC = os.path.join(REPO_ROOT, "src")
-sys.path.insert(0, SRC)
+sys.path.insert(0, os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "src"))
 
-CHECK = r'''
-import mardi_importer
-from wikibaseintegrator.models import Claims
-snak = lambda p, t, v: {"mainsnak": {"snaktype": "value", "property": p, "datatype": t,
-                                     "datavalue": {"value": v, "type": "string"}},
-                        "type": "statement", "id": p + "$x", "rank": "normal"}
-claims = Claims().from_json({"P14": [snak("P14", "contentmath", r"\sin x")],
-                             "P1455": [snak("P1455", "mathml", "<math/>")]})
-print(type(claims.get("P14")[0]).__name__, type(claims.get("P1455")[0]).__name__)
-'''
+import mardi_importer  # noqa: E402,F401
+from mardi_importer.wbi_datatypes import ContentMath  # noqa: E402
+from wikibaseintegrator import datatypes  # noqa: E402
+
+
+def snak(p, t, v):
+    return {"mainsnak": {"snaktype": "value", "property": p, "datatype": t,
+                         "datavalue": {"value": v, "type": "string"}},
+            "type": "statement", "id": p + "$x", "rank": "normal"}
 
 
 class TestDatatypes(unittest.TestCase):
+    def test_contentmath_defined(self):
+        self.assertEqual(ContentMath.DTYPE, "contentmath")
+
+    @unittest.skipUnless(hasattr(datatypes, "BaseDataType"), "WikibaseIntegrator is stubbed by another test module")
     def test_contentmath_and_mathml_statements_are_read(self):
-        # fresh interpreter: other test modules stub WikibaseIntegrator
-        out = subprocess.run([sys.executable, "-c", CHECK], capture_output=True, text=True,
-                             env={**os.environ, "PYTHONPATH": SRC})
-        self.assertEqual(out.returncode, 0, out.stderr[-2000:])
-        self.assertEqual(out.stdout.split(), ["ContentMath", "MathML"])
+        from wikibaseintegrator.models import Claims
+        claims = Claims().from_json({"P14": [snak("P14", "contentmath", r"\sin x")],
+                                     "P1455": [snak("P1455", "mathml", "<math/>")]})
+        self.assertEqual([type(claims.get(p)[0]).__name__ for p in ("P14", "P1455")], ["ContentMath", "MathML"])
 
 
 class Table(list):

@@ -21,7 +21,7 @@ from .ZBMathPublication import ZBMathPublication
 from .ZBMathConfigParser import ZBMathConfigParser
 from .ZBMathAuthor import ZBMathAuthor
 from .ZBMathJournal import ZBMathJournal
-from .misc import get_tag, get_info_from_doi
+from .misc import get_tag, get_info_from_doi, year_to_str
 
 
 class ZBMathSource(ADataSource):
@@ -109,6 +109,37 @@ class ZBMathSource(ADataSource):
         )[0]
         self.label_id_dict["mardi_person_profile_item"] = self.api.get_local_id_by_label("MaRDI person profile", "item")[0]
 
+    # ── durable, resumable file writing ──────────────────────────────────
+    # The download and the conversion report a resume position after every
+    # batch. That position is only safe if everything before it is really on
+    # disk: rows still in Python's write buffer are lost when the pod is killed
+    # (OOM, eviction, node loss), and a resume after them would leave a gap.
+    # So each batch is flushed and fsynced first, and the byte size of the
+    # file at that moment is offered as ``last_durable_offset``. A resume that
+    # passes it back as ``resume_offset`` cuts off whatever was written after
+    # it (part of a batch, or half a line), so nothing is lost or duplicated.
+
+    @staticmethod
+    def _make_durable(f):
+        """Flush and fsync ``f``; return the file's size in bytes."""
+        f.flush()
+        os.fsync(f.fileno())
+        return os.fstat(f.fileno()).st_size
+
+    @staticmethod
+    def _truncate_for_resume(path, offset):
+        """Cut ``path`` back to ``offset`` bytes, the last durable position."""
+        size = os.path.getsize(path)
+        if size < offset:
+            raise RuntimeError(
+                f"{path} has {size} bytes but the checkpoint says {offset} were "
+                "written durably; the file was changed or lost, so resuming "
+                "would leave a gap"
+            )
+        if size > offset:
+            os.truncate(path, offset)
+        return size - offset
+
     def pull(self):
         #self.write_subset_dump(file=)
         #self.write_data_dump()
@@ -170,17 +201,35 @@ class ZBMathSource(ADataSource):
                 else:
                     print(f"Max retries reached for {de}")
 
-    def write_data_dump(self,start_after=0,output_path=None,progress_callback=None):
+    def write_data_dump(self,start_after=0,output_path=None,progress_callback=None,
+                        resume_offset=None):
         """
         Overrides abstract method.
         This method queries the zbMath API to get a data dump of all records,
         optionally between from_date and until_date
+
+        progress_callback is called with the last downloaded id once that batch
+        is on disk; ``self.last_durable_offset`` then holds the file size up to
+        and including it. Passing that back as ``resume_offset`` (together
+        with the id as ``start_after``) truncates anything written after it.
         """
         url = "https://api.zbmath.org/v1/document/_all"
+        self.last_durable_offset = None
+        if resume_offset is not None and not (output_path and os.path.exists(output_path)):
+            # Starting a new file here would silently lack everything before
+            # the checkpoint.
+            raise RuntimeError(
+                f"cannot resume the download: the checkpoint expects {output_path} "
+                f"with {resume_offset} bytes, but the file does not exist"
+            )
         if output_path and os.path.exists(output_path):
             # Resuming — reuse existing file, don't write headers again
             self.raw_dump_path = output_path
             write_header = False
+            if resume_offset is not None:
+                cut = self._truncate_for_resume(output_path, resume_offset)
+                if cut:
+                    print(f"Removed {cut} bytes written after the last checkpoint")
         else:
             timestr = time.strftime("%Y%m%d-%H%M%S")
             self.raw_dump_path = output_path or (self.out_dir + "raw_zbmath_data_dump" + timestr + ".txt")
@@ -209,8 +258,7 @@ class ZBMathSource(ADataSource):
                                 print(f"wrong headers in {r}")
                                 break
                             f.write(self.get_line(r.values()))
-                        f.flush()
-                        os.fsync(f)
+                        self.last_durable_offset = self._make_durable(f)
                         if progress_callback:
                             progress_callback(start_after)
                     elif response.status_code == 404:
@@ -288,17 +336,40 @@ class ZBMathSource(ADataSource):
             for rec in records:
                 f.write(rec.raw + "\n")
 
-    def process_data(self, resume_after_de=None, progress_callback=None):
+    def process_data(self, resume_after_de=None, progress_callback=None,
+                     resume_offset=None, sync_every=1000):
         """
         Overrides abstract method.
         Reads a raw zbMath data dump and processes it, then saves it as a csv.
+
+        Every ``sync_every`` rows (and at the end) the file is made durable and
+        progress_callback is called with the last written de_number;
+        ``self.last_durable_offset`` then holds the file size up to and
+        including that row. Passing it back as ``resume_offset`` together with
+        ``resume_after_de`` truncates whatever was written after it, so a
+        resumed conversion neither loses nor duplicates rows.
         """
         if not self.processed_dump_path:
             timestr = time.strftime("%Y%m%d-%H%M%S")
             self.processed_dump_path = (
                 self.out_dir + "zbmath_data_dump" + timestr + ".csv"
             )
+        self.last_durable_offset = None
+        if resume_offset is not None:
+            if not os.path.exists(self.processed_dump_path):
+                # Appending to a new file would give a dump with no header and
+                # without everything before the checkpoint.
+                raise RuntimeError(
+                    f"cannot resume the conversion: the checkpoint expects "
+                    f"{self.processed_dump_path} with {resume_offset} bytes, but "
+                    "the file does not exist"
+                )
+            cut = self._truncate_for_resume(self.processed_dump_path, resume_offset)
+            if cut:
+                print(f"Removed {cut} bytes written after the last checkpoint")
         write_header = resume_after_de is None
+        pending_de = None
+        since_sync = 0
         with open(self.processed_dump_path, "a") as outfile:
             if write_header:
                 outfile.write(
@@ -363,7 +434,7 @@ class ZBMathSource(ADataSource):
                     record["links"] = ";".join(links)
                     record["keywords"] = ";".join([x for x in literal_eval(row["keywords"]) if x])
                     record["doi"] = doi
-                    record["publication_year"] = row["year"]
+                    record["publication_year"] = year_to_str(row["year"])
                     if literal_eval(row["source"])["series"]:
                         record["serial"] = literal_eval(row["source"])["series"][0]["title"]
                     else:
@@ -396,8 +467,17 @@ class ZBMathSource(ADataSource):
                         outfile.write(
                             "\t".join(str(x) for x in record.values()) + "\n"
                         )
-                        if progress_callback:
-                            progress_callback(str(row["id"]))
+                        pending_de = str(row["id"])
+                        since_sync += 1
+                        if since_sync >= sync_every:
+                            self.last_durable_offset = self._make_durable(outfile)
+                            since_sync = 0
+                            if progress_callback:
+                                progress_callback(pending_de)
+            # the rows since the last batch
+            self.last_durable_offset = self._make_durable(outfile)
+            if since_sync and progress_callback:
+                progress_callback(pending_de)
 
     def old_process_data(self):
         """
@@ -863,6 +943,82 @@ class ZBMathSource(ADataSource):
                 if progress_callback:
                     progress_callback(info_dict["de_number"].strip())
 
+
+    # ── update path ──────────────────────────────────────────────────────
+
+    def get_updater(self, logger=None):
+        """Return this source's :class:`ZBMathUpdater`, creating it once.
+
+        Sources are singletons, so the updater — and with it the author and
+        journal caches — is shared by every task of a flow run in the same
+        process.
+        """
+        from mardi_importer.logger.logging_utils import get_logger_safe
+
+        from .ZBMathUpdate import ZBMathUpdater
+
+        # Each Prefect task has its own run logger, so the updater is pointed
+        # at the current one. On the first call the constructor already takes
+        # it, so only an updater that outlived an earlier task needs it set.
+        if getattr(self, "_updater", None) is None:
+            self._updater = ZBMathUpdater(self, logger or get_logger_safe(__name__))
+        else:
+            if logger is not None:
+                self._updater.log = logger
+        return self._updater
+
+    def update_from_diff(
+        self,
+        diff_path,
+        mode="non_arxiv",
+        logger=None,
+        resume_after_de=None,
+        progress_callback=None,
+        missing_path=None,
+        max_rows=None,
+    ):
+        """Apply a zbMATH diff file to the existing items.
+
+        Args:
+            diff_path: Diff file built by ``mardi_importer.zbmath.diff.build_diff``.
+            mode: ``"non_arxiv"`` for publication items, ``"arxiv"`` for the
+                separate arXiv items.
+            resume_after_de: de_number to continue after.
+            progress_callback: Called with each fully processed de_number.
+            missing_path: Where diff rows whose item is not in the portal are
+                collected (same format as the diff file). Without it, such a
+                row raises.
+            max_rows: Stop after this many rows (see ``ZBMathUpdater.apply``).
+
+        Returns:
+            dict: statistics of this pass.
+        """
+        return self.get_updater(logger).apply(
+            diff_path,
+            mode=mode,
+            resume_after_de=resume_after_de,
+            progress_callback=progress_callback,
+            missing_path=missing_path,
+            max_rows=max_rows,
+        )
+
+    def update_references_from_diff(
+        self,
+        diff_path,
+        logger=None,
+        resume_after_de=None,
+        progress_callback=None,
+        missing_path=None,
+        max_rows=None,
+    ):
+        """Merge changed reference lists from a diff file onto the items."""
+        return self.get_updater(logger).apply_references(
+            diff_path,
+            resume_after_de=resume_after_de,
+            progress_callback=progress_callback,
+            missing_path=missing_path,
+            max_rows=max_rows,
+        )
 
     def create_arxiv_item(self, publication, info_dict):
         item = self.api.item.new()

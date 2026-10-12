@@ -49,6 +49,11 @@ def install_prefect_stub(force: bool = True) -> None:
             self.message = message
             self.data = data
 
+    class Completed(State):
+        def __init__(self, message=None, data=None):
+            self.message = message
+            self.data = data
+
     class Artifact:
         def __init__(self, type=None, key=None, description=None, data=None):
             self.type = type
@@ -92,6 +97,7 @@ def install_prefect_stub(force: bool = True) -> None:
     pref.State = State
 
     states.Failed = Failed
+    states.Completed = Completed
     artifacts.Artifact = Artifact
     blocks.system = blocks_system
     blocks_system.Secret = Secret

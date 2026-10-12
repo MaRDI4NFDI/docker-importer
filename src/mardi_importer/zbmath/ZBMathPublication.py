@@ -64,8 +64,6 @@ class ZBMathPublication:
             time of publication
         links:
             list of links to publication
-        creation_date:
-            creation date of entry
         zbl_id:
             zbl_id
         arxiv_id:
@@ -94,7 +92,6 @@ class ZBMathPublication:
         language,
         time,
         links,
-        creation_date,
         zbl_id,
         arxiv_id,
         review_text,
@@ -117,7 +114,6 @@ class ZBMathPublication:
         self.author_name_strings = author_name_strings
         self.journal = journal
         self.time = time
-        self.creation_date = creation_date
         self.links = links
         self.review_text = review_text
         self.reviewer = reviewer
@@ -177,11 +173,8 @@ class ZBMathPublication:
         self.item.add_claims(author_string_claims)
         if self.journal:
             self.item.add_claim("wdt:P1433", self.journal)
-        if self.creation_date:
-            claim = self.api.get_claim("wdt:P577", self.creation_date)
-            self.item.add_claims([claim])
-        elif self.time:
-            claim = self.api.get_claim("wdt:P577", self.time)
+        if self.time:
+            claim = self.api.get_claim("wdt:P577", self.time, precision=9)
             self.item.add_claims([claim])
         if self.links:
             link_claims = []

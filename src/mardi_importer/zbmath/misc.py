@@ -73,6 +73,30 @@ def deduplicate_arxiv_file(old_arxiv_path, new_arxiv_path):
     return dedup_path
 
 
+def year_to_str(value):
+    """A publication year as an integer string, or ``"None"``.
+
+    ``process_data`` reads the raw dump with pandas in chunks, and a chunk in
+    which any record lacks a year turns the whole ``year`` column into floats,
+    so ``2024`` would come out as ``"2024.0"``. Coercing it here keeps the
+    processed dump stable no matter which chunk a record lands in.
+    """
+    if value is None:
+        return "None"
+    if isinstance(value, float):
+        if value != value:  # NaN
+            return "None"
+        if value.is_integer():
+            return str(int(value))
+        return str(value)
+    text = str(value).strip()
+    if text in ("", "nan", "NaN", "None"):
+        return "None"
+    if text.endswith(".0") and text[:-2].lstrip("+-").isdigit():
+        return text[:-2]
+    return text
+
+
 def _chunked(seq, size):
     for i in range(0, len(seq), size):
         yield seq[i:i + size]

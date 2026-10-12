@@ -21,7 +21,7 @@ from .ZBMathPublication import ZBMathPublication
 from .ZBMathConfigParser import ZBMathConfigParser
 from .ZBMathAuthor import ZBMathAuthor
 from .ZBMathJournal import ZBMathJournal
-from .misc import get_tag, get_info_from_doi
+from .misc import get_tag, get_info_from_doi, year_to_str
 
 
 class ZBMathSource(ADataSource):
@@ -363,7 +363,7 @@ class ZBMathSource(ADataSource):
                     record["links"] = ";".join(links)
                     record["keywords"] = ";".join([x for x in literal_eval(row["keywords"]) if x])
                     record["doi"] = doi
-                    record["publication_year"] = row["year"]
+                    record["publication_year"] = year_to_str(row["year"])
                     if literal_eval(row["source"])["series"]:
                         record["serial"] = literal_eval(row["source"])["series"][0]["title"]
                     else:
@@ -863,6 +863,82 @@ class ZBMathSource(ADataSource):
                 if progress_callback:
                     progress_callback(info_dict["de_number"].strip())
 
+
+    # ── update path ──────────────────────────────────────────────────────
+
+    def get_updater(self, logger=None):
+        """Return this source's :class:`ZBMathUpdater`, creating it once.
+
+        Sources are singletons, so the updater — and with it the author and
+        journal caches — is shared by every task of a flow run in the same
+        process.
+        """
+        from mardi_importer.logger.logging_utils import get_logger_safe
+
+        from .ZBMathUpdate import ZBMathUpdater
+
+        # Each Prefect task has its own run logger, so the updater is pointed
+        # at the current one. On the first call the constructor already takes
+        # it, so only an updater that outlived an earlier task needs it set.
+        if getattr(self, "_updater", None) is None:
+            self._updater = ZBMathUpdater(self, logger or get_logger_safe(__name__))
+        else:
+            if logger is not None:
+                self._updater.log = logger
+        return self._updater
+
+    def update_from_diff(
+        self,
+        diff_path,
+        mode="non_arxiv",
+        logger=None,
+        resume_after_de=None,
+        progress_callback=None,
+        missing_path=None,
+        max_rows=None,
+    ):
+        """Apply a zbMATH diff file to the existing items.
+
+        Args:
+            diff_path: Diff file built by ``mardi_importer.zbmath.diff.build_diff``.
+            mode: ``"non_arxiv"`` for publication items, ``"arxiv"`` for the
+                separate arXiv items.
+            resume_after_de: de_number to continue after.
+            progress_callback: Called with each fully processed de_number.
+            missing_path: Where diff rows whose item is not in the portal are
+                collected (same format as the diff file). Without it, such a
+                row raises.
+            max_rows: Stop after this many rows (see ``ZBMathUpdater.apply``).
+
+        Returns:
+            dict: statistics of this pass.
+        """
+        return self.get_updater(logger).apply(
+            diff_path,
+            mode=mode,
+            resume_after_de=resume_after_de,
+            progress_callback=progress_callback,
+            missing_path=missing_path,
+            max_rows=max_rows,
+        )
+
+    def update_references_from_diff(
+        self,
+        diff_path,
+        logger=None,
+        resume_after_de=None,
+        progress_callback=None,
+        missing_path=None,
+        max_rows=None,
+    ):
+        """Merge changed reference lists from a diff file onto the items."""
+        return self.get_updater(logger).apply_references(
+            diff_path,
+            resume_after_de=resume_after_de,
+            progress_callback=progress_callback,
+            missing_path=missing_path,
+            max_rows=max_rows,
+        )
 
     def create_arxiv_item(self, publication, info_dict):
         item = self.api.item.new()

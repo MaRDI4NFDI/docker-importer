@@ -60,6 +60,17 @@ class ZBMathAuthor:
                 item.add_claim("wdt:P1556", self.zbmath_author_id)
         return item
 
+    def exists(self):
+        """Return the QID of an already existing author item, or None.
+
+        No lookup happens here: ``__init__`` always runs ``init_item``, which
+        resolves the author by zbMATH author ID and stores the result in
+        ``self.QID``. Unlike
+        :meth:`mardi_importer.zbmath.ZBMathJournal.exists`, which has to do the
+        lookup itself because ``ZBMathJournal.init_item`` does not.
+        """
+        return self.QID
+
     def create(self):
         if self.QID:
             print(f"Author {self.name} exists")

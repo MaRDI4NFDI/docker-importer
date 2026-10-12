@@ -69,3 +69,24 @@ deployments:
         volume_mounts:
           - name: workflow-data
             mountPath: /mnt/workflow-data
+
+  # The update flow keeps its own volume: it has to hold on to the previous
+  # full processed dump to diff the next one against it, and its checkpoint is
+  # independent of the import flow's.
+  - name: production
+    entrypoint: mardi_portal.flows.zbmath_update:zbmath_update_flow
+    build: null
+    concurrency_limit: 1
+    work_pool:
+      name: prod-k8s-pool
+      job_variables:
+        env:
+          PREFECT_LOGGING_LEVEL: DEBUG
+          PREFECT_LOGGING_INTERNAL_LEVEL: DEBUG
+        volumes:
+          - name: update-data
+            persistentVolumeClaim:
+              claimName: importer-update-data
+        volume_mounts:
+          - name: update-data
+            mountPath: /mnt/update-data

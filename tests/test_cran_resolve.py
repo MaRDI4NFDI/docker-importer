@@ -226,6 +226,18 @@ class TestApplyPeople(unittest.TestCase):
             pkg.apply_people()
             self.assertEqual(pkg.item.removed(), [], entries)
 
+    def test_maintainer_named_in_a_free_text_author_field(self):
+        # multiwayvcov: "Nathaniel Graham and Mahmood Arai and Björn Hagströmer", no Authors@R
+        wiki = FakeWiki({})
+        entries = [e("multiwayvcov", "Nathaniel Graham", (), source="Author"),
+                   e("multiwayvcov", "Mahmood Arai", (), source="Author"),
+                   e("multiwayvcov", "Nathaniel Graham", ("cre",), email="n@x", source="Maintainer")]
+        pkg = package(entries, {}, wiki)
+        pkg.apply_people()
+        new = wiki.created[0][0]
+        self.assertEqual(sorted(pkg.item.added),
+                         [("wdt:P126", new), ("wdt:P2093", "Mahmood Arai"), ("wdt:P50", new)])
+
     def test_maintainer_orcid_comes_from_the_cre_entry(self):
         wiki = FakeWiki({"Q57170": "Scott Chamberlain"}, {SCOTT: ["Q57170"]})
         entries = [e("vcr", "Scott Chamberlain", ("aut", "cre"), SCOTT),

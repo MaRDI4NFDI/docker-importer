@@ -23,6 +23,23 @@ deployments:
 
   # Weekly CRAN archive status (end time of CRAN project). Inactive until the
   # first dry run has been reviewed; set `active: true` to enable it.
+  # Nightly CRAN import of packages published since yesterday, then the archive status.
+  - name: cran-nightly
+    entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
+    build: null
+    concurrency_limit: 1
+    parameters:
+      action: import/cran
+    schedules:
+      - cron: "0 2 * * *"
+        timezone: Europe/Berlin
+        active: false
+    work_pool:
+      name: prod-k8s-pool
+      job_variables:
+        env:
+          PREFECT_LOGGING_EXTRA_LOGGERS: CRANlogger
+
   - name: cran-archive-sync
     entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
     build: null

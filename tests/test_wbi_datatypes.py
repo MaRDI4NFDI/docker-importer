@@ -62,5 +62,27 @@ class TestPush(unittest.TestCase):
         source.sync_archive_status.assert_called_once()
 
 
+    def test_since_and_no_pause_when_up_to_date(self):
+        from mardi_importer.cran.CRANSource import CRANSource
+        source = CRANSource.__new__(CRANSource)
+        source.packages = Table({"Date": d, "Package": p, "Title": p}
+                                for d, p in (("2026-10-12", "new"), ("2026-10-10", "same"), ("2026-10-01", "old")))
+        seen = []
+
+        def new_package(date, label, title):
+            seen.append(label)
+            pkg = Mock()
+            pkg.exists.return_value = True
+            pkg.is_updated.return_value = label == "same"
+            return pkg
+
+        source.new_package = new_package
+        source.sync_archive_status = Mock()
+        with patch("mardi_importer.cran.CRANSource.time.sleep") as sleep:
+            source.push(since="2026-10-09")
+        self.assertEqual(seen, ["new", "same"])
+        self.assertEqual(sleep.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

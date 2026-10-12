@@ -89,7 +89,7 @@ class CRANSource(ADataSource):
         return RPackage(date, label, title, entries=self.entries_by_package.get(label), people=self.people,
                         wikidata_ids=self.wikidata_ids)
 
-    def push(self):
+    def push(self, since: str | None = None):
         """Updates the MaRDI Wikibase entities corresponding to R packages.
 
         For each **package name** in the attribute **packages** checks 
@@ -100,23 +100,28 @@ class CRANSource(ADataSource):
 
         It creates a :class:`mardi_importer.cran.RPackage` instance
         for each package.
+
+        Args:
+            since: Only packages published on CRAN on or after this day (YYYY-MM-DD).
         """
+        rows = [row for _, row in self.packages.iterrows() if not since or str(row["Date"]) >= since]
         failed = []
-        for n, (_, row) in enumerate(self.packages.iterrows(), 1):
+        for n, row in enumerate(rows, 1):
             package_label = row["Package"]
             try:
                 package = self.new_package(row["Date"], package_label, row["Title"])
                 if package.exists():
                     if not package.is_updated():
-                        log.info("[%d/%d] %s: not up to date, updating", n, len(self.packages), package_label)
+                        log.info("[%d/%d] %s: not up to date, updating", n, len(rows), package_label)
                         package.update()
                     else:
-                        log.info("[%d/%d] %s: up to date", n, len(self.packages), package_label)
+                        log.info("[%d/%d] %s: up to date", n, len(rows), package_label)
+                        continue
                 else:
-                    log.info("[%d/%d] %s: not found, creating", n, len(self.packages), package_label)
+                    log.info("[%d/%d] %s: not found, creating", n, len(rows), package_label)
                     package.create()
             except Exception:
-                log.exception("[%d/%d] %s: failed", n, len(self.packages), package_label)
+                log.exception("[%d/%d] %s: failed", n, len(rows), package_label)
                 failed.append(package_label)
 
             time.sleep(2)

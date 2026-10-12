@@ -28,6 +28,7 @@ class Claim:
     def __init__(self, pid, value):
         self.pid, self.removed = pid, False
         self.mainsnak = SimpleNamespace(datavalue={"value": {"id": value}}, property_number=pid)
+        self.qualifiers = SimpleNamespace(qualifiers={})
 
     def __eq__(self, other):
         return isinstance(other, Claim) and (self.pid, self.mainsnak.datavalue) == (other.pid, other.mainsnak.datavalue)
@@ -107,6 +108,31 @@ class TestUpdate(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             pkg.update()
         pkg.item.write.assert_not_called()
+
+
+class TestCitedPublications(unittest.TestCase):
+    def test_doi_routing_and_unavailable_sources(self):
+        pkg = vcr([])
+        pkg.crossref.new_publication.side_effect = lambda d: (_ for _ in ()).throw(RuntimeError("404"))
+        pkg.arxiv.new_publication.side_effect = lambda a: SimpleNamespace(title="t", id=a)
+        pkg.zenodo.new_resource.side_effect = lambda z: SimpleNamespace(id=z)
+        pkg.parse_publications("See <doi:10.48550/arXiv.2608.02055>, <doi:10.5281/zenodo.1234>, "
+                               "<doi:10.1000/missing> and <arXiv:2101.00001>.")
+        self.assertEqual([p.id for p in pkg.arxiv_publications], ["2101.00001", "2608.02055"])
+        self.assertEqual([p.id for p in pkg.zenodo_resources], ["1234"])
+        self.assertEqual(pkg.crossref_publications, [])                    # skipped, package goes on
+
+
+class TestTimes(unittest.TestCase):
+    def test_day_precision_times_at_midnight(self):
+        pkg = vcr([])
+        main = SimpleNamespace(datavalue={"value": {"time": "+2023-10-15T00:55:42Z", "precision": 11}})
+        qual = SimpleNamespace(datavalue={"value": {"time": "+2023-10-15T00:55:42Z", "precision": 14}})
+        c = SimpleNamespace(mainsnak=main, qualifiers=SimpleNamespace(qualifiers={"P140": [qual]}))
+        pkg.item.claims = SimpleNamespace(claims={"P1454": [c]})
+        pkg._day_precision_times()
+        self.assertEqual(main.datavalue["value"]["time"], "+2023-10-15T00:00:00Z")
+        self.assertEqual(qual.datavalue["value"]["time"], "+2023-10-15T00:55:42Z")    # second precision kept
 
 
 class TestLicence(unittest.TestCase):

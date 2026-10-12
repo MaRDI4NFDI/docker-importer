@@ -259,9 +259,20 @@ class RPackage:
                 or None otherwise.
         """
         if self.item.claims:
+            self._day_precision_times()
             item = self.item.write()
             if item:
                 return {"QID": item.id}
+
+    def _day_precision_times(self) -> None:
+        """Times of day precision written at midnight: Wikibase rejects others on save."""
+        for claims in self.item.claims.claims.values():
+            for claim in claims:
+                snaks = [claim.mainsnak] + [q for qs in claim.qualifiers.qualifiers.values() for q in qs]
+                for snak in snaks:
+                    value = (snak.datavalue or {}).get("value")
+                    if isinstance(value, dict) and value.get("precision") == 11 and "T" in value.get("time", ""):
+                        value["time"] = value["time"].split("T")[0] + "T00:00:00Z"
 
     def insert_claims(self):
         # Instance of: R package
@@ -464,32 +475,34 @@ class RPackage:
         crossref_references = []
 
         for doi in doi_references:
-            doi = doi.strip().upper()
-            if re.search("10.48550/", doi):
-                arxiv_id = doi.replace(":", ".")
-                arxiv_id = arxiv_id.replace("10.48550/arxiv.", "")
-                arxiv_references.append(arxiv_id.strip())
-            elif re.search("10.5281/", doi):
-                zenodo_id = doi.replace(":", ".")
-                zenodo_id = zenodo_id.replace("10.5281/zenodo.", "")
-                zenodo_references.append(zenodo_id.strip())
+            doi = doi.strip().replace(":", ".")
+            if re.match(r"10\.48550/arxiv\.", doi, re.I):
+                arxiv_references.append(re.sub(r"^10\.48550/arxiv\.", "", doi, flags=re.I))
+            elif re.match(r"10\.5281/zenodo\.", doi, re.I):
+                zenodo_references.append(re.sub(r"^10\.5281/zenodo\.", "", doi, flags=re.I))
             else:
-                crossref_references.append(doi)
+                crossref_references.append(doi.upper())
 
         for doi in crossref_references:
-            publication = self.crossref.new_publication(doi.upper())
-            self.crossref_publications.append(publication)
+            if (publication := self._cited("DOI", doi, self.crossref.new_publication)):
+                self.crossref_publications.append(publication)
 
         for arxiv_id in arxiv_references:
-            arxiv_id = arxiv_id.replace(":", ".")
-            publication = self.arxiv.new_publication(arxiv_id)
-            if publication.title != "Error":
+            publication = self._cited("arXiv", arxiv_id.replace(":", "."), self.arxiv.new_publication)
+            if publication and publication.title != "Error":
                 self.arxiv_publications.append(publication)
 
         for zenodo_id in zenodo_references:
-            zenodo_id = zenodo_id.replace(":", ".")
-            publication = self.zenodo.new_resource(zenodo_id)
-            self.zenodo_resources.append(publication)
+            if (publication := self._cited("Zenodo", zenodo_id.replace(":", "."), self.zenodo.new_resource)):
+                self.zenodo_resources.append(publication)
+
+    def _cited(self, kind, ref, make):
+        """A cited publication, or None (logged) when its source cannot provide it."""
+        try:
+            return make(ref)
+        except Exception as exc:
+            log.warning("%s: cited %s %s not imported: %s", self.label, kind, ref, exc)
+            return None
 
     def get_last_update(self):
         """Returns the package last update date saved in the Wikibase instance.
@@ -713,7 +726,8 @@ class RPackage:
         """Resolved authors (Authors@R ``aut``, or everyone in a free-text Author field) and maintainer."""
         entries = self.entries or []
         maintainer, m = None, next((e for e in entries if e.source == "Maintainer"), None)
-        is_maintainer = lambda e: m is not None and "cre" in e.roles and agrees(m.name, e.name, e.family)
+        # a free-text Author field has no roles: the maintainer is then known by name
+        is_maintainer = lambda e: m is not None and agrees(m.name, e.name, e.family) and ("cre" in e.roles or not e.roles)
         if m is not None:
             if not m.orcid:          # the maintainer's ORCID is on their Authors@R entry
                 m.orcid = next((e.orcid for e in entries if e.source != "Maintainer" and is_maintainer(e)

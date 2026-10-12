@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import date, timedelta
 from enum import Enum
 from typing import List, Dict, Any, Optional
 
@@ -27,6 +28,7 @@ class ImportAction(str, Enum):
     UPDATE_WIKIDATA = "update/wikidata"
     IMPORT_DOI = "import/doi"
     SYNC_CRAN_ARCHIVE = "sync/cran-archive"
+    IMPORT_CRAN = "import/cran"
 
 
 @task(retries=1, retry_delay_seconds=30)
@@ -213,12 +215,25 @@ def sync_cran_archive_task(dry_run: bool) -> Dict[str, Any]:
     return report
 
 
+@task
+def import_cran_task(since: Optional[str]) -> Dict[str, Any]:
+    """CRAN packages published since ``since`` (default: yesterday), then the archive status."""
+    log = get_run_logger()
+    since = since or (date.today() - timedelta(days=1)).isoformat()
+    source = Importer.create_source("cran")
+    source.pull()
+    failed = source.push(since=since)
+    log.info("CRAN import since %s: %d failed %s", since, len(failed), failed)
+    return {"since": since, "failed": failed, "all_imported": not failed}
+
+
 @flow(name="mardi-importer")
 def mardi_importer_flow(
     action: ImportAction,
     qids: Optional[List[str]] = None,
     dois: Optional[List[str]] = None,
     dry_run: bool = False,
+    since: Optional[str] = None,
 ) -> Dict[str, Any]:
     log = get_run_logger()
     qids: List[str] = qids or []
@@ -253,6 +268,9 @@ def mardi_importer_flow(
 
     elif action is ImportAction.SYNC_CRAN_ARCHIVE:
         result = sync_cran_archive_task(dry_run)
+
+    elif action is ImportAction.IMPORT_CRAN:
+        result = import_cran_task(since)
 
     else:
         raise ValueError(f"Unsupported action: {action}")

@@ -53,7 +53,10 @@ class FakeSource:
         self.runs = 0
         self.applied = []
 
-    def write_data_dump(self, start_after=0, output_path=None, progress_callback=None):
+    last_durable_offset = None
+
+    def write_data_dump(self, start_after=0, output_path=None, progress_callback=None,
+                        resume_offset=None):
         self.runs += 1
         self.raw_dump_path = output_path or os.path.join(
             self.out_dir, f"raw_zbmath_data_dump{self.runs}.txt"
@@ -61,7 +64,8 @@ class FakeSource:
         with open(self.raw_dump_path, "w") as f:
             f.write("raw\n")
 
-    def process_data(self, resume_after_de=None, progress_callback=None):
+    def process_data(self, resume_after_de=None, progress_callback=None,
+                     resume_offset=None):
         self.processed_dump_path = self.processed_dump_path or os.path.join(
             self.out_dir, f"zbmath_data_dump2026101{self.runs}-000000.csv"
         )
@@ -197,6 +201,45 @@ class UpdateFlowTest(unittest.TestCase):
         self.assertEqual(self.source.applied, [])
         self.assertTrue(os.path.exists(self._only("differences_*.csv")))
         self.assertTrue(os.path.exists(self.checkpoint))
+
+    def test_dump_steps_save_the_durable_offset_and_resume_with_it(self):
+        seen = []
+
+        class Interrupted(FakeSource):
+            def __init__(self, work):
+                super().__init__(work)
+                self.first = {"process": True, "download": True}
+
+            def process_data(self, resume_after_de=None, progress_callback=None,
+                             resume_offset=None):
+                seen.append(("process", resume_after_de, resume_offset))
+                self.processed_dump_path = os.path.join(self.out_dir, "p.csv")
+                if self.first["process"]:
+                    self.first["process"] = False
+                    self.last_durable_offset = 123
+                    progress_callback("5")
+                    raise RuntimeError("killed (simulated)")
+
+            def write_data_dump(self, start_after=0, output_path=None,
+                                progress_callback=None, resume_offset=None):
+                seen.append(("download", start_after, resume_offset))
+                self.raw_dump_path = output_path or os.path.join(self.out_dir, "r.txt")
+                if self.first["download"]:
+                    self.first["download"] = False
+                    self.last_durable_offset = 456
+                    progress_callback(300)
+                    raise RuntimeError("killed (simulated)")
+
+        self.source = Interrupted(self.work)
+        for step in (F.convert_raw_to_processed, F.download_raw_dump):
+            args = ("raw.txt",) if step is F.convert_raw_to_processed else ()
+            with self.assertRaises(RuntimeError):
+                step(*args)
+            step(*args)
+        self.assertEqual(seen, [
+            ("process", None, None), ("process", "5", 123),
+            ("download", 0, None), ("download", 300, 456),
+        ])
 
     def test_negative_limit_is_rejected(self):
         with self.assertRaises(ValueError):

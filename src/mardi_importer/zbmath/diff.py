@@ -178,6 +178,13 @@ def _header(path: str) -> list[str]:
     return line.rstrip("\n").split("\t")
 
 
+def _durable(f) -> None:
+    """Flush and fsync ``f`` so the rename that follows never publishes a
+    file whose contents did not reach the disk."""
+    f.flush()
+    os.fsync(f.fileno())
+
+
 def _tsv_writer(f):
     """Tab-separated writer that never quotes and never needs to escape.
 
@@ -251,6 +258,7 @@ def hash_dump(
             last_de = de
         # ``seen`` can get large; drop it before the rename
         del seen
+        _durable(out)
     os.replace(tmp, hash_path)
     if progress_callback and last_de:
         progress_callback(last_de)
@@ -405,6 +413,7 @@ def build_diff(
                 written += 1
                 if progress_callback:
                     progress_callback(de)
+        _durable(out)
 
     os.replace(tmp, output_file)
     return output_file, written
@@ -431,6 +440,7 @@ def build_deleted(
         f.write(f"{DE_COL}\n")
         for de in vanished:
             f.write(f"{de}\n")
+        _durable(f)
     os.replace(tmp, deleted_file)
     return deleted_file, len(vanished)
 

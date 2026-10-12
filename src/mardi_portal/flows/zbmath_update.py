@@ -103,7 +103,26 @@ def _save_checkpoint(data: dict) -> None:
     tmp = CHECKPOINT_FILE + ".tmp"
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
+        # on disk before it replaces the old checkpoint, so a node loss cannot
+        # leave an empty or half-written checkpoint behind
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, CHECKPOINT_FILE)
+    _fsync_dir(CHECKPOINT_DIR)
+
+
+def _fsync_dir(path: str) -> None:
+    """Persist a rename in ``path``; not every filesystem supports this."""
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
 
 
 def _step_done(checkpoint: dict, step: str) -> bool:
@@ -188,10 +207,14 @@ def download_raw_dump() -> str:
     source = _source(log)
 
     progress = _load_progress("download_raw_dump")
+    resume_offset = None
     if progress:
         resume_after = progress["last_id"]
         output_path = progress["raw_dump_path"]
-        log.info("Resuming download from last_id=%s into %s", resume_after, output_path)
+        # Older checkpoints have no offset; then nothing is truncated.
+        resume_offset = progress.get("offset")
+        log.info("Resuming download from last_id=%s into %s (offset %s)",
+                 resume_after, output_path, resume_offset)
     else:
         resume_after = 0
         output_path = None
@@ -200,12 +223,15 @@ def download_raw_dump() -> str:
         _save_progress("download_raw_dump", {
             "last_id": last_id,
             "raw_dump_path": source.raw_dump_path,
+            # file size once this batch was fsynced; a resume truncates to it
+            "offset": source.last_durable_offset,
         })
 
     source.write_data_dump(
         start_after=resume_after,
         output_path=output_path,
         progress_callback=on_progress,
+        resume_offset=resume_offset,
     )
 
     log.info("Raw dump written to %s", source.raw_dump_path)
@@ -219,10 +245,14 @@ def convert_raw_to_processed(raw_dump_path: str) -> str:
     source = _source(log)
 
     progress = _load_progress("convert_raw_to_processed")
+    resume_offset = None
     if progress:
         resume_after_de = progress["last_de"]
         source.processed_dump_path = progress["processed_dump_path"]
-        log.info("Resuming conversion after de_number=%s", resume_after_de)
+        # Older checkpoints have no offset; then nothing is truncated.
+        resume_offset = progress.get("offset")
+        log.info("Resuming conversion after de_number=%s (offset %s)",
+                 resume_after_de, resume_offset)
     else:
         resume_after_de = None
         source.processed_dump_path = None
@@ -233,11 +263,14 @@ def convert_raw_to_processed(raw_dump_path: str) -> str:
         _save_progress("convert_raw_to_processed", {
             "last_de": last_de,
             "processed_dump_path": source.processed_dump_path,
+            # file size once this row was fsynced; a resume truncates to it
+            "offset": source.last_durable_offset,
         })
 
     source.process_data(
         resume_after_de=resume_after_de,
         progress_callback=on_progress,
+        resume_offset=resume_offset,
     )
 
     log.info("Processed dump written to %s", source.processed_dump_path)

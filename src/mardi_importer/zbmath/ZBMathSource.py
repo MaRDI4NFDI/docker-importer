@@ -691,13 +691,6 @@ class ZBMathSource(ADataSource):
                 else:
                     doi = None
 
-                if info_dict["creation_date"] != "0001-01-01T00:00:00":
-                    # because there can be no hours etc
-                    creation_date = (
-                        f"{info_dict['creation_date'].split('T')[0]}T00:00:00Z"
-                    )
-                else:
-                    creation_date = None
 
                 if (
                     not self.conflict_string in info_dict["review_text"]
@@ -803,7 +796,6 @@ class ZBMathSource(ADataSource):
                             language=language,
                             time=time_string,
                             links=links,
-                            creation_date=creation_date,
                             zbl_id=zbl_id,
                             arxiv_id=arxiv_id,
                             review_text=review_text,

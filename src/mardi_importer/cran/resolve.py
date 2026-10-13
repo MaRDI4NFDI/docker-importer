@@ -14,7 +14,9 @@ repeat the old importer's mistakes:
    e-mail address (:func:`mardi_importer.cran.people.cluster`), whose item is
    known from the links of the other packages. Links to merged items lead to
    the item they were merged into.
-4. Otherwise a **new item** for a maintainer, someone with a verified ORCID, or
+4. **The same name with a shared co-author**: one person item of that name that
+   shares a co-author with the package (someone moving to a new address).
+5. Otherwise a **new item** for a maintainer, someone with a verified ORCID, or
    someone named by several packages; else an **author name string**.
 
 Existing person items are never relabelled or given aliases. ``ORPHANED`` has no
@@ -29,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Protocol
 
 from .authors import Entry
-from .people import GraphPerson, Person, cluster, compatible, match_items, same_name
+from .people import GraphPerson, Person, cluster, compatible, match_items, norm, same_name
 
 log = logging.getLogger("CRANlogger")
 
@@ -39,6 +41,12 @@ USER_AGENT = "mardi-importer (https://portal.mardi4nfdi.de; CRAN import)"
 
 def agrees(name: str, label: str, family: str | None = None) -> bool:
     return bool(label) and (compatible(name, label, family) or compatible(label, name))
+
+
+def name_key(name: str) -> tuple[str, ...]:
+    """First and last name, in either order (see :func:`same_name`)."""
+    w = norm(name).split()
+    return tuple(sorted({w[0], w[-1]})) if w else ()
 
 
 class Wiki(Protocol):
@@ -96,6 +104,10 @@ class People:
     items_of_person: dict[str, set[str]] = field(default_factory=dict)   # person id → QIDs linked for them
     created_by_orcid: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
+    named: dict[tuple, set[str]] = field(default_factory=dict)        # name key → person QIDs
+    orcids: dict[str, set[str]] = field(default_factory=dict)         # QID → ORCIDs
+    coauthors: dict[str, set[tuple]] = field(default_factory=dict)    # QID → name keys of co-authors
+    package_names: dict[str, set[tuple]] = field(default_factory=dict)   # package → name keys of its people
 
     @classmethod
     def build(cls, wiki: Wiki, entries: list[Entry], graph: dict[str, GraphPerson],
@@ -112,7 +124,35 @@ class People:
             if all(same_name(a, b) for a in names for b in names):
                 for pid in ps:
                     items.setdefault(pid, set()).add(qid)
-        return cls(wiki, registry or OrcidRegistry(), {id(entries[i]): p for i, p in of.items()}, items)
+        found = cls(wiki, registry or OrcidRegistry(), {id(entries[i]): p for i, p in of.items()}, items)
+
+        for x in entries:
+            if x.kind == "person":
+                found.package_names.setdefault(x.package, set()).add(name_key(x.name))
+        on_package: dict[str, set[tuple]] = {}
+        for g in graph.values():
+            for pkg, _ in g.links:
+                on_package.setdefault(pkg, set()).add(name_key(g.label))
+        for q, g in graph.items():
+            key = name_key(g.label)
+            found.named.setdefault(key, set()).add(q)
+            found.orcids[q] = set(g.orcids)
+            found.coauthors[q] = {k for pkg, _ in g.links
+                                  for k in found.package_names.get(pkg, set()) | on_package.get(pkg, set())} - {key}
+        return found
+
+    def same_name_coauthor(self, entry: Entry, orcid: str | None) -> str | None:
+        """The one item of the same name sharing a co-author with the package, if any."""
+        key = name_key(entry.name)
+        around = self.package_names.get(entry.package, set()) - {key}
+        hits = set()
+        for q in self.named.get(key, ()):
+            if orcid and self.orcids.get(q) and orcid not in self.orcids[q]:
+                continue
+            if around & self.coauthors.get(q, set()) and (hit := self.wiki.lookup(q)) \
+                    and same_name(entry.name, hit[1]):
+                hits.add(hit[0])
+        return hits.pop() if len(hits) == 1 else None
 
     def verified_orcid(self, entry: Entry) -> str | None:
         if not entry.orcid:
@@ -156,6 +196,12 @@ class People:
             if len(good) == 1:
                 return Resolved("item", entry.name, good.pop(), "same person on CRAN")
 
+        qid = self.same_name_coauthor(entry, orcid)
+        if qid:
+            if person:
+                self.items_of_person[person.id] = {qid}
+            return Resolved("item", entry.name, qid, "same name, shared co-author")
+
         several_packages = person is not None and len(person.packages) > 1
         if orcid or entry.source == "Maintainer" or several_packages:
             name = person.name if person else entry.name
@@ -164,6 +210,10 @@ class People:
                 self.created_by_orcid[orcid] = qid
             if person:
                 self.items_of_person[person.id] = {qid}
+            key = name_key(name)
+            self.named.setdefault(key, set()).add(qid)
+            self.orcids[qid] = {orcid} if orcid else set()
+            self.coauthors[qid] = self.package_names.get(entry.package, set()) - {key}
             return Resolved("item", name, qid, "created")
         return Resolved("string", entry.name, how="name only")
 

@@ -136,6 +136,38 @@ class TestResolve(unittest.TestCase):
         self.assertEqual(people.resolve(e("p", "ORPHANED", kind="orphaned"), []).kind, "none")
         self.assertEqual(people.resolve(e("p", "Posit, PBC", kind="organisation"), []).kind, "string")
 
+    def test_same_name_and_a_shared_coauthor_reuses_the_item(self):
+        # Yihui Xie on shiny and htmltools with a new address; his item is on rmarkdown with Joe Cheng.
+        rmd = [e("rmarkdown", "Yihui Xie", ("aut", "cre"), email="xie@yihui"), e("rmarkdown", "Joe Cheng")]
+        shiny = [e(p, n, email=m) for p in ("shiny", "htmltools")
+                 for n, m in (("Yihui Xie", "yihui@posit"), ("Joe Cheng", None))]
+        graph = {"Q61714": GraphPerson("Q61714", "Yihui Xie", links=[("rmarkdown", "maintainer")])}
+        wiki = FakeWiki({"Q61714": "Yihui Xie"})
+        r = People.build(wiki, rmd + shiny, graph, Registry({})).resolve(shiny[0], [])
+        self.assertEqual((r.qid, r.how), ("Q61714", "same name, shared co-author"))
+        self.assertEqual(wiki.created, [])
+
+    def test_same_name_without_shared_coauthor_is_another_person(self):
+        old = [e("p1", "Wei Liu"), e("p1", "Ann Lee")]
+        new = [e("p2", "Wei Liu", ("cre",), email="w@x", source="Maintainer"), e("p2", "Bob Kay")]
+        graph = {"Q5": GraphPerson("Q5", "Wei Liu", links=[("p1", "author")])}
+        wiki = FakeWiki({"Q5": "Wei Liu"})
+        r = People.build(wiki, old + new, graph, Registry({})).resolve(new[0], [])
+        self.assertEqual(r.how, "created")
+
+    def test_same_name_coauthor_not_used_against_an_orcid_or_when_ambiguous(self):
+        old = [e("p1", "Wei Liu"), e("p1", "Ann Lee"), e("p3", "Wei Liu"), e("p3", "Ann Lee")]
+        new = [e("p2", "Wei Liu", ("cre",), email="w@x", source="Maintainer"), e("p2", "Ann Lee")]
+        two = {"Q5": GraphPerson("Q5", "Wei Liu", links=[("p1", "author")]),
+               "Q6": GraphPerson("Q6", "Wei Liu", links=[("p3", "author")])}
+        r = People.build(FakeWiki({"Q5": "Wei Liu", "Q6": "Wei Liu"}), old + new, two, Registry({})).resolve(new[0], [])
+        self.assertEqual(r.how, "created")
+        other = {"Q5": GraphPerson("Q5", "Wei Liu", {"0000-0001-0000-0001"}, [("p1", "author")])}
+        mine = e("p2", "Wei Liu", orcid="0000-0002-0000-0002")
+        r = People.build(FakeWiki({"Q5": "Wei Liu"}), old[:2] + [mine, new[1]], other,
+                         Registry({})).resolve(mine, [])
+        self.assertNotEqual(r.qid, "Q5")
+
     def test_an_item_standing_for_two_people_is_not_used_to_find_either(self):
         a = e("p1", "Ann Lee", email="ann@x")
         b = e("p2", "Bob Kay", email="bob@x")

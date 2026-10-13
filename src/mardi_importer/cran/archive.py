@@ -233,7 +233,10 @@ def apply(api, change: Change, cran_pid: str, end_pid: str, call=None) -> int:
     """Write one change after checking the live item. Returns the number of edits made."""
     if call is None:
         from wikibaseintegrator.wbi_helpers import mediawiki_api_call_helper as call
-    claims = api.item.get(entity_id=change.qid).get_json().get("claims", {}).get(cran_pid, [])
+    # raw API: WikibaseIntegrator's JSON drops the qualifier hashes
+    live = call(data={"action": "wbgetclaims", "entity": change.qid, "property": cran_pid, "format": "json"},
+                login=api.login, allow_anonymous=True)
+    claims = live.get("claims", {}).get(cran_pid, [])
     edits = edits_for(claims, change.package, end_pid, change.new)
     for data in edits:
         call(data={**data, "summary": summary_for(change), "bot": "", "format": "json"},

@@ -157,11 +157,10 @@ class TestLiveEdits(unittest.TestCase):
 
     def test_apply_reads_live_item_and_writes_as_bot(self):
         api = Mock()
-        api.item.get.return_value.get_json.return_value = {"claims": {"P229": [cran_claim("dineq")]}}
-        call = Mock()
+        call = Mock(return_value={"claims": {"P229": [cran_claim("dineq")]}})
         n = archive.apply(api, Change("Q3", "dineq", None, "2026-10-06"), "P229", "P411", call=call)
         self.assertEqual(n, 1)
-        api.item.get.assert_called_once_with(entity_id="Q3")
+        self.assertEqual(call.call_args_list[0].kwargs["data"]["action"], "wbgetclaims")
         kwargs = call.call_args.kwargs
         self.assertTrue(kwargs["is_bot"])
         self.assertIs(kwargs["login"], api.login)
@@ -169,11 +168,15 @@ class TestLiveEdits(unittest.TestCase):
 
     def test_apply_skips_when_live_item_is_already_right(self):
         api = Mock()
-        api.item.get.return_value.get_json.return_value = {
-            "claims": {"P229": [cran_claim("dineq", end_qualifier("2026-10-06"))]}}
-        call = Mock()
+        call = Mock(return_value={"claims": {"P229": [cran_claim("dineq", end_qualifier("2026-10-06"))]}})
         self.assertEqual(archive.apply(api, Change("Q3", "dineq", None, "2026-10-06"), "P229", "P411", call=call), 0)
-        call.assert_not_called()
+        call.assert_called_once()
+
+    def test_replace_uses_the_live_qualifier_hash(self):
+        call = Mock(return_value={"claims": {"P229": [cran_claim("ACDC", end_qualifier("2022-01-12", "0d49"))]}})
+        self.assertEqual(archive.apply(Mock(), Change("Q116513", "ACDC", "2022-01-12", "2023-05-09"),
+                                       "P229", "P411", call=call), 1)
+        self.assertEqual(call.call_args.kwargs["data"]["snakhash"], "0d49")
 
 
 class TestSync(unittest.TestCase):

@@ -9,6 +9,14 @@
             "label": "description",
             "description": "long description of an item",
             "datatype": "string"
+        },
+        {
+            "label": "CRAN task view ID",
+            "description": "identifier of a CRAN Task View",
+            "datatype": "external-id",
+            "claims": {
+                "wdt:P1630": "https://CRAN.R-project.org/view=$1"
+            }
         }
     ],
     "items": [
@@ -34,6 +42,14 @@
             "claims": {
                 "wdt:P31": "wd:Q207621"
             }
+        },
+        {
+            "label": "CRAN task view",
+            "description": "curated guide to the R packages on CRAN for one topic"
+        },
+        {
+            "label": "core package",
+            "description": "package marked as core in a CRAN task view"
         }
     ]
 }

@@ -443,6 +443,26 @@ def sync_cran_archive(dry_run: bool = False) -> tuple[dict, bool]:
     return report, all_ok
 
 
+def sync_cran_task_views(dry_run: bool = False) -> tuple[dict, bool]:
+    """Bring the CRAN task view items and their packages' *part of* in line with CRAN.
+
+    Args:
+        dry_run: Plan the changes and report them, but write nothing.
+
+    Returns:
+        Tuple of report and overall success flag.
+    """
+    cran = Importer.create_source("cran")
+    try:
+        report = cran.sync_task_views(dry_run=dry_run)
+    except Exception as exc:
+        log.error("syncing CRAN task views failed: %s", exc, exc_info=True)
+        return {"dry_run": dry_run, "error": str(exc), "all_imported": False}, False
+    all_ok = not report["errors"]
+    report["all_imported"] = all_ok
+    return report, all_ok
+
+
 def import_cran_sync(packages: list[str]) -> tuple[dict, bool]:
     """Import CRAN packages synchronously.
 

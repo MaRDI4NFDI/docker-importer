@@ -22,6 +22,7 @@ from mardi_portal.services.import_service import (
     import_wikidata_sync,
     normalize_list,
     sync_cran_archive,
+    sync_cran_task_views,
     trigger_doi_async,
     trigger_wikidata_async,
     update_item_sync,
@@ -351,6 +352,26 @@ def cmd_sync_cran_archive(args: argparse.Namespace) -> int:
     return 0 if all_ok else 1
 
 
+def cmd_sync_cran_task_views(args: argparse.Namespace) -> int:
+    """Create or update the CRAN task view items, and link their packages.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Process exit code.
+    """
+    log.info(f"Starting CRAN task view sync{' (dry run)' if args.dry_run else ''}")
+    try:
+        payload, all_ok = sync_cran_task_views(dry_run=args.dry_run)
+    except LoginError:
+        log.error("Wikibase login failed - can not sync CRAN task views. (Hint: check CRAN_USER/CRAN_PASS.)")
+        return 1
+
+    print(json.dumps(payload))
+    return 0 if all_ok else 1
+
+
 def cmd_import_julia(args: argparse.Namespace) -> int:
     """Import Julia packages from the Julia General registry synchronously.
 
@@ -602,6 +623,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub.add_argument("--dry-run", action="store_true", help="Report the changes, write nothing.")
     sub.set_defaults(func=cmd_sync_cran_archive)
+
+    sub = subparsers.add_parser(
+        "sync-cran-task-views",
+        help="Create or update the CRAN task view items and the part-of statements of their packages.",
+    )
+    sub.add_argument("--dry-run", action="store_true", help="Report the changes, write nothing.")
+    sub.set_defaults(func=cmd_sync_cran_task_views)
 
     sub = subparsers.add_parser(
         "create-item",

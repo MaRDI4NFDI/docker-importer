@@ -1,6 +1,6 @@
 from mardi_importer.base import ADataSource
 from .RPackage import RPackage, wikidata_r_packages
-from . import archive
+from . import archive, ctv
 from .authors import fetch_packages_rds, package_entries, read_packages_rds
 from .people import read_graph
 from .resolve import MardiWiki, OrcidRegistry, People
@@ -129,6 +129,10 @@ class CRANSource(ADataSource):
         if failed:
             log.warning("%d packages failed: %s", len(failed), ", ".join(failed))
         self.sync_archive_status()
+        try:
+            self.sync_task_views()
+        except Exception:
+            log.exception("CRAN task views not synced")
         return failed
 
     def sync_archive_status(self, dry_run: bool = False) -> dict:
@@ -137,6 +141,10 @@ class CRANSource(ADataSource):
         See :mod:`mardi_importer.cran.archive`.
         """
         return archive.sync(self.api, dry_run=dry_run)
+
+    def sync_task_views(self, dry_run: bool = False) -> dict:
+        """Task view items, and *part of* on their packages. See :mod:`mardi_importer.cran.ctv`."""
+        return ctv.sync(self.api, dry_run=dry_run)
 
 
 def _sparql(query: str) -> list[dict]:

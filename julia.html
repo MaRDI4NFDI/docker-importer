@@ -1,0 +1,568 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importer Module for Julia &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Importer Module API" href="importer.html" />
+    <link rel="prev" title="Importer Module for CRAN" href="cran.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="main.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flask_endpoints.html">Web API Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cran.html">Importer Module for CRAN</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Importer Module for Julia</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#scope">Scope</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-is-imported">What is imported</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#matching-existing-items">Matching existing items</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#people">People</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.julia.JuliaSource">mardi_importer.julia.JuliaSource class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.same_software"><code class="docutils literal notranslate"><span class="pre">same_software()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.decide_person"><code class="docutils literal notranslate"><span class="pre">decide_person()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.with_retry"><code class="docutils literal notranslate"><span class="pre">with_retry()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.norm_title"><code class="docutils literal notranslate"><span class="pre">norm_title()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.JuliaSource"><code class="docutils literal notranslate"><span class="pre">JuliaSource</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.JuliaSource.setup"><code class="docutils literal notranslate"><span class="pre">JuliaSource.setup()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.JuliaSource.pull"><code class="docutils literal notranslate"><span class="pre">JuliaSource.pull()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.JuliaSource.push"><code class="docutils literal notranslate"><span class="pre">JuliaSource.push()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaSource.JuliaSource.summary"><code class="docutils literal notranslate"><span class="pre">JuliaSource.summary()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-mardi_importer.julia.JuliaPackage">mardi_importer.julia.JuliaPackage class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage"><code class="docutils literal notranslate"><span class="pre">JuliaPackage</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.action"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.action</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.authors"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.authors</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.conflicts"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.conflicts</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.label"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.label</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.matched_by"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.matched_by</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.merge"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.merge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.metadata"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.metadata</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.name"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.notes"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.notes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.papers"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.papers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.plan"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.plan()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.plan_authors"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.plan_authors()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.plan_dependencies"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.plan_dependencies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.qid"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.qid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.repo"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.repo</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.subdir"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.subdir</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.uuid"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.uuid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.version"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.version</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.versions"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.versions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.wikidata_qid"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.wikidata_qid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.write"><code class="docutils literal notranslate"><span class="pre">JuliaPackage.write()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned"><code class="docutils literal notranslate"><span class="pre">Planned</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned.prop"><code class="docutils literal notranslate"><span class="pre">Planned.prop</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned.qualifiers"><code class="docutils literal notranslate"><span class="pre">Planned.qualifiers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned.value"><code class="docutils literal notranslate"><span class="pre">Planned.value</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.add_planned"><code class="docutils literal notranslate"><span class="pre">add_planned()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.existing_values"><code class="docutils literal notranslate"><span class="pre">existing_values()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.resolve_items"><code class="docutils literal notranslate"><span class="pre">resolve_items()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.time_value"><code class="docutils literal notranslate"><span class="pre">time_value()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Importer Module for Julia</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/julia.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="importer-module-for-julia">
+<h1>Importer Module for Julia<a class="headerlink" href="#importer-module-for-julia" title="Link to this heading"></a></h1>
+<p>This module imports Julia packages for numerical analysis from the
+<a class="reference external" href="https://github.com/JuliaRegistries/General">Julia General registry</a>, the
+community registry of Julia packages (MIT-licensed). The registry plays the role
+CRAN plays for R; a package’s own repository supplies the rest.</p>
+<section id="scope">
+<h2>Scope<a class="headerlink" href="#scope" title="Link to this heading"></a></h2>
+<p>Packages whose repository is under one of the GitHub organisations SciML,
+JuliaMath, JuliaLinearAlgebra, JuliaNLSolvers or JuliaDiff. Binary wrappers
+(<code class="docutils literal notranslate"><span class="pre">_jll</span></code> packages) are excluded, and so are packages registered in a
+sub-directory of a shared repository (internal splits such as the
+<code class="docutils literal notranslate"><span class="pre">OrdinaryDiffEq*</span></code> solver packages), except StochasticDiffEq and DelayDiffEq.
+About 290 packages.</p>
+</section>
+<section id="what-is-imported">
+<h2>What is imported<a class="headerlink" href="#what-is-imported" title="Link to this heading"></a></h2>
+<p>From the registry, pinned to the registry commit:</p>
+<dl class="field-list simple">
+<dt class="field-odd">Name<span class="colon">:</span></dt>
+<dd class="field-odd"><p>As the identifier <em>Julia General registry package name</em> (without
+<code class="docutils literal notranslate"><span class="pre">.jl</span></code>), linked to the package’s page on JuliaHub.</p>
+</dd>
+<dt class="field-even">Repository<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>source code repository</em>.</p>
+</dd>
+<dt class="field-odd">Version<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The latest non-yanked version, as <em>software version identifier</em>.</p>
+</dd>
+</dl>
+<p>From the package’s repository, pinned to a commit:</p>
+<dl class="field-list simple">
+<dt class="field-odd">License<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Read from the licence file. The licence named at the start of the
+file decides; bundled third-party notices further down are ignored. A package
+whose licence cannot be determined is not written.</p>
+</dd>
+<dt class="field-even">Authors<span class="colon">:</span></dt>
+<dd class="field-even"><p>From <code class="docutils literal notranslate"><span class="pre">Project.toml</span></code> and the software authors of <code class="docutils literal notranslate"><span class="pre">CITATION.cff</span></code>.
+A person with an item becomes <em>author</em>, with the name as stated in <em>object
+named as</em>; anyone else an <em>author name string</em>.</p>
+</dd>
+<dt class="field-odd">Dependencies<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>depends on software</em>, to packages that exist in the knowledge
+graph or are imported in the same run.</p>
+</dd>
+<dt class="field-even">Publications<span class="colon">:</span></dt>
+<dd class="field-even"><p>DOIs and arXiv ids from <code class="docutils literal notranslate"><span class="pre">CITATION.bib</span></code>/<code class="docutils literal notranslate"><span class="pre">CITATION.cff</span></code> become
+<em>described by source</em>. Zenodo DOIs are the software’s own releases and are
+skipped.</p>
+</dd>
+</dl>
+<p>Every statement carries a reference: <em>stated in</em> the Julia General registry for
+registry facts, the <em>reference URL</em> of the file it was read from, and the
+<em>retrieved</em> date.</p>
+</section>
+<section id="matching-existing-items">
+<h2>Matching existing items<a class="headerlink" href="#matching-existing-items" title="Link to this heading"></a></h2>
+<p>An existing item is updated only when it is the same software: it already
+carries the package’s registry name, or it records the package’s own
+repository, or it has the package’s name and a repository named <code class="docutils literal notranslate"><span class="pre">&lt;Name&gt;.jl</span></code>
+(the same package before its repository moved organisation). A name shared with
+different software — SUNDIALS and Sundials.jl, the FFTW C library and FFTW.jl —
+creates a new item and leaves the existing one untouched. Updates only add
+statements; nothing is overwritten or removed.</p>
+</section>
+<section id="people">
+<h2>People<a class="headerlink" href="#people" title="Link to this heading"></a></h2>
+<p>An existing person item is reused only when it is certainly the same person: it
+carries the person’s ORCID, or it is the same-named author of a paper the
+person’s own package cites. Otherwise a person who can be identified — the same
+e-mail address across packages, a co-author of a cited paper being created, or
+an ORCID — gets a new item; similarly named existing items are logged as
+possible duplicates for manual merging. E-mail addresses are used only to group
+mentions of the same person and are never written; every written value is
+checked for one.</p>
+</section>
+<section id="publications">
+<h2>Publications<a class="headerlink" href="#publications" title="Link to this heading"></a></h2>
+<p>A cited DOI or arXiv id already in the knowledge graph is linked. Otherwise the
+journal DOI of an arXiv preprint and the exact title are tried, and only then is
+the publication created, through the Crossref or arXiv module.</p>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mardi</span><span class="o">-</span><span class="n">importer</span> <span class="n">import</span><span class="o">-</span><span class="n">julia</span> <span class="o">--</span><span class="n">dry</span><span class="o">-</span><span class="n">run</span>            <span class="c1"># decide and report, write nothing</span>
+<span class="n">mardi</span><span class="o">-</span><span class="n">importer</span> <span class="n">import</span><span class="o">-</span><span class="n">julia</span>                      <span class="c1"># full import of every package in scope</span>
+<span class="n">mardi</span><span class="o">-</span><span class="n">importer</span> <span class="n">import</span><span class="o">-</span><span class="n">julia</span> <span class="o">--</span><span class="n">packages</span> <span class="n">Optim</span> <span class="n">NLsolve</span>
+</pre></div>
+</div>
+<p>Credentials are read from <code class="docutils literal notranslate"><span class="pre">JULIA_USER</span></code> / <code class="docutils literal notranslate"><span class="pre">JULIA_PASS</span></code>; publications use the
+Crossref and arXiv credentials. Re-running is safe: packages are found again by
+their registry name and only new information is added.</p>
+</section>
+<section id="module-mardi_importer.julia.JuliaSource">
+<span id="mardi-importer-julia-juliasource-class"></span><h2>mardi_importer.julia.JuliaSource class<a class="headerlink" href="#module-mardi_importer.julia.JuliaSource" title="Link to this heading"></a></h2>
+<p>Julia packages for numerical analysis, from the Julia General registry.</p>
+<p>Scope: packages whose repository is under SciML, JuliaMath, JuliaLinearAlgebra,
+JuliaNLSolvers or JuliaDiff (no <code class="docutils literal notranslate"><span class="pre">_jll</span></code> binary wrappers, no sub-directory
+packages except StochasticDiffEq and DelayDiffEq). For each package the importer
+writes the registry facts (name, repository, every registered version with the
+day it was registered), the licence, authors, dependencies and the publications
+its citation file names. Statements carry no references, as for CRAN; the run’s
+log and report say what was read from where.</p>
+<p>Decisions encoded here (recorded in the MaRDI agents project, D016–D024):</p>
+<ul class="simple">
+<li><p><strong>Packages.</strong> An existing item is updated only when it is the same software:
+it already carries this package’s registry name; or it records the package’s
+own repository; or it has the package’s name and a repository named
+<code class="docutils literal notranslate"><span class="pre">&lt;Name&gt;.jl</span></code> (the same package before its repository moved). A name shared
+with other software (SUNDIALS vs. Sundials.jl) creates a new item and leaves
+the existing one untouched. Candidates are found by label through the wiki’s
+own search, not the triple store, so a rerun sees what the previous run wrote;
+the triple store only adds items recording the repository under another label.
+Updates only add, never overwrite.</p></li>
+<li><p><strong>People.</strong> An existing person item is reused only when it is certainly the
+same person: it carries the person’s ORCID, or it is the same-named author of
+a paper the person’s own package cites. Otherwise an identifiable person —
+joined by e-mail across packages, co-author of a cited paper being created,
+or holding an ORCID — gets a new item; similarly named items are logged as
+possible duplicates, never merged. Everyone else stays an author name string.
+E-mail addresses are used to join mentions only and are never written.</p></li>
+<li><p><strong>Publications.</strong> A cited DOI or arXiv id already in MaRDI is linked (to every
+copy, if MaRDI holds duplicates); otherwise the journal DOI of an arXiv
+preprint or an exact title is tried; otherwise the publication is created
+through the Crossref or arXiv source. Zenodo DOIs are the software’s own
+releases and are not treated as publications. Packages link to publications
+with <em>described by source</em>.</p></li>
+<li><p><strong>Licence.</strong> A package whose licence cannot be determined is not written.</p></li>
+</ul>
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.same_software">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaSource.</span></span><span class="sig-name descname"><span class="pre">same_software</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pkg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by_repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">set</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">set</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">urls_of</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#same_software"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.same_software" title="Link to this definition"></a></dt>
+<dd><p>Existing items that are <em>this</em> package, best evidence first. Empty → create.</p>
+<ul class="simple">
+<li><p>the item records the package’s registered repository and the package owns
+it (a sub-directory package shares it with its parent, so the name must
+agree too — DelayDiffEq is not OrdinaryDiffEq.jl);</p></li>
+<li><p>the item has the package’s name and a repository URL named <code class="docutils literal notranslate"><span class="pre">&lt;Name&gt;.jl</span></code>.</p></li>
+</ul>
+<p>A shared name alone is never enough.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.decide_person">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaSource.</span></span><span class="sig-name descname"><span class="pre">decide_person</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">person</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Person</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">by_orcid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coauthor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#decide_person"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.decide_person" title="Link to this definition"></a></dt>
+<dd><p>Reuse an item only when certain; otherwise create one for identifiable people.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.with_retry">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaSource.</span></span><span class="sig-name descname"><span class="pre">with_retry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">fn:</span> <span class="pre">~typing.Callable[[],</span> <span class="pre">~mardi_importer.julia.JuliaSource.T],</span> <span class="pre">what:</span> <span class="pre">str,</span> <span class="pre">attempts:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4,</span> <span class="pre">sleep:</span> <span class="pre">~typing.Callable[[float],</span> <span class="pre">None]</span> <span class="pre">=</span> <span class="pre">&lt;built-in</span> <span class="pre">function</span> <span class="pre">sleep&gt;</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">T</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#with_retry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.with_retry" title="Link to this definition"></a></dt>
+<dd><p>Call <code class="docutils literal notranslate"><span class="pre">fn</span></code>; on a connection-level failure retry after 1, 3 and 9 seconds.</p>
+<p>The importer-api recycles each worker after ~1000 requests and may reset the
+connection it is serving at that moment; a lookup must survive that.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.norm_title">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaSource.</span></span><span class="sig-name descname"><span class="pre">norm_title</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#norm_title"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.norm_title" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.JuliaSource">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaSource.</span></span><span class="sig-name descname"><span class="pre">JuliaSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#JuliaSource"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.JuliaSource" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ADataSource</span></code></p>
+<p>Imports Julia numerical-analysis packages from the General registry.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.JuliaSource.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#JuliaSource.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.JuliaSource.setup" title="Link to this definition"></a></dt>
+<dd><p>Import the Wikidata entities used, and create the local ones.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.JuliaSource.pull">
+<span class="sig-name descname"><span class="pre">pull</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">registry_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orcid_links</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage" title="mardi_importer.julia.JuliaPackage.JuliaPackage"><span class="pre">JuliaPackage</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#JuliaSource.pull"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.JuliaSource.pull" title="Link to this definition"></a></dt>
+<dd><p>Read the registry and the packages’ repositories, and decide every write.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>names</strong> – Restrict to these package names (all in scope if omitted).</p></li>
+<li><p><strong>registry_path</strong> – An existing clone of General (cloned if omitted).</p></li>
+<li><p><strong>orcid_links</strong> – Optional CSV of ORCIDs found by an e-mail search
+(columns spellings, packages, orcid, name_agrees); used by name
+and package, never by address.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.JuliaSource.push">
+<span class="sig-name descname"><span class="pre">push</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#JuliaSource.push"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.JuliaSource.push" title="Link to this definition"></a></dt>
+<dd><p>Write people, then publications, then packages, then dependencies.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaSource.JuliaSource.summary">
+<span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaSource.html#JuliaSource.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaSource.JuliaSource.summary" title="Link to this definition"></a></dt>
+<dd><p>What was (or, before push, would be) written. Contains no e-mail address.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-mardi_importer.julia.JuliaPackage">
+<span id="mardi-importer-julia-juliapackage-class"></span><h2>mardi_importer.julia.JuliaPackage class<a class="headerlink" href="#module-mardi_importer.julia.JuliaPackage" title="Link to this heading"></a></h2>
+<p>One Julia package: the statements it should have, and writing them.</p>
+<p>Statements are first planned as plain data (<a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><code class="xref py py-class docutils literal notranslate"><span class="pre">Planned</span></code></a>) so the rules can be
+tested without a Wikibase; <a class="reference internal" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.write" title="mardi_importer.julia.JuliaPackage.JuliaPackage.write"><code class="xref py py-meth docutils literal notranslate"><span class="pre">JuliaPackage.write()</span></code></a> then turns them into claims.</p>
+<p>Statements carry no references, as for CRAN packages; what was read from where
+is kept in the run’s log and report. Every registered (non-yanked) version
+becomes a <em>software version identifier</em> statement qualified with its
+<em>publication date</em>, the day it was registered in General. Properties and items
+are given as Wikidata IDs and resolved to local IDs by mardiclient.</p>
+<p>An existing item is only ever added to (never overwritten or pruned): a value
+already present is skipped, and a single-valued property that already holds a
+different value is left alone and reported as a conflict.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaPackage.</span></span><span class="sig-name descname"><span class="pre">JuliaPackage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repo</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'RepoMetadata'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">version</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">versions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">'list[tuple[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None]]'</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'create'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matched_by</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wikidata_qid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">papers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[str]'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">authors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">'list[tuple[Mention</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Person]]'</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">conflicts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[dict]'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">notes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[str]'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#JuliaPackage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.action">
+<span class="sig-name descname"><span class="pre">action</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'create'</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.action" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.authors">
+<span class="sig-name descname"><span class="pre">authors</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Mention</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Person</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.authors" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.conflicts">
+<span class="sig-name descname"><span class="pre">conflicts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.conflicts" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.label">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">label</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.label" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.matched_by">
+<span class="sig-name descname"><span class="pre">matched_by</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.matched_by" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.merge">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">merge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">planned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">existing</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#JuliaPackage.merge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.merge" title="Link to this definition"></a></dt>
+<dd><p>Add-only: drop what is already there; keep single-valued conflicts out.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">RepoMetadata</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.metadata" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.name">
+<span class="sig-name descname"><span class="pre">name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.name" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.notes">
+<span class="sig-name descname"><span class="pre">notes</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.notes" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.papers">
+<span class="sig-name descname"><span class="pre">papers</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.papers" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.plan">
+<span class="sig-name descname"><span class="pre">plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">julia_package_class</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">software_profile</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#JuliaPackage.plan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.plan" title="Link to this definition"></a></dt>
+<dd><p>Every statement for this package except dependencies (planned later).</p>
+<p><code class="docutils literal notranslate"><span class="pre">julia_package_class</span></code> and <code class="docutils literal notranslate"><span class="pre">software_profile</span></code> are the local QIDs of the
+<em>Julia package</em> class and the <em>MaRDI software profile</em>; every Julia package
+item, created or updated, is an instance of the one and carries the other.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.plan_authors">
+<span class="sig-name descname"><span class="pre">plan_authors</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#JuliaPackage.plan_authors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.plan_authors" title="Link to this definition"></a></dt>
+<dd><p>One statement per person: an item where the person has one, else a name string.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.plan_dependencies">
+<span class="sig-name descname"><span class="pre">plan_dependencies</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qid_of</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#JuliaPackage.plan_dependencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.plan_dependencies" title="Link to this definition"></a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">depends</span> <span class="pre">on</span> <span class="pre">software</span></code> to packages that exist or were created in this run.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.qid">
+<span class="sig-name descname"><span class="pre">qid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.qid" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.repo">
+<span class="sig-name descname"><span class="pre">repo</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.repo" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.subdir">
+<span class="sig-name descname"><span class="pre">subdir</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.subdir" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.uuid">
+<span class="sig-name descname"><span class="pre">uuid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.uuid" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.version">
+<span class="sig-name descname"><span class="pre">version</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.version" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.versions">
+<span class="sig-name descname"><span class="pre">versions</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.versions" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.wikidata_qid">
+<span class="sig-name descname"><span class="pre">wikidata_qid</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.wikidata_qid" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.JuliaPackage.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">planned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#JuliaPackage.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.JuliaPackage.write" title="Link to this definition"></a></dt>
+<dd><p>Create the item, or add the planned statements to the existing one.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.Planned">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaPackage.</span></span><span class="sig-name descname"><span class="pre">Planned</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">qualifiers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#Planned"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.Planned" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>One statement to write: property, value and qualifiers.</p>
+<p>A qualifier is <code class="docutils literal notranslate"><span class="pre">(property,</span> <span class="pre">value)</span></code> or <code class="docutils literal notranslate"><span class="pre">(property,</span> <span class="pre">value,</span> <span class="pre">claim</span> <span class="pre">kwargs)</span></code>,
+the kwargs going to <code class="docutils literal notranslate"><span class="pre">get_claim</span></code> (e.g. a time precision).</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.Planned.prop">
+<span class="sig-name descname"><span class="pre">prop</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.Planned.prop" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.Planned.qualifiers">
+<span class="sig-name descname"><span class="pre">qualifiers</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.Planned.qualifiers" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.Planned.value">
+<span class="sig-name descname"><span class="pre">value</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Any</span></span><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.Planned.value" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.add_planned">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaPackage.</span></span><span class="sig-name descname"><span class="pre">add_planned</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">st</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#add_planned"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.add_planned" title="Link to this definition"></a></dt>
+<dd><p>Add one planned statement with its qualifiers; statements carry no references.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.existing_values">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaPackage.</span></span><span class="sig-name descname"><span class="pre">existing_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">item</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">planned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#existing_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.existing_values" title="Link to this definition"></a></dt>
+<dd><p>Current values of the planned properties, including URL values.</p>
+<p><code class="docutils literal notranslate"><span class="pre">MardiItem.get_value</span></code> skips URL-typed properties, which would make an
+existing repository look absent and be added twice.</p>
+<p>A version without its publication date counts as absent, so that planning it
+again completes the existing statement (append-or-replace keeps the value and
+adds the qualifier) instead of skipping it.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.resolve_items">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaPackage.</span></span><span class="sig-name descname"><span class="pre">resolve_items</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">planned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mardi_importer.julia.JuliaPackage.Planned" title="mardi_importer.julia.JuliaPackage.Planned"><span class="pre">Planned</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#resolve_items"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.resolve_items" title="Link to this definition"></a></dt>
+<dd><p>Replace <code class="docutils literal notranslate"><span class="pre">wd:Q…</span></code> values by local QIDs, so they compare with existing claims.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mardi_importer.julia.JuliaPackage.time_value">
+<span class="sig-prename descclassname"><span class="pre">mardi_importer.julia.JuliaPackage.</span></span><span class="sig-name descname"><span class="pre">time_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">day</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/mardi_importer/julia/JuliaPackage.html#time_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mardi_importer.julia.JuliaPackage.time_value" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cran.html" class="btn btn-neutral float-left" title="Importer Module for CRAN" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="importer.html" class="btn btn-neutral float-right" title="Importer Module API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

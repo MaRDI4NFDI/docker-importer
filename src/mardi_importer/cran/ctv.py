@@ -71,6 +71,12 @@ def _maintainers(view: dict) -> tuple[str, ...]:
     return tuple(n.strip() for n in text.split(",") if n.strip())
 
 
+def _iso(day: str) -> str:
+    """'2026-9-2' → '2026-09-02'."""
+    y, m, d = day.split("-")
+    return f"{y}-{int(m):02d}-{int(d):02d}"
+
+
 def read_views(path: str | Path) -> list[TaskView]:
     import rdata
     with warnings.catch_warnings():
@@ -79,7 +85,7 @@ def read_views(path: str | Path) -> list[TaskView]:
     views = []
     for v in data.values():
         pl = v["packagelist"]
-        views.append(TaskView(_str(v["name"]), _str(v["topic"]), _str(v["version"]), _str(v["source"]),
+        views.append(TaskView(_str(v["name"]), _str(v["topic"]), _iso(_str(v["version"])), _str(v["source"]),
                               _maintainers(v), {str(n): bool(c) for n, c in zip(pl["name"], pl["core"])}))
     return sorted(views, key=lambda x: x.name)
 

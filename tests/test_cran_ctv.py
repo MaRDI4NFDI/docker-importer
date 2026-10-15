@@ -49,6 +49,9 @@ class TestRead(unittest.TestCase):
                                                                ("Jong Hee Park", "Kevin M. Quinn")))
         self.assertEqual(v.packages, {"rstan": True, "MCMCpack": False})
 
+    def test_version_is_zero_padded(self):
+        self.assertEqual(ctv._iso("2026-9-2"), "2026-09-02")
+
     def test_maintainers_without_citation(self):
         self.assertEqual(ctv._maintainers({"maintainer": np.array(["Ann Lee, Bob Kay and Cy Dee"])}),
                          ("Ann Lee", "Bob Kay", "Cy Dee"))

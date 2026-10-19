@@ -17,14 +17,19 @@ class Community:
     _item: MardiItem = None
 
     def __post_init__(self):
-        zenodo_community_id = "wdt:P9934"
-        QID_results = self.api.search_entity_by_value(zenodo_community_id, self.community_id)
-        if QID_results: 
-            self.QID = QID_results[0]
-        
         if self.community_id == "mathplus":
             self.community_title = "MATH+"
             self.community_str = "The Berlin Mathematics Research Center MATH+ is a cross-institutional and interdisciplinary Cluster of Excellence."
+
+        if self.QID:
+            return
+
+        zenodo_community_id = "wdt:P9934"
+        QID_results = self.api.search_entity_by_value(zenodo_community_id, self.community_id)
+        if QID_results:
+            self.QID = QID_results[0]
+
+        if self.community_id == "mathplus":
             self.QID = self.wdi.query('local_id', 'Q77087740')
 
     def exists(self):

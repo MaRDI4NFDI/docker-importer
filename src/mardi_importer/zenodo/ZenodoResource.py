@@ -5,18 +5,47 @@ from mardi_importer.utils.Author import Author
 from .Community import Community
 from .Project import Project
 
+import logging
 import urllib.request, json, re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+
+from wikibaseintegrator.datatypes import ExternalID, String, Time
+from wikibaseintegrator.wbi_enums import ActionIfExists
+from wikibaseintegrator.wbi_helpers import execute_sparql_query
+
+log = logging.getLogger(__name__)
 
 CLEANR = re.compile(
     "<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});"
 )  # used to parse out html tags
 
+ZENODO_API = "https://zenodo.org/api"
+# Record IDs kept in P227 per item, newest versions first.
+MAX_VERSIONS = 20
+
+
+def zenodo_get(path: str) -> dict:
+    with urllib.request.urlopen(f"{ZENODO_API}{path}") as url:
+        return json.load(url)
+
+
+def version_label(record: dict) -> Optional[str]:
+    """The record's version, or Zenodo's own ``v<n>`` numbering when it has none."""
+    meta = record["metadata"]
+    index = (meta.get("relations", {}).get("version") or [{}])[0].get("index")
+    return meta.get("version") or (f"v{index + 1}" if index is not None else None)
+
 
 @dataclass
 class ZenodoResource:
+    # Record ID of the latest version once resolved; may start as any version or concept ID.
     zenodo_id: str
+    concept_id: str = None
+    concept_doi: str = None
+    _versions: List[dict] = None
+    # False for items found only by DOI (e.g. zbMATH articles): linked to, never rewritten.
+    owned: bool = True
     title: str = None
     _description: str = None
     _publication_date: str = None
@@ -32,26 +61,30 @@ class ZenodoResource:
     wdi: WikidataImporter = None
     api: Optional[MardiClient] = None
 
+    # Zenodo community slug -> community item, shared by all resources.
+    _community_items = None
+
     def __post_init__(self):
         if self.api is None:
             self.api = Importer.get_api("zenodo")
         if self.wdi is None:
             self.wdi = WikidataImporter()
-        with urllib.request.urlopen(
-            f"https://zenodo.org/api/records/{self.zenodo_id}"
-        ) as url:
-            json_data = json.load(url)
-            self.metadata = json_data["metadata"]
+        requested_id = str(self.zenodo_id)
+        # A concept ID redirects to the latest version.
+        record = zenodo_get(f"/records/{requested_id}")
+        self.concept_id = str(record.get("conceptrecid") or record["id"])
+        self.concept_doi = (record.get("conceptdoi") or record.get("doi")
+                            or f"10.5281/zenodo.{record['id']}").upper()
+        self._versions = self.fetch_versions(record)
+        latest = self._versions[0]
+        self.zenodo_id = str(latest["id"])
+        self.metadata = latest["metadata"]
         if self.metadata:
             self.title = self.metadata["title"]
 
-        zenodo_id = "wdt:P4901"
+        self.QID = self.find_item({requested_id, str(record["id"])})
 
-        QID_results = self.api.search_entity_by_value(zenodo_id, self.zenodo_id)
-        if QID_results:
-            self.QID = QID_results[0]
-
-        if self.QID:
+        if self.QID and self.owned:
             # Get authors.
             item = self.api.item.get(self.QID)
             author_QID = item.get_value("wdt:P50") or []
@@ -69,6 +102,72 @@ class ZenodoResource:
                 )
                 self._authors.append(author)
             return self.QID
+
+    @staticmethod
+    def fetch_versions(record: dict) -> List[dict]:
+        """The newest ``MAX_VERSIONS`` versions of the record's concept, newest first."""
+        rel = (record["metadata"].get("relations", {}).get("version") or [{}])[0]
+        if rel.get("index") == 0 and rel.get("is_last"):
+            return [record]
+        hits = zenodo_get(f"/records/{record['id']}/versions?size={MAX_VERSIONS}&sort=version")
+        return hits["hits"]["hits"] or [record]
+
+    def find_item(self, record_ids: set) -> Optional[str]:
+        """Item holding the concept DOI, a version DOI or a record ID of this concept."""
+        p227 = self._pid("wdt:P4901")
+        p27 = self._pid("wdt:P356")
+        ids = set(record_ids) | {self.concept_id} | {str(v["id"]) for v in self._versions}
+        dois = {self.concept_doi} | {f"10.5281/ZENODO.{i}" for i in ids}
+        doi_values = " ".join(f'"{d}" "{d.lower()}"' for d in sorted(dois))
+        id_values = " ".join(f'"{i}"' for i in sorted(ids))
+        query = f"""SELECT DISTINCT ?item ?owned WHERE {{
+            {{ VALUES ?doi {{ {doi_values} }} ?item wdt:{p27} ?doi }}
+            UNION {{ VALUES ?id {{ {id_values} }} ?item wdt:{p227} ?id }}
+            BIND(EXISTS {{ ?item wdt:{p227} [] }} AS ?owned) }}"""
+        found = {}
+        for b in execute_sparql_query(query)["results"]["bindings"]:
+            qid = b["item"]["value"].rsplit("/", 1)[-1]
+            found[qid] = b["owned"]["value"] in ("true", "1")
+        if not found:
+            return None
+        # Prefer items owned by this importer, then the oldest.
+        qid = min(found, key=lambda q: (not found[q], int(q[1:])))
+        if len(found) > 1:
+            log.warning("Zenodo concept %s is held by %s; using %s",
+                        self.concept_id, ", ".join(sorted(found)), qid)
+        self.owned = found[qid]
+        return qid
+
+    def _pid(self, prop: str) -> str:
+        pid = self.api.get_local_id_by_label(prop, "property")
+        return pid[0] if isinstance(pid, list) else pid
+
+    def identifier_claims(self) -> tuple:
+        """``P227`` claims for the newest versions and the concept DOI claim for ``P27``."""
+        p227 = self._pid("wdt:P4901")
+        edition = self._pid("wdt:P393")
+        published = self._pid("wdt:P577")
+        record_claims = []
+        for version in self._versions[:MAX_VERSIONS]:
+            qualifiers = []
+            if (label := version_label(version)):
+                qualifiers.append(String(label, prop_nr=edition))
+            date = version["metadata"].get("publication_date") or ""
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+                qualifiers.append(Time(f"+{date}T00:00:00Z", prop_nr=published))
+            record_claims.append(ExternalID(str(version["id"]), prop_nr=p227, qualifiers=qualifiers))
+        doi_claim = ExternalID(self.concept_doi, prop_nr=self._pid("wdt:P356"))
+        return record_claims, doi_claim
+
+    def community_items(self) -> Dict[str, str]:
+        """Zenodo community slug -> item, for communities that have an item in the KG."""
+        if ZenodoResource._community_items is None:
+            query = f"SELECT ?item ?slug WHERE {{ ?item wdt:{self._pid('wdt:P9934')} ?slug }}"
+            ZenodoResource._community_items = {
+                b["slug"]["value"]: b["item"]["value"].rsplit("/", 1)[-1]
+                for b in execute_sparql_query(query)["results"]["bindings"]
+            }
+        return ZenodoResource._community_items
 
     @property
     def description(self):
@@ -151,6 +250,12 @@ class ZenodoResource:
             elif resource_type == "Preprint":
                 self._resource_type = "wd:Q580922"
                 self._mardi_type = "MaRDI publication profile"
+            elif resource_type == "Journal article":
+                self._resource_type = "wd:Q13442814"
+                self._mardi_type = "MaRDI publication profile"
+            elif resource_type == "Book":
+                self._resource_type = "wd:Q571"
+                self._mardi_type = "MaRDI publication profile"
             else:
                 # Other -> Information resource
                 self._resource_type = "wd:Q37866906"
@@ -160,11 +265,13 @@ class ZenodoResource:
     def communities(self):
         if not self._communities and "communities" in self.metadata.keys():
             # if "communities" in self.metadata.keys():
+            known = self.community_items()
             for communityCur in self.metadata["communities"]:
                 community_id = communityCur.get("id")
-                if community_id == "mathplus":
+                if community_id in known:
                     community = Community(
-                        api=self.api, wdi=self.wdi, community_id=community_id
+                        api=self.api, wdi=self.wdi, community_id=community_id,
+                        QID=known[community_id],
                     )
                     self._communities.append(community)
         return self._communities
@@ -225,6 +332,8 @@ class ZenodoResource:
             item = self.api.item.new()
             update_claim = "append_or_replace"
         else:
+            if not self.owned:
+                return self.QID
             item = self.api.item.get(entity_id=self.QID)
             update_claim = "replace_all"
 
@@ -265,11 +374,10 @@ class ZenodoResource:
             claims = self.__preprocess_authors()
             item.add_claims(claims)
 
-        # Zenodo ID & DOI
-        if self.zenodo_id:
-            item.add_claim("wdt:P4901", self.zenodo_id, action=update_claim)
-            doi = f"10.5281/zenodo.{self.zenodo_id}"
-            item.add_claim("wdt:P356", doi.upper(), action=update_claim)
+        # Record IDs of the newest versions & concept DOI
+        record_claims, doi_claim = self.identifier_claims()
+        item.claims.add(record_claims, ActionIfExists.REPLACE_ALL)
+        item.claims.add(doi_claim, ActionIfExists.REPLACE_ALL)
 
         # License
         if self.license:
@@ -292,20 +400,22 @@ class ZenodoResource:
                 elif self.resource_type == "wd:Q7397":  # software:
                     item.add_claim("wdt:P348", self.version, action=update_claim)
 
-        # Communities
+        # Communities: appended, so several communities and manual statements coexist
         if self.communities:
+            prop_nr = self.api.get_local_id_by_label("community", "property")
             for community in self.communities:
-                prop_nr = self.api.get_local_id_by_label("community", "property")
-                item.add_claim(prop_nr, community.QID, action=update_claim)
+                item.add_claim(prop_nr, community.QID)
 
         # Projects
         if self.projects:
+            prop_nr = self.api.get_local_id_by_label(
+                "Internal Project ID", "property"
+            )
+            claims = []
             for project in self.projects:
                 project.create()
-                prop_nr = self.api.get_local_id_by_label(
-                    "Internal Project ID", "property"
-                )
-                item.add_claim(prop_nr, project.QID, action=update_claim)
+                claims.append(self.api.get_claim(prop_nr, project.QID))
+            item.claims.add(claims, ActionIfExists.REPLACE_ALL if update else ActionIfExists.APPEND_OR_REPLACE)
 
         if self._mardi_type:
             item.add_claim("MaRDI profile type", self._mardi_type, action=update_claim)

@@ -2,11 +2,14 @@ import requests
 import os
 import sys
 import time
+import logging
 import pandas as pd
 
 from mardi_importer.base import ADataSource
 from .ZenodoResource import ZenodoResource
 from typing import List
+
+log = logging.getLogger(__name__)
 
 class ZenodoSource(ADataSource):
     """Reads data from Zenodo API."""
@@ -30,10 +33,8 @@ class ZenodoSource(ADataSource):
         self.customQ = customQ
         self.orcid_ids = None
 
-        if self.resourceTypes is None:
-            self.resourceTypes = ['dataset']
         if self.communities is None:
-            self.communities = ['mathplus','mardigmci']
+            self.communities = ['mathplus', 'mardigmci', 'mardi']
         # if self.orcid_id_file is None:
         #     current_dir = os.path.dirname(os.path.abspath(__file__))
         #     self.orcid_id_file = os.path.join(current_dir, 'orcids-all.csv')
@@ -184,15 +185,18 @@ class ZenodoSource(ADataSource):
         #     self.zenodo_ids.append(str(zenodo_id))
 
     def push(self):
-        for zenodo_id in self.zenodo_ids:   
-            entry = ZenodoResource(zenodo_id)
+        for zenodo_id in self.zenodo_ids:
+            try:
+                entry = ZenodoResource(zenodo_id)
 
-            if not entry.exists():
-                print (f"Creating entry for zenodo id {zenodo_id}")
-                entry.create(update = False)
-            else:
-                print (f"Entry for zenodo id: {zenodo_id} already exists. Updating.")
-                entry.create(update = True)
+                if not entry.exists():
+                    print (f"Creating entry for zenodo id {zenodo_id}")
+                    entry.create(update = False)
+                else:
+                    print (f"Entry for zenodo id: {zenodo_id} already exists. Updating.")
+                    entry.create(update = True)
+            except Exception as exc:
+                log.error("Zenodo record %s not imported: %s", zenodo_id, exc, exc_info=True)
 
     def new_resource(self, zenodo_id: str) -> 'ZenodoResource':
         return ZenodoResource(zenodo_id)

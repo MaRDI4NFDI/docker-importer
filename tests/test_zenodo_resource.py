@@ -129,6 +129,20 @@ class TestIdentifiers(ZenodoTest):
         self.assertEqual([c.value for c in ids], [str(1000 + i) for i in range(24, 4, -1)])
 
 
+class TestCreate(ZenodoTest):
+    def test_label_clash_retries_with_dated_description(self):
+        rec = record("7", 0, True)
+        rec["metadata"]["resource_type"] = {"title": "Presentation"}
+        self.responses["/records/7"] = rec
+        holding = lambda rid: Mock(id=f"Q{rid}", **{"claims.get.return_value": [
+            SimpleNamespace(mainsnak=SimpleNamespace(datavalue={"value": rid}))]})
+        item = self.api.item.new.return_value
+        item.write.side_effect = [holding("9"), holding("7")]
+        self.assertEqual(self.resource("7").create(), "Q7")
+        item.descriptions.set.assert_called_with(
+            language="en", value="Presentation published at Zenodo repository on 2024-01-01.")
+
+
 class TestResourceType(ZenodoTest):
     def test_articles_and_books_get_publication_profile(self):
         for title, expected in [("Journal article", "wd:Q13442814"), ("Book", "wd:Q571")]:

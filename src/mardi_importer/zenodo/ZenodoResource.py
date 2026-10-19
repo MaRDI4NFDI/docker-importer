@@ -159,6 +159,13 @@ class ZenodoResource:
         doi_claim = ExternalID(self.concept_doi, prop_nr=self._pid("wdt:P356"))
         return record_claims, doi_claim
 
+    def _holds_record(self, item) -> bool:
+        try:
+            claims = item.claims.get(self._pid("wdt:P4901"))
+        except (AttributeError, KeyError):
+            return False
+        return any(c.mainsnak.datavalue.get("value") == self.zenodo_id for c in claims)
+
     def community_items(self) -> Dict[str, str]:
         """Zenodo community slug -> item, for communities that have an item in the KG."""
         if ZenodoResource._community_items is None:
@@ -420,7 +427,14 @@ class ZenodoResource:
         if self._mardi_type:
             item.add_claim("MaRDI profile type", self._mardi_type, action=update_claim)
 
-        self.QID = item.write().id
+        written = item.write()
+        if not update and not self._holds_record(written):
+            # mardiclient returns the item with the same label and description.
+            date = self.metadata.get("publication_date")
+            when = f"on {date}" if date else f"as record {self.zenodo_id}"
+            item.descriptions.set(language="en", value=f"{desc.strip()[:-1]} {when}.")
+            written = item.write()
+        self.QID = written.id
 
         if self.QID:
             print(

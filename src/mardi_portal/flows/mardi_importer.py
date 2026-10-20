@@ -29,6 +29,7 @@ class ImportAction(str, Enum):
     IMPORT_DOI = "import/doi"
     SYNC_CRAN_ARCHIVE = "sync/cran-archive"
     IMPORT_CRAN = "import/cran"
+    IMPORT_ZENODO = "import/zenodo"
 
 
 @task(retries=1, retry_delay_seconds=30)
@@ -227,6 +228,18 @@ def import_cran_task(since: Optional[str]) -> Dict[str, Any]:
     return {"since": since, "failed": failed, "all_imported": not failed}
 
 
+@task
+def import_zenodo_task(since: Optional[str]) -> Dict[str, Any]:
+    """Records of the MaRDI Zenodo communities updated since ``since`` (default: yesterday)."""
+    log = get_run_logger()
+    since = since or (date.today() - timedelta(days=1)).isoformat()
+    source = Importer.create_source("zenodo")
+    source.pull(since=since)
+    failed = source.push()
+    log.info("Zenodo import since %s: %d records, %d failed %s", since, len(source.zenodo_ids), len(failed), failed)
+    return {"since": since, "records": len(source.zenodo_ids), "failed": failed, "all_imported": not failed}
+
+
 @flow(name="mardi-importer")
 def mardi_importer_flow(
     action: ImportAction,
@@ -271,6 +284,9 @@ def mardi_importer_flow(
 
     elif action is ImportAction.IMPORT_CRAN:
         result = import_cran_task(since)
+
+    elif action is ImportAction.IMPORT_ZENODO:
+        result = import_zenodo_task(since)
 
     else:
         raise ValueError(f"Unsupported action: {action}")

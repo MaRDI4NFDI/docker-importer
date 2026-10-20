@@ -31,12 +31,16 @@ def install_prefect_stub(force: bool = True) -> None:
     deployments.__path__ = []
     logging_mod.__path__ = []
 
-    def task(*_args, **_kwargs):
+    def task(*args, **_kwargs):
+        if len(args) == 1 and callable(args[0]):    # bare @task
+            return args[0]
         def decorator(fn):
             return fn
         return decorator
 
-    def flow(*_args, **_kwargs):
+    def flow(*args, **_kwargs):
+        if len(args) == 1 and callable(args[0]):    # bare @flow
+            return args[0]
         def decorator(fn):
             return fn
         return decorator

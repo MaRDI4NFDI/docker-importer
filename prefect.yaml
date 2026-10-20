@@ -38,6 +38,23 @@ deployments:
         env:
           PREFECT_LOGGING_EXTRA_LOGGERS: CRANlogger
 
+  # Nightly import of the MaRDI Zenodo community records updated since yesterday.
+  - name: zenodo-nightly
+    entrypoint: mardi_portal.flows.mardi_importer:mardi_importer_flow
+    build: null
+    concurrency_limit: 1
+    parameters:
+      action: import/zenodo
+    schedules:
+      - cron: "0 3 * * *"
+        timezone: Europe/Berlin
+        active: true
+    work_pool:
+      name: prod-k8s-pool
+      job_variables:
+        env:
+          PREFECT_LOGGING_EXTRA_LOGGERS: mardi_importer.zenodo
+
   - name: production
     entrypoint: mardi_portal.flows.zbmath_import:zbmath_import_flow
     build: null

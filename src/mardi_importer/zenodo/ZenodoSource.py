@@ -91,13 +91,18 @@ class ZenodoSource(ADataSource):
 
 
 
-    def pull(self):
+    def pull(self, since: str | None = None):
         """
         This method queries the Zenodo API to get a data dump of all records.
+
+        Args:
+            since: Only records updated on Zenodo on or after this day (YYYY-MM-DD).
         """
 
         total_hits = 0
         q_list = []
+        if since:
+            q_list.append(f"updated:[{since} TO *]")
 
         if self.communities:
             community_str = "communities:(" + ' '.join(self.communities) + ")"
@@ -163,6 +168,8 @@ class ZenodoSource(ADataSource):
                 )
 
                 hits = response_json.get("hits").get("hits")
+                if not hits:
+                    break
                 total_hits -= len(hits)
                 page_cur += 1
 
@@ -184,7 +191,9 @@ class ZenodoSource(ADataSource):
         #     zenodo_id = response_json.get("hits").get("hits")[0].get("id")
         #     self.zenodo_ids.append(str(zenodo_id))
 
-    def push(self):
+    def push(self) -> List[str]:
+        """Creates or updates an item for every pulled record; returns the IDs that failed."""
+        failed = []
         for zenodo_id in self.zenodo_ids:
             try:
                 entry = ZenodoResource(zenodo_id)
@@ -197,6 +206,8 @@ class ZenodoSource(ADataSource):
                     entry.create(update = True)
             except Exception as exc:
                 log.error("Zenodo record %s not imported: %s", zenodo_id, exc, exc_info=True)
+                failed.append(zenodo_id)
+        return failed
 
     def new_resource(self, zenodo_id: str) -> 'ZenodoResource':
         return ZenodoResource(zenodo_id)

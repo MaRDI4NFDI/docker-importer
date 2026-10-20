@@ -24,12 +24,16 @@ def _install_prefect_stub() -> None:
     fake_blocks_system = types.ModuleType("prefect.blocks.system")
     fake_context = types.ModuleType("prefect.context")
 
-    def task(*_args, **_kwargs):
+    def task(*args, **_kwargs):
+        if len(args) == 1 and callable(args[0]):    # bare @task
+            return args[0]
         def decorator(fn):
             return fn
         return decorator
 
-    def flow(*_args, **_kwargs):
+    def flow(*args, **_kwargs):
+        if len(args) == 1 and callable(args[0]):    # bare @flow
+            return args[0]
         def decorator(fn):
             return fn
         return decorator
@@ -349,3 +353,32 @@ class TestPrefectMardiImporterFlow(unittest.TestCase):
                 pmi.mardi_importer_flow("import/wikidata", qids=["Q1", "Q2"])
 
         self.assertIn("artifact-key", str(ctx.exception))
+
+
+class TestImportZenodoTask(unittest.TestCase):
+    """Tests for the nightly Zenodo import."""
+
+    def test_defaults_to_yesterday_and_reports_failures(self) -> None:
+        source = Mock(zenodo_ids=["1", "2"])
+        source.push.return_value = ["2"]
+        today = pmi.date(2026, 10, 20)
+        with patch("mardi_portal.flows.mardi_importer.Importer.create_source", return_value=source), \
+            patch("mardi_portal.flows.mardi_importer.date") as fake_date:
+            fake_date.today.return_value = today
+            result = pmi.import_zenodo_task(None)
+
+        source.pull.assert_called_once_with(since="2026-10-19")
+        self.assertEqual(result, {"since": "2026-10-19", "records": 2, "failed": ["2"], "all_imported": False})
+
+    def test_flow_dispatches_zenodo_action(self) -> None:
+        artifact = Mock(id="artifact-id", key="artifact-key")
+        artifact.create.return_value = artifact
+        with patch("mardi_portal.flows.mardi_importer.get_run_context") as get_ctx, \
+            patch("mardi_portal.flows.mardi_importer.import_zenodo_task",
+                  return_value={"all_imported": True}) as task, \
+            patch("mardi_portal.flows.mardi_importer.Artifact", return_value=artifact):
+            get_ctx.return_value.flow_run.id = "flow-run-id"
+            result = pmi.mardi_importer_flow("import/zenodo", since="2026-10-01")
+
+        task.assert_called_once_with("2026-10-01")
+        self.assertEqual(result["action"], "import/zenodo")

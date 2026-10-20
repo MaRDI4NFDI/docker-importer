@@ -10,6 +10,7 @@ import fnmatch
 import glob
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -241,6 +242,46 @@ class UpdateFlowTest(unittest.TestCase):
             ("download", 0, None), ("download", 300, 456),
         ])
 
+    def test_mass_deletions_stop_the_run_before_anything_is_written(self):
+        self._seed()
+        emptied = [
+            _row(de_number="1", doi="None"),
+            _row(de_number="2", doi="None"),
+            _row(de_number="4", doi="10.1/new"),
+        ]
+        with mock.patch.object(sys.modules[__name__], "CURRENT", emptied):
+            with self.assertRaises(RuntimeError) as ctx:
+                F.zbmath_update_flow(deletion_alarm_min=1)
+        message = str(ctx.exception)
+        self.assertIn("Nothing was written to the portal", message)
+        self.assertIn("doi: 2 of 3", message)
+        self.assertEqual(self.source.calls, [], "no update pass ran")
+        self.assertTrue(os.path.exists(self.checkpoint), "the run can be resumed")
+
+        # after checking: let the deletions through on the next run
+        F.zbmath_update_flow(deletion_alarm_min=1, allow_mass_deletions=True)
+        self.assertEqual([c[0] for c in self.source.calls],
+                         ["non_arxiv", "arxiv", "references"])
+
+    def test_a_diff_cleaned_by_hand_passes_the_check_on_the_next_run(self):
+        self._seed()
+        emptied = [
+            _row(de_number="1", doi="None"),
+            _row(de_number="2", doi="None"),
+            _row(de_number="4", doi="10.1/new"),
+        ]
+        with mock.patch.object(sys.modules[__name__], "CURRENT", emptied):
+            with self.assertRaises(RuntimeError):
+                F.zbmath_update_flow(deletion_alarm_min=1)
+        diff = self._only("differences_*.csv")
+        with open(diff) as f:
+            content = f.read().replace(F.DELETED_SENTINEL, "")
+        with open(diff, "w") as f:
+            f.write(content)
+        F.zbmath_update_flow(deletion_alarm_min=1)
+        self.assertEqual([c[0] for c in self.source.calls],
+                         ["non_arxiv", "arxiv", "references"])
+    
     def test_negative_limit_is_rejected(self):
         with self.assertRaises(ValueError):
             F.zbmath_update_flow(max_records_per_pass=-1)

@@ -298,6 +298,13 @@ def classify_change(
     """
     old_blank = is_blank(old_value)
     new_blank = is_blank(new_value)
+    if unordered:
+        # A list made only of placeholders ("None;None", as older versions of
+        # process_data wrote for references without a zbMATH id) carries no
+        # value either, so it is as empty as a single "None".
+        # this can be removed in the future
+        old_blank = old_blank or not split_list(old_value)
+        new_blank = new_blank or not split_list(new_value)
 
     if new_blank:
         # Nothing in the new dump. Only a real deletion if the old dump had
@@ -443,6 +450,66 @@ def build_deleted(
         _durable(f)
     os.replace(tmp, deleted_file)
     return deleted_file, len(vanished)
+
+# ── safety check: mass deletions ─────────────────────────────────────────────
+
+#: Columns the update never writes, so emptying them cannot harm an item.
+DELETION_CHECK_IGNORE = frozenset({"creation_date", "language", "zbl_id"})
+
+
+def deletion_report(
+    old_data_file: str,
+    diff_file: str,
+    ignore: Iterable[str] = DELETION_CHECK_IGNORE,
+) -> dict[str, tuple[int, int]]:
+    """Per column: records the diff would empty, and records that had a value.
+
+    zbMATH emptying a field for a handful of records is normal. A field emptied
+    for most of the records that had one usually means the API stopped
+    delivering it, and the update must not copy that onto the items.
+
+    Returns ``{column: (deleted, had_value)}`` for every column with at least
+    one deletion; ``had_value`` counts the records of the old dump with a
+    value in that column.
+    """
+    ignore = set(ignore) | {DE_COL}
+    deleted: dict[str, int] = {}
+    with open(diff_file, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE)
+        new_cols = [
+            c for c in (reader.fieldnames or [])
+            if c.endswith("_new") and c[: -len("_new")] not in ignore
+        ]
+        for row in reader:
+            for c in new_cols:
+                if row.get(c) == DELETED_SENTINEL:
+                    col = c[: -len("_new")]
+                    deleted[col] = deleted.get(col, 0) + 1
+    if not deleted:
+        return {}
+
+    # Same notion of "has a value" as classify_change uses for a deletion.
+    had_value = dict.fromkeys(deleted, 0)
+    for row in _reader(old_data_file):
+        for col in deleted:
+            if canonical(row.get(col), col in UNORDERED_COLUMNS, column=col):
+                had_value[col] += 1
+    return {col: (deleted[col], had_value[col]) for col in deleted}
+
+
+def mass_deletions(
+    report: dict[str, tuple[int, int]],
+    max_share: float = 0.5,
+    min_count: int = 1000,
+) -> dict[str, tuple[int, int]]:
+    """The columns of a :func:`deletion_report` that look like an API failure:
+    at least ``min_count`` deletions, and more than ``max_share`` of the
+    records that had a value."""
+    return {
+        col: (n, total)
+        for col, (n, total) in report.items()
+        if n >= min_count and total and n / total > max_share
+    }
 
 
 # ── command line ─────────────────────────────────────────────────────────────

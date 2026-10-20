@@ -1066,6 +1066,54 @@ class DiffFormatTest(unittest.TestCase):
         )
         self.assertEqual(rows[0]["publication_year_new"], "2024")
 
+class DeletionReportTest(unittest.TestCase):
+    """Counting how many records would lose a field, to catch API failures."""
+
+    def _report(self, old_rows, new_rows):
+        d = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, d)
+        old, new = os.path.join(d, "old.csv"), os.path.join(d, "new.csv")
+        _write_dump(old, old_rows)
+        _write_dump(new, new_rows)
+        out, _ = diffmod.build_diff(
+            old, new, diffmod.hash_dump(old), diffmod.hash_dump(new),
+            os.path.join(d, "diff.csv"),
+        )
+        return diffmod.deletion_report(old, out)
+
+    def test_counts_deletions_against_records_that_had_a_value(self):
+        report = self._report(
+            [_row(de_number=str(i), keywords="a;b") for i in range(1, 5)]
+            + [_row(de_number="5")],
+            [_row(de_number=str(i), keywords="None") for i in range(1, 4)]
+            + [_row(de_number="4", keywords="a;b"), _row(de_number="5")],
+        )
+        self.assertEqual(report, {"keywords": (3, 4)})
+
+    def test_placeholder_lists_do_not_count_as_values(self):
+        report = self._report(
+            [_row(de_number="1", references="123"),
+             _row(de_number="2", references="None;None")],
+            [_row(de_number="1", references="None"),
+             _row(de_number="2", references="None")],
+        )
+        self.assertEqual(report, {"references": (1, 1)})
+
+    def test_fields_the_update_never_writes_are_ignored(self):
+        report = self._report(
+            [_row(de_number="1", creation_date="2020-01-01T00:00:00Z", language="en")],
+            [_row(de_number="1", creation_date="None", language="None")],
+        )
+        self.assertEqual(report, {})
+
+    def test_mass_deletions_needs_both_share_and_count(self):
+        report = {"keywords": (900, 1000), "serial": (5, 6), "doi": (1500, 100000)}
+        self.assertEqual(
+            diffmod.mass_deletions(report, max_share=0.5, min_count=10),
+            {"keywords": (900, 1000)},
+            "serial: too few; doi: too small a share",
+        )
+        self.assertEqual(diffmod.mass_deletions(report, max_share=0.5, min_count=1000), {})
 
 class YearCoercionTest(unittest.TestCase):
     def test_process_data_years_become_integer_strings(self):

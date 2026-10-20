@@ -9,6 +9,8 @@ applies the differences:
 3. ``convert_raw_to_processed`` — raw dump -> processed CSV
 4. ``hash_dumps``               — de_number/hash tables for both dumps
 5. ``build_diff``               — per-field differences for changed records
+   ``check_deletions``          — stop if a field would be emptied for most
+                                  records that had it (see below)
 6. ``update_non_arxiv``         — apply the diff to publication items
 7. ``update_arxiv``             — apply the diff to arXiv items
 8. ``update_references``        — merge changed reference lists
@@ -31,6 +33,16 @@ row is set aside in a ``missing_in_portal_*`` file (diff format) and the step
 carries on. Once every step is done and the checkpoint is archived, the run is
 marked failed if any such file has rows, so it shows up without blocking the
 records after it or the next scheduled run.
+
+Mass deletions
+--------------
+Before anything is written, ``check_deletions`` counts per field how many
+records would lose a value they had. If that is more than
+``deletion_alarm_share`` of them (and at least ``deletion_alarm_min``
+records), the run fails without touching the portal: an API that stops
+delivering a field looks exactly like zbMATH emptying it everywhere. After
+checking, either empty those deletions in the diff and run again, or run again
+with ``allow_mass_deletions=True`` if they are real.
 
 Checking a sample first
 -----------------------
@@ -58,8 +70,11 @@ from mardi_importer import Importer
 from mardi_importer.zbmath.diff import (
     build_deleted as build_deleted_impl,
     build_diff as build_diff_impl,
+    DELETED_SENTINEL,
+    deletion_report,
     hash_dump as hash_dump_impl,
     hash_path_for,
+    mass_deletions,
 )
 from mardi_importer.zbmath.ZBMathUpdate import count_rows
 
@@ -79,6 +94,7 @@ STEPS = [
     "convert_raw_to_processed",
     "hash_dumps",
     "build_diff",
+    "check_deletions",
     "update_non_arxiv",
     "update_arxiv",
     "update_references",
@@ -317,6 +333,49 @@ def build_diff(
     log.info("%d changed record(s) written to %s", rows, path)
     return {"diff_path": path, "diff_rows": rows}
 
+@task(name="check_deletions")
+def check_deletions(
+    old_dump: str,
+    diff_path: str,
+    max_share: float,
+    min_count: int,
+    allow: bool,
+) -> dict:
+    """Refuse to go on if the diff would empty a field almost everywhere.
+
+    Runs on the diff as it is on the volume, so a diff cleaned by hand after a
+    failed check is checked again on the next run.
+    """
+    log = get_run_logger()
+    if not _has_rows(diff_path):
+        return {"deletion_report": {}}
+
+    report = deletion_report(old_dump, diff_path)
+    for col, (n, total) in sorted(report.items(), key=lambda kv: -kv[1][0]):
+        share = 100 * n / total if total else 0
+        log.info("%s: %d of %d records with a value would lose it (%.1f%%)",
+                 col, n, total, share)
+
+    suspicious = mass_deletions(report, max_share=max_share, min_count=min_count)
+    if suspicious:
+        details = "; ".join(
+            f"{col}: {n} of {total} ({100 * n / total:.0f}%)"
+            for col, (n, total) in sorted(suspicious.items())
+        )
+        if allow:
+            log.warning("Mass deletions let through (allow_mass_deletions): %s", details)
+        else:
+            raise RuntimeError(
+                "Nothing was written to the portal. The diff would empty these "
+                f"fields for most records that had them: {details}. That usually "
+                "means the zbMATH API stopped delivering the field, not that "
+                f"zbMATH removed it. Check {os.path.basename(diff_path)}, then "
+                "either empty those deletions in the diff (the column's _new "
+                f"value {DELETED_SENTINEL}) and run again, or, if they are "
+                "real, run again with allow_mass_deletions=True."
+            )
+    return {"deletion_report": {col: list(v) for col, v in report.items()}}
+
 
 @task(name="update_items", retries=1, retry_delay_seconds=120)
 def update_items(diff_path: str, mode: str, max_rows: Optional[int] = None) -> dict:
@@ -484,7 +543,12 @@ def _has_rows(path: str) -> bool:
 # ── Main update flow ─────────────────────────────────────────────────────────
 
 @flow(name="zbmath-update", log_prints=True)
-def zbmath_update_flow(max_records_per_pass: Optional[int] = None):
+def zbmath_update_flow(
+    max_records_per_pass: Optional[int] = None,
+    allow_mass_deletions: bool = False,
+    deletion_alarm_share: float = 0.5,
+    deletion_alarm_min: int = 1000,
+):
     """Update existing zbMATH data from a fresh full dump.
 
     Re-running after an interruption skips completed steps based on the
@@ -496,6 +560,14 @@ def zbmath_update_flow(max_records_per_pass: Optional[int] = None):
             the result can be checked before the next run continues after
             them. ``0`` stops after the diff. ``None`` (the default) does
             everything.
+        allow_mass_deletions: Let ``check_deletions`` pass even if a field
+            would be emptied for most records; only after checking by hand
+            that zbMATH really removed it.
+        deletion_alarm_share: Share of the records with a value in a field
+            above which emptying it counts as suspicious (0.5 = more than half).
+        deletion_alarm_min: A field needs at least this many deletions to be
+            suspicious, so a rare field emptied in a few records does not stop
+            the run.
     """
     if max_records_per_pass is not None and max_records_per_pass < 0:
         raise ValueError("max_records_per_pass must be 0 or more")
@@ -617,6 +689,21 @@ def zbmath_update_flow(max_records_per_pass: Optional[int] = None):
             unfinished.append(step)
         else:
             checkpoint = _mark_step(checkpoint, step)
+
+    # ── Step 5b: refuse mass deletions ─────────────────────────────────────
+    # Not marked done when it fails, so after the diff is cleaned by hand (or
+    # with allow_mass_deletions) the next run checks it again.
+    if _step_done(checkpoint, "check_deletions"):
+        log.info("Skipping check_deletions (already done)")
+    else:
+        log.info("Checking the diff for mass deletions")
+        result = check_deletions(
+            previous_dump, diff_path,
+            max_share=deletion_alarm_share,
+            min_count=deletion_alarm_min,
+            allow=allow_mass_deletions,
+        )
+        checkpoint = _mark_step(checkpoint, "check_deletions", result)
 
     # Step 6: publication items
     _run_pass("update_non_arxiv", "Applying the diff to publication items",

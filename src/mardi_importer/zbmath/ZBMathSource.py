@@ -1027,6 +1027,9 @@ class ZBMathSource(ADataSource):
             language="en",
             value=f"scientific article from arXiv",
         )
+        # Instance of: scholary article
+        item.add_claim("wdt:P31", "wd:Q13442814")
+        item.add_claim(self.label_id_dict["mardi_profile_type_prop"], self.label_id_dict["mardi_publication_profile_item"])
         if info_dict['source']:
             arxiv_classification = re.search(r'\[(.*?)\]', info_dict['source']).group(1)
             item.add_claim('P22', arxiv_classification)

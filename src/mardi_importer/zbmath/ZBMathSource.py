@@ -747,6 +747,7 @@ class ZBMathSource(ADataSource):
                 else:
                     time_string = None
 
+                arxiv_id = None
                 if not self.conflict_string in info_dict["links"]:
                     pattern = re.compile(
                         r"^([a-z][a-z\d+.-]*):([^][<>\"\x00-\x20\x7F])+$"
@@ -756,7 +757,6 @@ class ZBMathSource(ADataSource):
                         x.strip() for x in links if (pattern.match(x) and "http" in x)
                     ]
                     arxiv_prefix = "https://arxiv.org/abs/"
-                    arxiv_id = None
                     for l in links:
                         if arxiv_prefix in l:
                             arxiv_id = l.removeprefix(arxiv_prefix)

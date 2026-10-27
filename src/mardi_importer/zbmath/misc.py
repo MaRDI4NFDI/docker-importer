@@ -13,7 +13,7 @@ def search_item_by_property(property_id,value):
     :param value: e.g. "6369674"
     :return: JSON response from the API
     """
-    base_url = "https://portal.mardi4nfdi.de/w/api.php"
+    base_url = os.environ["MEDIAWIKI_API_URL"]
     # Create the search query with the property_id and value
     srsearch_query = f"haswbstatement:{property_id}={value}"
     

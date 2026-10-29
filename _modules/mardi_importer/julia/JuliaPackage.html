@@ -1,0 +1,389 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mardi_importer.julia.JuliaPackage &mdash; MaRDI Importer  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            MaRDI Importer
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Manual</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../main.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli.html">Command-Line Interface (CLI) Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../flask_endpoints.html">Web API Endpoints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tech.html">Architecture Diagram</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../scripts.html">Launcher script</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cran.html">Importer Module for CRAN</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../julia.html">Importer Module for Julia</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../importer.html">Importer Module API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../polydb.html">Importer Module for PolyDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../zbmath.html">Importer Module for zbMATH</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">MaRDI Importer</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">mardi_importer.julia.JuliaPackage</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for mardi_importer.julia.JuliaPackage</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""One Julia package: the statements it should have, and writing them.</span>
+
+<span class="sd">Statements are first planned as plain data (:class:`Planned`) so the rules can be</span>
+<span class="sd">tested without a Wikibase; :meth:`JuliaPackage.write` then turns them into claims.</span>
+
+<span class="sd">Statements carry no references, as for CRAN packages; what was read from where</span>
+<span class="sd">is kept in the run's log and report. Every registered (non-yanked) version</span>
+<span class="sd">becomes a *software version identifier* statement qualified with its</span>
+<span class="sd">*publication date*, the day it was registered in General. Properties and items</span>
+<span class="sd">are given as Wikidata IDs and resolved to local IDs by mardiclient.</span>
+
+<span class="sd">An existing item is only ever added to (never overwritten or pruned): a value</span>
+<span class="sd">already present is skipped, and a single-valued property that already holds a</span>
+<span class="sd">different value is left alone and reported as a conflict.</span>
+<span class="sd">"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">LICENSES</span><span class="p">,</span> <span class="n">RepoMetadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.people</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mention</span><span class="p">,</span> <span class="n">Person</span><span class="p">,</span> <span class="n">assert_no_emails</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">repo_key</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"JuliaLogger"</span><span class="p">)</span>
+
+<span class="c1"># Wikidata properties used by the Julia source (see wikidata_entities.txt).</span>
+<span class="n">INSTANCE_OF</span> <span class="o">=</span> <span class="s2">"wdt:P31"</span>
+<span class="n">PROGRAMMED_IN</span> <span class="o">=</span> <span class="s2">"wdt:P277"</span>
+<span class="n">SOURCE_REPOSITORY</span> <span class="o">=</span> <span class="s2">"wdt:P1324"</span>
+<span class="n">VERSION</span> <span class="o">=</span> <span class="s2">"wdt:P348"</span>
+<span class="n">PUBLICATION_DATE</span> <span class="o">=</span> <span class="s2">"wdt:P577"</span>
+<span class="n">LICENSE</span> <span class="o">=</span> <span class="s2">"wdt:P275"</span>
+<span class="n">AUTHOR</span> <span class="o">=</span> <span class="s2">"wdt:P50"</span>
+<span class="n">AUTHOR_NAME_STRING</span> <span class="o">=</span> <span class="s2">"wdt:P2093"</span>
+<span class="n">DEPENDS_ON</span> <span class="o">=</span> <span class="s2">"wdt:P1547"</span>
+<span class="n">DESCRIBED_BY_SOURCE</span> <span class="o">=</span> <span class="s2">"wdt:P1343"</span>
+<span class="c1"># Local properties and items (see new_entities.json).</span>
+<span class="n">PACKAGE_NAME</span> <span class="o">=</span> <span class="s2">"Julia General registry package name"</span>
+<span class="n">WIKIDATA_QID</span> <span class="o">=</span> <span class="s2">"Wikidata QID"</span>
+<span class="n">PROFILE_TYPE</span> <span class="o">=</span> <span class="s2">"MaRDI profile type"</span>
+<span class="n">SOFTWARE_PROFILE</span> <span class="o">=</span> <span class="s2">"MaRDI software profile"</span>
+<span class="n">PERSON_PROFILE</span> <span class="o">=</span> <span class="s2">"MaRDI person profile"</span>
+<span class="n">JULIA</span> <span class="o">=</span> <span class="s2">"wd:Q2613697"</span>
+
+<span class="c1"># Properties an update may only fill when empty.</span>
+<span class="n">SINGLE_VALUED</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="n">INSTANCE_OF</span><span class="p">,</span> <span class="n">PROGRAMMED_IN</span><span class="p">,</span> <span class="n">SOURCE_REPOSITORY</span><span class="p">,</span> <span class="n">LICENSE</span><span class="p">,</span>
+                           <span class="n">PACKAGE_NAME</span><span class="p">,</span> <span class="n">WIKIDATA_QID</span><span class="p">,</span> <span class="n">PROFILE_TYPE</span><span class="p">})</span>
+
+
+<div class="viewcode-block" id="Planned">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.Planned">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Planned</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""One statement to write: property, value and qualifiers.</span>
+
+<span class="sd">    A qualifier is ``(property, value)`` or ``(property, value, claim kwargs)``,</span>
+<span class="sd">    the kwargs going to ``get_claim`` (e.g. a time precision).</span>
+<span class="sd">    """</span>
+    <span class="n">prop</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">qualifiers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="time_value">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.time_value">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">time_value</span><span class="p">(</span><span class="n">day</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">"+</span><span class="si">{</span><span class="n">day</span><span class="si">}</span><span class="s2">T00:00:00Z"</span></div>
+
+
+
+<div class="viewcode-block" id="JuliaPackage">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.JuliaPackage">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">JuliaPackage</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">uuid</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">repo</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">RepoMetadata</span>
+    <span class="n">subdir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>        <span class="c1"># latest live version</span>
+    <span class="n">versions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="c1"># every live version with its registration day (None if older than the registry's history)</span>
+    <span class="n">action</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"create"</span>            <span class="c1"># create | update | skip</span>
+    <span class="n">qid</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>            <span class="c1"># existing item (update) or the created one</span>
+    <span class="n">matched_by</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">wikidata_qid</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">papers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>    <span class="c1"># QIDs of cited publications</span>
+    <span class="n">authors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Mention</span><span class="p">,</span> <span class="n">Person</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">conflicts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">notes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">label</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.jl"</span>
+
+    <span class="c1"># -- planning (pure) -------------------------------------------------------</span>
+
+<div class="viewcode-block" id="JuliaPackage.plan">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.JuliaPackage.plan">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">julia_package_class</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">software_profile</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Every statement for this package except dependencies (planned later).</span>
+
+<span class="sd">        ``julia_package_class`` and ``software_profile`` are the local QIDs of the</span>
+<span class="sd">        *Julia package* class and the *MaRDI software profile*; every Julia package</span>
+<span class="sd">        item, created or updated, is an instance of the one and carries the other.</span>
+<span class="sd">        """</span>
+        <span class="n">md</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">Planned</span><span class="p">(</span><span class="n">PACKAGE_NAME</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+            <span class="n">Planned</span><span class="p">(</span><span class="n">INSTANCE_OF</span><span class="p">,</span> <span class="n">julia_package_class</span><span class="p">),</span>
+            <span class="n">Planned</span><span class="p">(</span><span class="n">PROFILE_TYPE</span><span class="p">,</span> <span class="n">software_profile</span><span class="p">),</span>
+            <span class="n">Planned</span><span class="p">(</span><span class="n">PROGRAMMED_IN</span><span class="p">,</span> <span class="n">JULIA</span><span class="p">),</span>
+            <span class="n">Planned</span><span class="p">(</span><span class="n">SOURCE_REPOSITORY</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">repo</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">day</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">versions</span> <span class="ow">or</span> <span class="p">([(</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="k">else</span> <span class="p">[]):</span>
+            <span class="n">quals</span> <span class="o">=</span> <span class="p">[(</span><span class="n">PUBLICATION_DATE</span><span class="p">,</span> <span class="n">time_value</span><span class="p">(</span><span class="n">day</span><span class="p">),</span> <span class="p">{</span><span class="s2">"precision"</span><span class="p">:</span> <span class="mi">11</span><span class="p">})]</span> <span class="k">if</span> <span class="n">day</span> <span class="k">else</span> <span class="p">[]</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Planned</span><span class="p">(</span><span class="n">VERSION</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">quals</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">md</span><span class="o">.</span><span class="n">license</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Planned</span><span class="p">(</span><span class="n">LICENSE</span><span class="p">,</span> <span class="n">LICENSES</span><span class="p">[</span><span class="n">md</span><span class="o">.</span><span class="n">license</span><span class="p">]))</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="p">[</span><span class="n">Planned</span><span class="p">(</span><span class="n">DESCRIBED_BY_SOURCE</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">papers</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">wikidata_qid</span><span class="p">:</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Planned</span><span class="p">(</span><span class="n">WIKIDATA_QID</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">wikidata_qid</span><span class="p">))</span>
+        <span class="n">out</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan_authors</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="JuliaPackage.plan_authors">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.JuliaPackage.plan_authors">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plan_authors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""One statement per person: an item where the person has one, else a name string."""</span>
+        <span class="n">out</span><span class="p">,</span> <span class="n">done</span> <span class="o">=</span> <span class="p">[],</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">person</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">authors</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">mp</span><span class="p">:</span> <span class="n">mp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">orcid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">person</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">done</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">done</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">person</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Planned</span><span class="p">(</span><span class="n">AUTHOR</span><span class="p">,</span> <span class="n">person</span><span class="o">.</span><span class="n">qid</span><span class="p">)</span> <span class="k">if</span> <span class="n">person</span><span class="o">.</span><span class="n">qid</span> <span class="k">else</span> <span class="n">Planned</span><span class="p">(</span><span class="n">AUTHOR_NAME_STRING</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="JuliaPackage.plan_dependencies">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.JuliaPackage.plan_dependencies">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plan_dependencies</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">qid_of</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""``depends on software`` to packages that exist or were created in this run."""</span>
+        <span class="n">md</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">md</span><span class="o">.</span><span class="n">project_url</span><span class="p">:</span>          <span class="c1"># no Project.toml read: dependencies unknown</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">Planned</span><span class="p">(</span><span class="n">DEPENDS_ON</span><span class="p">,</span> <span class="n">qid_of</span><span class="p">[</span><span class="n">d</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">md</span><span class="o">.</span><span class="n">deps</span> <span class="k">if</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">qid_of</span><span class="p">]</span></div>
+
+
+    <span class="c1"># -- update rule (pure) -------------------------------------------------------</span>
+
+<div class="viewcode-block" id="JuliaPackage.merge">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.JuliaPackage.merge">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">merge</span><span class="p">(</span><span class="n">planned</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">],</span> <span class="n">existing</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Add-only: drop what is already there; keep single-valued conflicts out."""</span>
+        <span class="n">add</span><span class="p">,</span> <span class="n">conflicts</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">planned</span><span class="p">:</span>
+            <span class="n">have</span> <span class="o">=</span> <span class="n">existing</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">prop</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="n">val</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">have</span> <span class="ow">or</span> <span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">prop</span> <span class="o">==</span> <span class="n">SOURCE_REPOSITORY</span> <span class="ow">and</span>
+                               <span class="n">repo_key</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="ow">in</span> <span class="p">{</span><span class="n">repo_key</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">have</span><span class="p">}):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">have</span> <span class="ow">and</span> <span class="n">st</span><span class="o">.</span><span class="n">prop</span> <span class="ow">in</span> <span class="n">SINGLE_VALUED</span><span class="p">:</span>
+                <span class="n">conflicts</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"property"</span><span class="p">:</span> <span class="n">st</span><span class="o">.</span><span class="n">prop</span><span class="p">,</span> <span class="s2">"planned"</span><span class="p">:</span> <span class="n">val</span><span class="p">,</span> <span class="s2">"existing"</span><span class="p">:</span> <span class="n">have</span><span class="p">})</span>
+                <span class="k">continue</span>
+            <span class="n">add</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">add</span><span class="p">,</span> <span class="n">conflicts</span></div>
+
+
+    <span class="c1"># -- writing --------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="JuliaPackage.write">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.JuliaPackage.write">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">api</span><span class="p">,</span> <span class="n">planned</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create the item, or add the planned statements to the existing one."""</span>
+        <span class="n">planned</span> <span class="o">=</span> <span class="n">resolve_items</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">planned</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">qid</span><span class="p">:</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">qid</span><span class="p">)</span>
+            <span class="n">planned</span><span class="p">,</span> <span class="n">conflicts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">planned</span><span class="p">,</span> <span class="n">existing_values</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">planned</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">conflicts</span> <span class="o">+=</span> <span class="n">conflicts</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">item</span><span class="o">.</span><span class="n">new</span><span class="p">()</span>
+            <span class="n">item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">"en"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+            <span class="n">item</span><span class="o">.</span><span class="n">descriptions</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">"en"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">"Julia package"</span><span class="p">)</span>
+            <span class="n">item</span><span class="o">.</span><span class="n">aliases</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">language</span><span class="o">=</span><span class="s2">"en"</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">planned</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">qid</span>
+        <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">planned</span><span class="p">:</span>
+            <span class="n">add_planned</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span>
+        <span class="n">written</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">write</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">qid</span> <span class="o">=</span> <span class="n">written</span><span class="o">.</span><span class="n">id</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">qid</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="resolve_items">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.resolve_items">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_items</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">planned</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Replace ``wd:Q…`` values by local QIDs, so they compare with existing claims."""</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">planned</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">st</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"wd:"</span><span class="p">):</span>
+            <span class="n">local</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="s2">"item"</span><span class="p">)</span>
+            <span class="n">local</span> <span class="o">=</span> <span class="n">local</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">local</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="n">Planned</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">prop</span><span class="p">,</span> <span class="n">local</span><span class="p">,</span> <span class="n">st</span><span class="o">.</span><span class="n">qualifiers</span><span class="p">)</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_pid</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">prop</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">pid</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_local_id_by_label</span><span class="p">(</span><span class="n">prop</span><span class="p">,</span> <span class="s2">"property"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pid</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">pid</span>
+
+
+<div class="viewcode-block" id="existing_values">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.existing_values">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">existing_values</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">planned</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Planned</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Current values of the planned properties, including URL values.</span>
+
+<span class="sd">    ``MardiItem.get_value`` skips URL-typed properties, which would make an</span>
+<span class="sd">    existing repository look absent and be added twice.</span>
+
+<span class="sd">    A version without its publication date counts as absent, so that planning it</span>
+<span class="sd">    again completes the existing statement (append-or-replace keeps the value and</span>
+<span class="sd">    adds the qualifier) instead of skipping it.</span>
+<span class="sd">    """</span>
+    <span class="n">claims</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get_json</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"claims"</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="n">props</span> <span class="o">=</span> <span class="p">{</span><span class="n">st</span><span class="o">.</span><span class="n">prop</span> <span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">planned</span><span class="p">}</span>
+    <span class="n">date_pid</span> <span class="o">=</span> <span class="n">_pid</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">PUBLICATION_DATE</span><span class="p">)</span> <span class="k">if</span> <span class="n">VERSION</span> <span class="ow">in</span> <span class="n">props</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">out</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">prop</span> <span class="ow">in</span> <span class="n">props</span><span class="p">:</span>
+        <span class="n">pid</span> <span class="o">=</span> <span class="n">_pid</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">prop</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">claims</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="p">[])</span> <span class="k">if</span> <span class="n">pid</span> <span class="k">else</span> <span class="p">[]:</span>
+            <span class="n">dv</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mainsnak"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"datavalue"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dv</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">prop</span> <span class="o">==</span> <span class="n">VERSION</span> <span class="ow">and</span> <span class="n">date_pid</span> <span class="ow">and</span> <span class="n">date_pid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"qualifiers"</span><span class="p">,</span> <span class="p">{}):</span>
+                <span class="k">continue</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">dv</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span>
+            <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"id"</span> <span class="ow">in</span> <span class="n">v</span>
+                          <span class="k">else</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"time"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">prop</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+    <span class="k">return</span> <span class="n">out</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_wbi_qualifiers</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""WikibaseIntegrator's qualifier container (replaceable in tests)."""</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">wikibaseintegrator.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Qualifiers</span>
+    <span class="k">return</span> <span class="n">Qualifiers</span>
+
+
+<div class="viewcode-block" id="add_planned">
+<a class="viewcode-back" href="../../../julia.html#mardi_importer.julia.JuliaPackage.add_planned">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_planned</span><span class="p">(</span><span class="n">api</span><span class="p">,</span> <span class="n">item</span><span class="p">,</span> <span class="n">st</span><span class="p">:</span> <span class="n">Planned</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Add one planned statement with its qualifiers; statements carry no references."""</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">value</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">assert_no_emails</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">st</span><span class="o">.</span><span class="n">prop</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">item</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'en'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">st</span><span class="o">.</span><span class="n">qualifiers</span><span class="p">:</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">_wbi_qualifiers</span><span class="p">()()</span>
+        <span class="k">for</span> <span class="n">prop</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">*</span><span class="n">extra</span> <span class="ow">in</span> <span class="n">st</span><span class="o">.</span><span class="n">qualifiers</span><span class="p">:</span>
+            <span class="n">assert_no_emails</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="sa">f</span><span class="s2">"qualifier </span><span class="si">{</span><span class="n">prop</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">api</span><span class="o">.</span><span class="n">get_claim</span><span class="p">(</span><span class="n">prop</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">extra</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">extra</span> <span class="k">else</span> <span class="p">{})))</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"qualifiers"</span><span class="p">]</span> <span class="o">=</span> <span class="n">q</span>
+    <span class="n">item</span><span class="o">.</span><span class="n">add_claim</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">prop</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, MaRDI.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

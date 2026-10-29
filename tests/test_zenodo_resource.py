@@ -19,7 +19,7 @@ module = importlib.import_module("mardi_importer.zenodo.ZenodoResource")
 ZenodoResource = module.ZenodoResource
 
 PIDS = {"wdt:P4901": "P227", "wdt:P356": "P27", "wdt:P393": "P131", "wdt:P577": "P28",
-        "wdt:P9934": "P1506", "community": "P1495"}
+        "wdt:P9934": "P1506", "community": "P1495", "wdt:P50": "P16", "wdt:P2093": "P43"}
 
 
 def snak(kind):
@@ -143,6 +143,74 @@ class TestCreate(ZenodoTest):
             language="en", value="Presentation published at Zenodo repository on 2024-01-01.")
 
 
+class FakeAuthor:
+    """Name-matching stand-in for ``utils.Author``."""
+
+    def __init__(self, api, name, orcid=None, affiliation=None, _aliases=(), _QID=None):
+        last, _, first = name.partition(", ")
+        self.name, self.orcid, self.QID = f"{first} {last}" if first else name, orcid, _QID
+
+    def pull_QID(self, pool):
+        self.QID = next((a.QID for a in pool if a.name == self.name), None)
+
+
+class TestUpdateAuthors(ZenodoTest):
+    """Real WikibaseIntegrator claims: unchanged authors must survive an update."""
+
+    def setUp(self):
+        super().setUp()
+        # Other test modules may leave stubs of these in sys.modules.
+        real = ("wikibaseintegrator", "requests")
+        stubs = {k: sys.modules.pop(k) for k in list(sys.modules) if k.startswith(real)}
+        self.addCleanup(sys.modules.update, stubs)
+        datatypes = importlib.import_module("wikibaseintegrator.datatypes")
+        Claims = importlib.import_module("wikibaseintegrator.models").Claims
+        actions = importlib.import_module("wikibaseintegrator.wbi_enums").ActionIfExists
+        self.addCleanup(lambda: [sys.modules.pop(k) for k in list(sys.modules) if k.startswith(real)])
+        for name, value in [("ExternalID", datatypes.ExternalID), ("String", datatypes.String),
+                            ("Time", datatypes.Time), ("ActionIfExists", actions)]:
+            p = patch.object(module, name, value)
+            p.start()
+            self.addCleanup(p.stop)
+        p = patch.object(module, "Author", FakeAuthor)
+        p.start()
+        self.addCleanup(p.stop)
+        self.datatypes = datatypes
+        self.api.get_claim.side_effect = lambda prop, value: (
+            datatypes.Item(value, prop_nr=PIDS[prop]) if prop == "wdt:P50"
+            else datatypes.String(value, prop_nr=PIDS[prop]))
+        self.claims = Claims()
+        for n, (dt, value, prop) in enumerate([(datatypes.Item, "Q100", "P16"), (datatypes.String, "Jane Roe", "P43"),
+                                               (datatypes.String, "Old Name", "P43")]):
+            claim = dt(value, prop_nr=prop)
+            claim.id = f"Q50${n}"
+            self.claims.add(claim, actions.FORCE_APPEND)
+        item = self.api.item.get.return_value
+        item.claims = self.claims
+        item.get_value.side_effect = lambda p: ["Q100"] if p == "wdt:P50" else []
+        item.labels.get.return_value = "John Doe"
+        item.aliases.get.return_value = None
+        self.sparql.return_value = bindings([{"item": "https://x/entity/Q50", "owned": "true"}])
+        ZenodoResource._community_items = {}
+
+    def values(self, prop):
+        return [(c.mainsnak.datavalue["value"], c.removed) for c in self.claims.get(prop)]
+
+    def test_unchanged_authors_are_kept_and_others_replaced(self):
+        rec = record("7", 0, True)
+        rec["metadata"]["creators"] = [{"name": "Doe, John"}, {"name": "Roe, Jane"}]
+        self.responses["/records/7"] = rec
+        self.resource("7").create(update=True)
+        self.assertEqual([(v["id"] if isinstance(v, dict) else v, r) for v, r in self.values("P16")],
+                         [("Q100", False)])
+        self.assertEqual(self.values("P43"), [("Jane Roe", False), ("Old Name", True)])
+
+    def test_no_creators_leaves_authors_alone(self):
+        self.responses["/records/7"] = record("7", 0, True)
+        self.resource("7").create(update=True)
+        self.assertFalse(any(c.removed for p in ("P16", "P43") for c in self.claims.get(p)))
+
+
 class TestResourceType(ZenodoTest):
     def test_articles_and_books_get_publication_profile(self):
         for title, expected in [("Journal article", "wd:Q13442814"), ("Book", "wd:Q571")]:
@@ -151,6 +219,23 @@ class TestResourceType(ZenodoTest):
             self.responses["/records/7"] = rec
             r = self.resource("7")
             self.assertEqual((r.resource_type, r._mardi_type), (expected, "MaRDI publication profile"))
+
+    def test_workflow_gets_workflow_profile(self):
+        rec = record("7", 0, True)
+        rec["metadata"]["resource_type"] = {"title": "Workflow"}
+        self.responses["/records/7"] = rec
+        r = self.resource("7")
+        self.assertEqual((r.resource_type, r._mardi_type), ("wd:Q115682347", "MaRDI workflow profile"))
+
+    def test_profile_label_is_passed_as_item_id(self):
+        rec = record("7", 0, True)
+        rec["metadata"]["resource_type"] = {"title": "Workflow"}
+        self.responses["/records/7"] = rec
+        ids = {**PIDS, "MaRDI workflow profile": ["Q6534216"]}
+        self.api.get_local_id_by_label.side_effect = lambda p, _: ids[p]
+        self.resource("7").create(update=True)
+        self.api.item.get.return_value.add_claim.assert_any_call(
+            "MaRDI profile type", "Q6534216", action="replace_all")
 
 
 class TestCommunities(ZenodoTest):

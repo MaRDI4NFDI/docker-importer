@@ -56,6 +56,8 @@ class ZenodoResource:
     _version: str = None
     _communities: List[Community] = field(default_factory=list)
     _projects: List[Project] = field(default_factory=list)
+    # Authors already on the item, to reuse their items on update.
+    _existing_authors: List[Author] = field(default_factory=list)
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
     wdi: WikidataImporter = None
@@ -85,7 +87,6 @@ class ZenodoResource:
         self.QID = self.find_item({requested_id, str(record["id"])})
 
         if self.QID and self.owned:
-            # Get authors.
             item = self.api.item.get(self.QID)
             author_QID = item.get_value("wdt:P50") or []
             for QID in author_QID:
@@ -100,7 +101,7 @@ class ZenodoResource:
                 author = Author(
                     self.api, name=name, orcid=orcid, _aliases=aliases, _QID=QID
                 )
-                self._authors.append(author)
+                self._existing_authors.append(author)
             return self.QID
 
     @staticmethod
@@ -263,6 +264,9 @@ class ZenodoResource:
             elif resource_type == "Book":
                 self._resource_type = "wd:Q571"
                 self._mardi_type = "MaRDI publication profile"
+            elif resource_type == "Workflow":
+                self._resource_type = "wd:Q115682347"  # research workflow
+                self._mardi_type = "MaRDI workflow profile"
             else:
                 # Other -> Information resource
                 self._resource_type = "wd:Q37866906"
@@ -363,22 +367,16 @@ class ZenodoResource:
             item.add_claim("wdt:P577", self.publication_date, action=update_claim)
 
         # Authors
-        if update:
-            # Remove all existing P50 and P2093 claims
-            author_item_prop = self.api.get_local_id_by_label("wdt:P50", "property")
-            author_string_prop = self.api.get_local_id_by_label("wdt:P2093", "property")
-
-            for prop in (author_item_prop, author_string_prop):
-                old_claims = item.claims.get(prop)
-                if old_claims:
-                    for c in old_claims:
-                        c.remove()
-
-            # Add new author claims
-            item.add_claims(self.__preprocess_authors())
-
-        else:
-            claims = self.__preprocess_authors()
+        claims = self.__preprocess_authors()
+        if update and claims:
+            # Replace per property: removing and re-adding an equal claim would delete it.
+            for prop in (self._pid("wdt:P50"), self._pid("wdt:P2093")):
+                new = [c for c in claims if c.mainsnak.property_number == prop]
+                if new:
+                    item.claims.add(new, ActionIfExists.REPLACE_ALL)
+                else:
+                    item.claims.remove(prop)
+        elif not update:
             item.add_claims(claims)
 
         # Record IDs of the newest versions & concept DOI
@@ -425,7 +423,13 @@ class ZenodoResource:
             item.claims.add(claims, ActionIfExists.REPLACE_ALL if update else ActionIfExists.APPEND_OR_REPLACE)
 
         if self._mardi_type:
-            item.add_claim("MaRDI profile type", self._mardi_type, action=update_claim)
+            # mardiclient only resolves some profile labels itself.
+            profile = self.api.get_local_id_by_label(self._mardi_type, "item")
+            if isinstance(profile, list):
+                profile = profile[0]
+            if not profile:
+                raise ValueError(f"Could not find item for: {self._mardi_type}")
+            item.add_claim("MaRDI profile type", profile, action=update_claim)
 
         written = item.write()
         if not update and not self._holds_record(written):
@@ -462,6 +466,8 @@ class ZenodoResource:
         """
         claims = []
         for author in self.authors:
+            if not author.QID:
+                author.pull_QID(self._existing_authors)
             if author.orcid or author.QID:
                 if not author.QID:
                     author.create()

@@ -915,6 +915,19 @@ class ZBMathSource(ADataSource):
                                             author_claims.append(claim)
                                         arxiv_item.add_claims(author_claims)
                                         changed=True
+                                if not 'P43' in arxiv_item.claims.get_json().keys():
+                                    if publication.author_name_strings:
+                                        author_string_claims = []
+                                        for author_string in publication.author_name_strings:
+                                            claim = self.api.get_claim("P43", author_string)
+                                            author_string_claims.append(claim)
+                                        arxiv_item.add_claims(author_string_claims)
+                                        changed = True
+                                if publication.doi and "ARXIV" in publication.doi:
+                                    doi_prop = self.api.get_local_id_by_label("wdt:P356", "property")
+                                    if not doi_prop in arxiv_item.claims.get_json().keys():
+                                        arxiv_item.add_claim("wdt:P356", publication.doi)
+                                        changed = True
                                 if changed:
                                     arxiv_item.write()
                             else:
@@ -1044,6 +1057,14 @@ class ZBMathSource(ADataSource):
                 claim = self.api.get_claim("wdt:P50", author)
                 author_claims.append(claim)
             item.add_claims(author_claims)
+        if publication.author_name_strings:
+            author_string_claims = []
+            for author_string in publication.author_name_strings:
+                claim = self.api.get_claim("P43", author_string)
+                author_string_claims.append(claim)
+            item.add_claims(author_string_claims)
+        if publication.doi and "ARXIV" in publication.doi:
+            item.add_claim("wdt:P356", publication.doi)
         return(item)
 
 

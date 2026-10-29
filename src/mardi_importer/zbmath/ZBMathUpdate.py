@@ -121,6 +121,7 @@ ARXIV_COLUMNS = [
     "author_ids",
     "publication_year",
     "source",
+    'doi'
 ]
 
 _LINK_PATTERN = re.compile(r"^([a-z][a-z\d+.-]*):([^][<>\"\x00-\x20\x7F])+$")
@@ -1212,6 +1213,7 @@ class ZBMathUpdater:
         for column, prop_key, parser in (
             ("classifications", "arxiv_classifications", parse_list),
             ("source", "source", parse_source),
+            ("doi", "doi", lambda v: [d for d in parse_doi(v) if "ARXIV" in d]),
         ):
             change = self.changed(row, column)
             if change is None:
@@ -1245,13 +1247,16 @@ class ZBMathUpdater:
                     new_year, parse_year(row.get("publication_year")),
                 )
 
-        # create_arxiv_item writes only the people with a zbMATH code, so the
-        # name strings are left out here.
+
         authors = self._person_values(row, "author", "author_ids", author_label)
         if authors:
             relabels.extend(authors.relabel)
             changed |= self.merge_claims(
                 item, self.prop("author"), authors.new_qids, authors.old_qids
+            )
+            changed |= self.merge_claims(
+                item, self.prop("author_name_string"),
+                authors.new_strings, authors.old_strings,
             )
 
         if changed:

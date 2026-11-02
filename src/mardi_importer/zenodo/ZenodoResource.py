@@ -181,6 +181,9 @@ class ZenodoResource:
             return False
         return any(c.mainsnak.datavalue.get("value") == self.zenodo_id for c in claims)
 
+    def _is_own(self, written, update: bool) -> bool:
+        return written.id == self.QID if update else self._holds_record(written)
+
     def related_works(self) -> Dict[str, List[str]]:
         """Property -> items of the related works, imported when missing."""
         related, found = {}, {}
@@ -510,12 +513,14 @@ class ZenodoResource:
             self._relation_claims(item, self.related_works(), update)
 
         written = item.write()
-        if not update and not self._holds_record(written):
+        if not self._is_own(written, update):
             # mardiclient returns the item with the same label and description.
             date = self.metadata.get("publication_date")
             when = f"on {date}" if date else f"as record {self.zenodo_id}"
             item.descriptions.set(language="en", value=f"{desc.strip()[:-1]} {when}.")
             written = item.write()
+            if not self._is_own(written, update):
+                raise ValueError(f"{self.QID or 'New item'} clashes with {written.id}")
         self.QID = written.id
 
         if self.QID:

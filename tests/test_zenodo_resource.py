@@ -145,6 +145,26 @@ class TestCreate(ZenodoTest):
         item.descriptions.set.assert_called_with(
             language="en", value="Presentation published at Zenodo repository on 2024-01-01.")
 
+    def test_label_clash_on_update_keeps_dated_description(self):
+        rec = record("7", 0, True)
+        rec["metadata"]["resource_type"] = {"title": "Presentation"}
+        self.responses["/records/7"] = rec
+        self.sparql.return_value = bindings([{"item": "https://x/entity/Q50", "owned": "true"}])
+        ZenodoResource._community_items = {}
+        item = self.api.item.get.return_value
+        item.write.side_effect = [Mock(id="Q9"), Mock(id="Q50")]
+        self.assertEqual(self.resource("7").create(update=True), "Q50")
+        item.descriptions.set.assert_called_with(
+            language="en", value="Presentation published at Zenodo repository on 2024-01-01.")
+
+    def test_unresolved_clash_fails(self):
+        self.responses["/records/7"] = record("7", 0, True)
+        self.sparql.return_value = bindings([{"item": "https://x/entity/Q50", "owned": "true"}])
+        ZenodoResource._community_items = {}
+        self.api.item.get.return_value.write.return_value = Mock(id="Q9")
+        with self.assertRaises(ValueError):
+            self.resource("7").create(update=True)
+
 
 class FakeAuthor:
     """Name-matching stand-in for ``utils.Author``."""
@@ -190,6 +210,7 @@ class RealClaimsTest(ZenodoTest):
             self.claims.add(claim, actions.FORCE_APPEND)
         item = self.api.item.get.return_value
         item.claims = self.claims
+        item.write.return_value = Mock(id="Q50")
         item.get_value.side_effect = lambda p: ["Q100"] if p == "wdt:P50" else []
         item.labels.get.return_value = "John Doe"
         item.aliases.get.return_value = None
@@ -241,6 +262,9 @@ class TestResourceType(ZenodoTest):
         self.responses["/records/7"] = rec
         ids = {**PIDS, "MaRDI workflow profile": ["Q6534216"]}
         self.api.get_local_id_by_label.side_effect = lambda p, _: ids[p]
+        self.sparql.return_value = bindings([{"item": "https://x/entity/Q50", "owned": "true"}])
+        ZenodoResource._community_items = {}
+        self.api.item.get.return_value.write.return_value = Mock(id="Q50")
         self.resource("7").create(update=True)
         self.api.item.get.return_value.add_claim.assert_any_call(
             "MaRDI profile type", "Q6534216", action="replace_all")

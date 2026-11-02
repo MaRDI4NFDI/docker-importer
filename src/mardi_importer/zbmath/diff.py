@@ -43,6 +43,7 @@ import csv
 import hashlib
 import os
 from typing import Callable, Iterable, Iterator, Optional, Sequence
+import re
 
 DE_COL = "de_number"
 HASH_COL = "hash"
@@ -56,6 +57,16 @@ DELETED_SENTINEL = "__ZBMATH_DELETED__"
 CONFLICT_STRING = (
     "zbMATH Open Web Interface contents unavailable due to conflicting licenses"
 )
+
+#: A review text that only refers to another record ("See the preview in
+#: Zbl 0708.49001."). It is never written to an item, and a review turning into
+#: one is not a change.
+REVIEW_POINTER = re.compile(r"^\s*See the preview in Zbl\s+[\d.]+\.?\s*$", re.IGNORECASE)
+
+
+def is_review_pointer(value: Optional[str]) -> bool:
+    """True for a review text that is only a reference to another record."""
+    return value is not None and bool(REVIEW_POINTER.match(value))
 
 #: Placeholders ``process_data`` writes for "no value".
 _EMPTY_VALUES = {"", "None", "nan", "NaN", "0001-01-01T00:00:00", "0001-01-01T00:00:00Z"}
@@ -315,6 +326,10 @@ def classify_change(
 
     if has_conflict(new_value):
         # zbMATH cannot tell us the value; that is not a deletion either.
+        return None
+
+    if column == "review_text" and is_review_pointer(new_value):
+        # Only a reference to another record's review, which is never written.
         return None
 
     if not old_blank and canonical(old_value, unordered, column) == canonical(

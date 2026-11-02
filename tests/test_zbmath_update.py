@@ -625,7 +625,6 @@ class RowApplicationTest(unittest.TestCase):
         self.up.api.search_entity_by_value.side_effect = self._search
         self.up.resolve_author = lambda aid, name, create: f"QA{aid}"
         self.up.resolve_journal = lambda name, create: None
-        self.up.relabel_author = MagicMock()
         self.searches = []
 
     def _search(self, prop, value):

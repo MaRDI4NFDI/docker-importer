@@ -276,8 +276,6 @@ class PersonChanges(NamedTuple):
 
     new_qids: list
     old_qids: list
-    #: ``(qid, label)`` for people whose name changed; ``label`` is final.
-    relabel: list
     #: Name strings of people without a zbMATH code, as the importer writes
     #: them to the author-name-string property.
     new_strings: list
@@ -397,7 +395,6 @@ class ZBMathUpdater:
             "claims_removed": 0,
             "authors_created": 0,
             "journals_created": 0,
-            "labels_updated": 0,
             "preprint_links_added": 0,
             "missing_in_portal": 0,
             # True when the pass stopped at ``max_rows`` with rows still to go
@@ -511,30 +508,6 @@ class ZBMathUpdater:
             self._author_cache[author_id] = qid
         return qid
 
-    def relabel_author(self, qid: str, label: str) -> None:
-        """Follow a name change from zbMATH through to the item's label.
-
-        ``label`` is the finished label (see :func:`person_label`); it is set
-        as given.
-        """
-        if not label:
-            return
-
-        def _write():
-            item = self.api.item.get(entity_id=qid)
-            try:
-                current = item.labels.values["en"].value
-            except (KeyError, AttributeError):
-                current = ""
-            if current == label:
-                return False
-            item.labels.set(language="en", value=label)
-            item.write()
-            self.log.info("relabelled %s: %r -> %r", qid, current, label)
-            return True
-
-        if _with_backoff(_write, self.log, f"relabelling author {qid}"):
-            self.stats["labels_updated"] += 1
 
     def resolve_journal(self, name: str, create: bool) -> Optional[str]:
         """QID for a journal name, optionally creating the item."""
@@ -749,8 +722,11 @@ class ZBMathUpdater:
         old_ids = parse_positional(row.get(id_col))
         old_names = parse_positional(row.get(name_col))
 
-        # The IDs decide who the people are; the names decide what their items
-        # are labelled, and are the whole record for people without a code.
+        # The IDs decide who the people are. The names are the whole record for
+        # people without a code, and otherwise only label a person item that
+        # has to be created. An existing person item is never relabelled, because
+        # the same person can be named differently in different papers: 
+        # ("Niblo, G. A." in one, "Niblo, Graham A." in the next).
         if self.deleted(id_change):
             new_ids = []
         elif id_change is not None:
@@ -787,7 +763,6 @@ class ZBMathUpdater:
         old_all = pairs(old_ids, old_names)
         new_coded = [(i, n) for i, n in new_all if i]
         old_coded = [(i, n) for i, n in old_all if i]
-        old_name_by_id = dict(old_coded)
 
         # Your script only touched the property when at least one new person
         # could be resolved (``if authors: change_dict["author"] = ...``). Kept:
@@ -805,16 +780,12 @@ class ZBMathUpdater:
             return None
 
         new_qids: list[str] = []
-        relabel: list[tuple[str, str]] = []
         for author_id, raw_name in new_coded:
             label = person_label(raw_name, label_fn)
             qid = self.resolve_author(author_id, label, create=True)
             if not qid:
                 continue
             new_qids.append(qid)
-            previous = old_name_by_id.get(author_id)
-            if label and previous is not None and person_label(previous, label_fn) != label:
-                relabel.append((qid, label))
 
         old_qids = []
         for author_id, raw_name in old_coded:
@@ -828,7 +799,7 @@ class ZBMathUpdater:
             return [author_label(n) for i, n in all_pairs if not i and n]
 
         return PersonChanges(
-            new_qids, old_qids, relabel, strings(new_all), strings(old_all)
+            new_qids, old_qids, strings(new_all), strings(old_all)
         )
 
     # ── the main loop ────────────────────────────────────────────────────
@@ -955,7 +926,6 @@ class ZBMathUpdater:
         qid = self.find_publication(de_number)
         item = self.get_item(qid)
         changed = False
-        relabels: list[tuple[str, str]] = []
         arxiv_id: Optional[str] = None
 
         # --- title: label and title claim -------------------------------
@@ -1066,7 +1036,6 @@ class ZBMathUpdater:
         # --- authors and reviewers --------------------------------------
         authors = self._person_values(row, "author", "author_ids", author_label)
         if authors:
-            relabels.extend(authors.relabel)
             changed |= self.merge_claims(
                 item, self.prop("author"), authors.new_qids, authors.old_qids
             )
@@ -1084,7 +1053,6 @@ class ZBMathUpdater:
             row, "review_sign", "reviewer_id", reviewer_label
         )
         if reviewers:
-            relabels.extend(reviewers.relabel)
             changed |= self.merge_claims(
                 item, self.prop("reviewers"),
                 reviewers.new_qids, reviewers.old_qids,
@@ -1098,9 +1066,6 @@ class ZBMathUpdater:
             self.log.info(
                 "updated %s (de_number %s): %s", qid, de_number, ", ".join(touched)
             )
-
-        for author_qid, label in relabels:
-            self.relabel_author(author_qid, label)
 
         if arxiv_id:
             self._ensure_preprint_link(arxiv_id, qid)
@@ -1202,7 +1167,6 @@ class ZBMathUpdater:
         qid = self.find_arxiv_item(self.arxiv_id_for_row(row, de_number))
         item = self.get_item(qid)
         changed = False
-        relabels: list[tuple[str, str]] = []
 
         # The importer keeps the title of an arXiv item as a label only.
         title_change = self.changed(row, "document_title")
@@ -1250,7 +1214,6 @@ class ZBMathUpdater:
 
         authors = self._person_values(row, "author", "author_ids", author_label)
         if authors:
-            relabels.extend(authors.relabel)
             changed |= self.merge_claims(
                 item, self.prop("author"), authors.new_qids, authors.old_qids
             )
@@ -1266,8 +1229,6 @@ class ZBMathUpdater:
                 qid, de_number, ", ".join(touched),
             )
 
-        for author_qid, label in relabels:
-            self.relabel_author(author_qid, label)
 
         return changed
 

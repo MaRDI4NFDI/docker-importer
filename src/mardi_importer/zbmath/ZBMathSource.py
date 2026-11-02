@@ -22,6 +22,7 @@ from .ZBMathConfigParser import ZBMathConfigParser
 from .ZBMathAuthor import ZBMathAuthor
 from .ZBMathJournal import ZBMathJournal
 from .misc import get_tag, get_info_from_doi, year_to_str
+from .diff import is_review_pointer
 
 
 class ZBMathSource(ADataSource):
@@ -775,6 +776,7 @@ class ZBMathSource(ADataSource):
                 if (
                     not self.conflict_string in info_dict["review_text"]
                     and info_dict["review_text"].strip() != "None"
+                    and not is_review_pointer(info_dict["review_text"])
                 ):
                     review_text = info_dict["review_text"].strip()
                     if (

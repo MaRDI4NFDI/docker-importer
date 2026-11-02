@@ -37,7 +37,7 @@ dependencies = [
     "requests",
     # must stay in lockstep with the prefect-server / prefect-worker chart
     # versions pinned in portal-k8s
-    "prefect==3.8.1",
+    "prefect==3.9.1",
     # Tracked from main deliberately: maintained in-house, and changes there
     # should reach this image without a version bump. CI passes MARDICLIENT_REF
     # so the Docker layer cache is invalidated when that branch moves.

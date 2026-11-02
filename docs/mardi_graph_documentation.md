@@ -286,6 +286,7 @@ How values are stored:
 | Preprint | `Q159099` | publication profile |
 | Journal article | `Q56887` | publication profile |
 | Book | `Q56401` | publication profile |
+| Workflow | `Q68657` (research workflow) | workflow profile |
 | Presentation | `Q56867` | none |
 | Poster | `Q56854` | none |
 | Figure | `Q56862` | none |

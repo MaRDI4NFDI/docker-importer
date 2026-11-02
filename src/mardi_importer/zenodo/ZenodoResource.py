@@ -10,7 +10,7 @@ import urllib.request, json, re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-from wikibaseintegrator.datatypes import ExternalID, String, Time
+from wikibaseintegrator.datatypes import ExternalID, Item as ItemValue, String, Time
 from wikibaseintegrator.wbi_enums import ActionIfExists
 from wikibaseintegrator.wbi_helpers import execute_sparql_query
 
@@ -23,6 +23,16 @@ CLEANR = re.compile(
 ZENODO_API = "https://zenodo.org/api"
 # Record IDs kept in P227 per item, newest versions first.
 MAX_VERSIONS = 20
+# Zenodo relation of a related work -> property linking to its item.
+RELATIONS = {
+    "isDescribedBy": "wdt:P1343",  # described by source
+    "isDocumentedBy": "wdt:P1343",
+    "cites": "wdt:P2860",  # cites work
+    "references": "wdt:P2860",
+    "isDerivedFrom": "wdt:P144",  # based on
+    "isPartOf": "wdt:P361",  # part of
+    "hasPart": "wdt:P527",  # has part(s)
+}
 
 
 def zenodo_get(path: str) -> dict:
@@ -58,6 +68,10 @@ class ZenodoResource:
     _projects: List[Project] = field(default_factory=list)
     # Authors already on the item, to reuse their items on update.
     _existing_authors: List[Author] = field(default_factory=list)
+    # False for related works imported for another record: no further related works.
+    link_related: bool = True
+    # A related work could not be resolved: keep the existing links.
+    _related_incomplete: bool = False
     metadata: Dict[str, object] = field(default_factory=dict)
     QID: str = None
     wdi: WikidataImporter = None
@@ -166,6 +180,67 @@ class ZenodoResource:
         except (AttributeError, KeyError):
             return False
         return any(c.mainsnak.datavalue.get("value") == self.zenodo_id for c in claims)
+
+    def related_works(self) -> Dict[str, List[str]]:
+        """Property -> items of the related works, imported when missing."""
+        related, found = {}, {}
+        for rel in self.metadata.get("related_identifiers") or []:
+            prop = RELATIONS.get(rel.get("relation"))
+            if not prop:
+                continue
+            scheme = rel.get("scheme")
+            identifier = re.sub(r"^(https?://(dx\.)?doi\.org/|doi:|arxiv:)", "",
+                                rel.get("identifier", "").strip(), flags=re.I).rstrip(".")
+            key = (scheme, identifier.lower())
+            if key not in found:
+                try:
+                    found[key] = self._related_item(scheme, identifier)
+                except Exception as exc:
+                    log.warning("Zenodo record %s: related work %s not imported: %s",
+                                self.zenodo_id, identifier, exc)
+                    found[key] = None
+                    self._related_incomplete = True
+            qid = found[key]
+            if qid and qid != self.QID:
+                values = related.setdefault(self._pid(prop), [])
+                if qid not in values:
+                    values.append(qid)
+        return related
+
+    def _related_item(self, scheme: str, identifier: str) -> Optional[str]:
+        """Item of a related work given by DOI or arXiv ID, via the Zenodo, arXiv or Crossref importer."""
+        from mardi_importer.arxiv.ArxivPublication import ArxivPublication
+        from mardi_importer.crossref.CrossrefPublication import CrossrefPublication
+
+        if scheme == "arxiv":
+            return ArxivPublication(identifier).create()
+        if scheme != "doi":
+            return None
+        doi = identifier
+        if (m := re.fullmatch(r"10\.48550/arxiv\.(.+)", doi, re.I)):
+            return ArxivPublication(m.group(1)).create()
+        if (m := re.fullmatch(r"10\.5281/zenodo\.(\d+)", doi, re.I)):
+            if m.group(1) in {self.concept_id} | {str(v["id"]) for v in self._versions}:
+                return None
+            work = ZenodoResource(m.group(1), api=self.api, wdi=self.wdi, link_related=False)
+            return work.create()
+        return CrossrefPublication(doi.upper()).create()
+
+    def _relation_claims(self, item, related: Dict[str, List[str]], update: bool) -> None:
+        """Links the related works; on update the properties mirror Zenodo."""
+        for prop in dict.fromkeys(self._pid(p) for p in RELATIONS.values()):
+            wanted = related.get(prop, [])
+            present = set()
+            for claim in item.claims.get(prop):
+                value = (claim.mainsnak.datavalue or {}).get("value")
+                value = value.get("id") if isinstance(value, dict) else value
+                if value in wanted:
+                    present.add(value)
+                elif update and not self._related_incomplete:
+                    claim.remove()
+            for qid in wanted:
+                if qid not in present:
+                    item.claims.add(ItemValue(qid, prop_nr=prop), ActionIfExists.FORCE_APPEND)
 
     def community_items(self) -> Dict[str, str]:
         """Zenodo community slug -> item, for communities that have an item in the KG."""
@@ -430,6 +505,9 @@ class ZenodoResource:
             if not profile:
                 raise ValueError(f"Could not find item for: {self._mardi_type}")
             item.add_claim("MaRDI profile type", profile, action=update_claim)
+
+        if self.link_related:
+            self._relation_claims(item, self.related_works(), update)
 
         written = item.write()
         if not update and not self._holds_record(written):

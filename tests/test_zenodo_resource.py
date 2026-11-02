@@ -19,7 +19,8 @@ module = importlib.import_module("mardi_importer.zenodo.ZenodoResource")
 ZenodoResource = module.ZenodoResource
 
 PIDS = {"wdt:P4901": "P227", "wdt:P356": "P27", "wdt:P393": "P131", "wdt:P577": "P28",
-        "wdt:P9934": "P1506", "community": "P1495", "wdt:P50": "P16", "wdt:P2093": "P43"}
+        "wdt:P9934": "P1506", "community": "P1495", "wdt:P50": "P16", "wdt:P2093": "P43",
+        "wdt:P1343": "P286", "wdt:P2860": "P223", "wdt:P144": "P408", "wdt:P361": "P37", "wdt:P527": "P265"}
 
 
 def snak(kind):
@@ -47,6 +48,8 @@ class ZenodoTest(unittest.TestCase):
         self.api = Mock()
         self.api.get_local_id_by_label.side_effect = lambda p, _: PIDS[p]
         self.api.item.get.return_value.get_value.return_value = []
+        for item in (self.api.item.get.return_value, self.api.item.new.return_value):
+            item.claims.get.return_value = []
         self.responses = {}
         self.sparql = Mock(return_value=bindings([]))
         for name, value in [("zenodo_get", lambda path: self.responses[path]),
@@ -154,8 +157,8 @@ class FakeAuthor:
         self.QID = next((a.QID for a in pool if a.name == self.name), None)
 
 
-class TestUpdateAuthors(ZenodoTest):
-    """Real WikibaseIntegrator claims: unchanged authors must survive an update."""
+class RealClaimsTest(ZenodoTest):
+    """Real WikibaseIntegrator claims on the item being updated."""
 
     def setUp(self):
         super().setUp()
@@ -168,7 +171,7 @@ class TestUpdateAuthors(ZenodoTest):
         actions = importlib.import_module("wikibaseintegrator.wbi_enums").ActionIfExists
         self.addCleanup(lambda: [sys.modules.pop(k) for k in list(sys.modules) if k.startswith(real)])
         for name, value in [("ExternalID", datatypes.ExternalID), ("String", datatypes.String),
-                            ("Time", datatypes.Time), ("ActionIfExists", actions)]:
+                            ("Time", datatypes.Time), ("ItemValue", datatypes.Item), ("ActionIfExists", actions)]:
             p = patch.object(module, name, value)
             p.start()
             self.addCleanup(p.stop)
@@ -192,9 +195,14 @@ class TestUpdateAuthors(ZenodoTest):
         item.aliases.get.return_value = None
         self.sparql.return_value = bindings([{"item": "https://x/entity/Q50", "owned": "true"}])
         ZenodoResource._community_items = {}
+        self.actions = actions
 
     def values(self, prop):
         return [(c.mainsnak.datavalue["value"], c.removed) for c in self.claims.get(prop)]
+
+
+class TestUpdateAuthors(RealClaimsTest):
+    """Unchanged authors must survive an update."""
 
     def test_unchanged_authors_are_kept_and_others_replaced(self):
         rec = record("7", 0, True)
@@ -252,3 +260,76 @@ class TestCommunities(ZenodoTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRelatedWorks(ZenodoTest):
+    def setUp(self):
+        super().setUp()
+        self.responses["/records/7"] = rec = record("7", 0, True, concept="6")
+        rec["metadata"]["related_identifiers"] = [
+            {"relation": "isDescribedBy", "scheme": "doi", "identifier": "10.5281/zenodo.15304389"},
+            {"relation": "isDocumentedBy", "scheme": "doi", "identifier": "10.1007/978-1-4757-3502-4_6."},
+            {"relation": "isDocumentedBy", "scheme": "doi", "identifier": "https://doi.org/10.5281/zenodo.15304389"},
+            {"relation": "cites", "scheme": "arxiv", "identifier": "arXiv:2402.17665"},
+            {"relation": "isSupplementTo", "scheme": "doi", "identifier": "10.1/skipped"},
+            {"relation": "isPartOf", "scheme": "url", "identifier": "https://example.org"},
+            {"relation": "hasPart", "scheme": "doi", "identifier": "10.5281/zenodo.6"},
+        ]
+        self.arxiv, self.crossref = Mock(), Mock()
+        self.arxiv.ArxivPublication.return_value.create.return_value = "Q20"
+        self.crossref.CrossrefPublication.return_value.create.return_value = "Q30"
+        p = patch.dict(sys.modules, {"mardi_importer.arxiv.ArxivPublication": self.arxiv,
+                                     "mardi_importer.crossref.CrossrefPublication": self.crossref})
+        p.start()
+        self.addCleanup(p.stop)
+
+    def test_mapped_relations_are_imported_and_grouped(self):
+        r = self.resource("7")
+        with patch.object(module, "ZenodoResource") as zenodo:
+            zenodo.return_value.create.return_value = "Q10"
+            related = r.related_works()
+        self.assertEqual(related, {"P286": ["Q10", "Q30"], "P223": ["Q20"]})
+        zenodo.assert_called_once_with("15304389", api=self.api, wdi=r.wdi, link_related=False)
+        self.crossref.CrossrefPublication.assert_called_once_with("10.1007/978-1-4757-3502-4_6")
+        self.arxiv.ArxivPublication.assert_called_once_with("2402.17665")
+
+    def test_arxiv_doi_goes_to_arxiv_importer(self):
+        self.assertEqual(self.resource("7")._related_item("doi", "10.48550/arXiv.2310.20443"), "Q20")
+        self.arxiv.ArxivPublication.assert_called_once_with("2310.20443")
+
+    def test_failed_import_is_skipped(self):
+        self.crossref.CrossrefPublication.side_effect = ValueError("not in Crossref")
+        r = self.resource("7")
+        with patch.object(module, "ZenodoResource") as zenodo, self.assertLogs(module.log, "WARNING"):
+            zenodo.return_value.create.return_value = "Q10"
+            self.assertEqual(r.related_works()["P286"], ["Q10"])
+
+
+class TestRelationClaims(RealClaimsTest):
+    def setUp(self):
+        super().setUp()
+        for n, value in enumerate(["Q300", "Q301", "Q302"]):
+            claim = self.datatypes.Item(value, prop_nr="P286")
+            claim.id = f"Q50$r{n}"
+            self.claims.add(claim, self.actions.FORCE_APPEND)
+        self.responses["/records/7"] = record("7", 0, True)
+
+    def test_update_mirrors_zenodo(self):
+        item = self.api.item.get.return_value
+        self.resource("7")._relation_claims(item, {"P286": ["Q302", "Q303"]}, update=True)
+        self.assertEqual([(v["id"], r) for v, r in self.values("P286")],
+                         [("Q300", True), ("Q301", True), ("Q302", False), ("Q303", False)])
+        self.assertEqual(len(self.claims.get("P286")[-1].references), 0)
+
+    def test_new_item_removes_nothing(self):
+        item = self.api.item.get.return_value
+        self.resource("7")._relation_claims(item, {}, update=False)
+        self.assertFalse(any(c.removed for c in self.claims.get("P286")))
+
+    def test_failed_lookup_keeps_statements(self):
+        item = self.api.item.get.return_value
+        r = self.resource("7")
+        r._related_incomplete = True
+        r._relation_claims(item, {"P286": ["Q303"]}, update=True)
+        self.assertEqual([(v["id"], r) for v, r in self.values("P286")],
+                         [("Q300", False), ("Q301", False), ("Q302", False), ("Q303", False)])

@@ -1233,51 +1233,44 @@ class AuthorNameStringTest(unittest.TestCase):
 
 
 class PersonLabelTest(unittest.TestCase):
+    """A record spells a name the way that paper prints it, so it never
+    relabels an existing person item."""
+
     def setUp(self):
         self.up = _updater()
-        self.up.resolve_author = lambda aid, name, create: f"Q{aid}"
+        self.resolved = []
 
-    def test_renamed_reviewer_gets_the_label_the_importer_would_give(self):
+        def resolve(aid, name, create):
+            self.resolved.append((aid, name, create))
+            return f"Q{aid}"
+
+        self.up.resolve_author = resolve
+
+    def test_a_respelled_author_is_neither_moved_nor_relabelled(self):
         changes = self.up._person_values(
             {
                 "de_number": "1",
-                "review_sign": "Smith, J. (Berlin)",
-                "review_sign_new": "Smith, John (Berlin)",
-                "reviewer_id": "smith.john", "reviewer_id_new": "",
-            },
-            "review_sign", "reviewer_id", reviewer_label,
-        )
-        self.assertEqual(changes.relabel, [("Qsmith.john", "John Smith")])
-
-    def test_reviewer_affiliation_change_alone_is_not_a_rename(self):
-        changes = self.up._person_values(
-            {
-                "de_number": "1",
-                "review_sign": "Smith, John (Berlin)",
-                "review_sign_new": "Smith, John / Potsdam",
-                "reviewer_id": "smith.john", "reviewer_id_new": "",
-            },
-            "review_sign", "reviewer_id", reviewer_label,
-        )
-        self.assertEqual(changes.relabel, [])
-
-    def test_renamed_author_label(self):
-        changes = self.up._person_values(
-            {
-                "de_number": "1",
-                "author": "Smith, J.", "author_new": "Smith, John",
-                "author_ids": "smith.john", "author_ids_new": "",
+                "author": "Niblo, Graham A.", "author_new": "Niblo, G. A.",
+                "author_ids": "niblo.graham-a", "author_ids_new": "",
             },
             "author", "author_ids", author_label,
         )
-        self.assertEqual(changes.relabel, [("Qsmith.john", "John Smith")])
+        self.assertEqual(changes.new_qids, ["Qniblo.graham-a"])
+        self.assertEqual(changes.old_qids, ["Qniblo.graham-a"])
+        self.assertFalse(hasattr(changes, "relabel"))
+        self.assertFalse(hasattr(self.up, "relabel_author"))
+        self.assertNotIn("labels_updated", self.up.stats)
 
-    def test_relabel_sets_the_label_as_given(self):
-        item = MagicMock()
-        item.labels.values = {"en": types.SimpleNamespace(value="J. Smith")}
-        self.up.api.item.get.return_value = item
-        self.up.relabel_author("Q1", "John Smith")
-        item.labels.set.assert_called_once_with(language="en", value="John Smith")
+    def test_a_new_reviewer_is_created_with_the_importers_label(self):
+        self.up._person_values(
+            {
+                "de_number": "1",
+                "review_sign": "None", "review_sign_new": "Smith, John (Berlin)",
+                "reviewer_id": "None", "reviewer_id_new": "smith.john",
+            },
+            "review_sign", "reviewer_id", reviewer_label,
+        )
+        self.assertIn(("smith.john", "John Smith", True), self.resolved)
 
 
 class MissingInPortalTest(unittest.TestCase):

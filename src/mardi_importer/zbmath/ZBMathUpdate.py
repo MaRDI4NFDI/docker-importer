@@ -46,6 +46,7 @@ from .diff import (
     DE_COL,
     has_conflict,
     is_blank,
+    normalize_text,
     split_list,
     year_value,
 )
@@ -543,6 +544,7 @@ class ZBMathUpdater:
         new_values: list[str],
         old_values: list[str],
         removable=None,
+        normalize=None,
         **claim_kwargs,
     ) -> bool:
         """Surgically merge one property. Returns True if the item changed.
@@ -553,16 +555,23 @@ class ZBMathUpdater:
                 item and not part of ``new_values``.
             removable: Optional ``claim -> bool`` predicate narrowing which
                 existing claims may be removed at all.
+            normalize: Optional ``str -> str`` applied to both sides before
+                values are compared, so that the same text in another format
+                (a line break instead of a space) counts as the same value.
         """
-        new_set = {v for v in new_values if v}
-        old_set = {v for v in old_values if v}
+        key = normalize or (lambda v: v)
+        new_set = {key(v) for v in new_values if v}
+        old_set = {key(v) for v in old_values if v}
         changed = False
 
         for existing in item.claims.get(prop_nr):
             if existing.removed:
                 continue
             scalar = claim_scalar(existing)
-            if scalar is None or scalar not in old_set or scalar in new_set:
+            if scalar is None:
+                continue
+            scalar = key(scalar)
+            if scalar not in old_set or scalar in new_set:
                 continue
             if removable is not None and not removable(existing):
                 continue
@@ -571,10 +580,14 @@ class ZBMathUpdater:
             changed = True
 
         present = {
-            claim_scalar(c) for c in item.claims.get(prop_nr) if not c.removed
+            key(scalar)
+            for scalar in (
+                claim_scalar(c) for c in item.claims.get(prop_nr) if not c.removed
+            )
+            if scalar is not None
         }
         for value in new_values:
-            if not value or value in present:
+            if not value or key(value) in present:
                 continue
             claim = _with_backoff(
                 lambda: self.api.get_claim(prop_nr, value, **claim_kwargs),
@@ -586,7 +599,7 @@ class ZBMathUpdater:
                 )
                 continue
             item.add_claims([claim], ActionIfExists.FORCE_APPEND)
-            present.add(value)
+            present.add(key(value))
             self.stats["claims_added"] += 1
             changed = True
 
@@ -936,7 +949,7 @@ class ZBMathUpdater:
             changed |= self.merge_claims(
                 item, self.prop("document_title"),
                 parse_single(title_change), parse_single(row.get("document_title")),
-                language="en",
+                normalize=normalize_text, language="en",
             )
         elif self.deleted(title_change):
             self.log.warning(
@@ -945,7 +958,7 @@ class ZBMathUpdater:
             )
             changed |= self.merge_claims(
                 item, self.prop("document_title"),
-                [], parse_single(row.get("document_title")), language="en",
+                [], parse_single(row.get("document_title")), normalize=normalize_text,  language="en",
             )
 
         # --- simple list/scalar properties ------------------------------
@@ -954,7 +967,7 @@ class ZBMathUpdater:
             ("keywords", "keywords", parse_list, {}),
             ("links", "links", None, {}),          # handled below
             ("doi", "doi", parse_doi, {}),
-            ("review_text", "review_text", parse_single, {}),
+            ("review_text", "review_text", parse_single, {"normalize": normalize_text}),
             ("license", "license", parse_licenses, {}),
         ]
         for column, prop_key, parser, kwargs in simple:

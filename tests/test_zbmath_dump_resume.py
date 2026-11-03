@@ -42,7 +42,14 @@ def _record(i):
     }
 
 
+REVIEW = 'First part. \n\n\nSecond part.\tThird part.\r\nFourth part.'
+
+
 RECORDS = [_record(i) for i in range(1, 8)]
+RECORDS[0]['editorial_contributions'] = [{
+    'contribution_type': 'review', 'text': REVIEW,
+    'reviewer': {'name': 'Rev, R.', 'author_code': 'rev.r'},
+}]
 
 LOADER = textwrap.dedent('''
     import json, os, sys, types, importlib
@@ -151,6 +158,15 @@ class DumpResumeTest(unittest.TestCase):
         header, *rows = content.splitlines()
         col = header.split("\t").index("publication_year")
         self.assertEqual({r.split("\t")[col] for r in rows}, {"2020"})
+
+    def test_line_breaks_and_tabs_become_one_space(self):
+        _, content = self._reference("process")
+        header, first, *_ = content.splitlines()
+        row = dict(zip(header.split("\t"), first.split("\t")))
+        self.assertEqual(
+            row["review_text"],
+            "First part. Second part. Third part. Fourth part.",
+        )
 
     def test_resume_cuts_what_was_written_after_the_checkpoint(self):
         calls, expected = self._reference("process")

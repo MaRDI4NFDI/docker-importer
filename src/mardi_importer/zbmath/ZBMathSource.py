@@ -25,6 +25,9 @@ from .misc import get_tag, get_info_from_doi, year_to_str
 from .diff import is_review_pointer
 
 
+#: Line breaks and tabs inside a value, with the whitespace around them.
+LINE_BREAKS = re.compile(r"\s*[\t\r\n]\s*")
+
 class ZBMathSource(ADataSource):
     """Reads data from zb math API."""
 
@@ -464,7 +467,9 @@ class ZBMathSource(ADataSource):
                     if record:
                         for key, value in record.items():
                             if isinstance(value, str):
-                                record[key] = value.replace("\t", "\\T").replace("\n", "\\N").replace("\r", "\\R")
+                                # A line break or tab (with the spaces around
+                                # it) becomes one space
+                                record[key] = LINE_BREAKS.sub(" ", value)
                         outfile.write(
                             "\t".join(str(x) for x in record.values()) + "\n"
                         )

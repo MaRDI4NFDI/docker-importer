@@ -102,7 +102,7 @@ UNORDERED_COLUMNS = frozenset({
 #: part of the hash file's name, so a hash file written by an older scheme is
 #: simply not found and gets recomputed, instead of being reused and making
 #: every record look changed.
-HASH_SCHEME = 4
+HASH_SCHEME = 5
 
 
 def hash_path_for(processed_dump_path: str) -> str:
@@ -152,6 +152,23 @@ def year_value(value: Optional[str]) -> str:
         return text[:-2]
     return text
 
+#: How older dumps escaped line breaks and tabs inside a value: ``\N``,
+#: ``\R``, ``\T`` and, in some, ``\NEWLINE`` and ``\TAB``. The long forms
+#: come first, or ``\NEWLINE`` would leave "EWLINE" behind.
+_ESCAPES = re.compile(r"\\(?:NEWLINE|TAB|[NRT])")
+
+
+def normalize_text(value: Optional[str]) -> str:
+    """A text with its formatting reduced to single spaces.
+
+    Older API dumps wrote a line break as a literal ``\\N`` or ``\\NEWLINE``
+    (and a tab as ``\\T`` or ``\\TAB``), the OAI dumps and the current
+    ``process_data`` write a space, and a review on an item may have come from
+    yet another script. Only the words count.
+    """
+    if value is None:
+        return ""
+    return " ".join(_ESCAPES.sub(" ", value).split())
 
 def canonical(
     value: Optional[str], unordered: bool = False, column: Optional[str] = None
@@ -167,7 +184,7 @@ def canonical(
         return ";".join(sorted(split_list(value)))
     if column in YEAR_COLUMNS:
         return year_value(value)
-    return "" if is_blank(value) else value.strip()
+    return "" if is_blank(value) else normalize_text(value)
 
 
 def _sanitise(value: Optional[str]) -> str:

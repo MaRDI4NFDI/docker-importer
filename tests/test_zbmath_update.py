@@ -655,6 +655,29 @@ class RowApplicationTest(unittest.TestCase):
             row[f"{column}_new"] = values.get(f"{column}_new", "")
         return row
 
+    def _review_values(self):
+        return [
+            c.mainsnak.datavalue["value"] for c in self.item.claims.get("P1448")
+            if not c.removed
+        ]
+
+    def test_a_review_from_elsewhere_in_another_format_is_not_doubled(self):
+        # The old dump only had the license placeholder; another script put the
+        # review on the item with spaces where the API dump has \N.
+        self.item.claims.add("P1448", FakeClaim("First part. Second part."))
+        self._run(self._diff_row(
+            review_text="zbMATH Open Web Interface contents unavailable due to conflicting licenses.",
+            review_text_new="First part. \\N\\N\\NSecond part.",
+        ))
+        self.assertEqual(self._review_values(), ["First part. Second part."])
+
+    def test_a_reformatted_old_review_is_replaced(self):
+        self.item.claims.add("P1448", FakeClaim("Old  review."))
+        self._run(self._diff_row(
+            review_text="Old \\N review.", review_text_new="New review.",
+        ))
+        self.assertEqual(self._review_values(), ["New review."])
+
     def test_title_change_updates_label_and_claim(self):
         stats = self._run(self._diff_row(
             document_title="Old title", document_title_new="New title",
@@ -1040,6 +1063,30 @@ class DiffFormatTest(unittest.TestCase):
         self.assertEqual(rows[0]["document_title"], title)
         self.assertEqual(rows[0]["document_title_new"], 'A "new" title')
 
+    def test_line_breaks_alone_are_not_a_change(self):
+        rows, n = self._diff(
+            [_row(de_number="1", review_text="First part.   Second part.",
+                  document_title="A  title")],
+            [_row(de_number="1", review_text="First part. \\N\\N\\NSecond part.",
+                  document_title="A\\Ntitle")],
+        )
+        self.assertEqual(n, 0)
+
+    def test_normalize_text(self):
+        self.assertEqual(
+            diffmod.normalize_text("a. \\N\\R\\Nb\\Tc  d "), "a. b c d"
+        )
+        self.assertEqual(
+            diffmod.normalize_text("a.\\NEWLINE\\NEWLINEb\\TABc"), "a. b c"
+        )
+
+    def test_long_escapes_alone_are_not_a_change(self):
+        rows, n = self._diff(
+            [_row(de_number="1", review_text="First.\\NEWLINE\\NEWLINESecond.\\TABThird.")],
+            [_row(de_number="1", review_text="First. Second. Third.")],
+        )
+        self.assertEqual(n, 0)
+    
     def test_float_formatted_year_is_not_a_change(self):
         rows, n = self._diff(
             [_row(de_number="1", publication_year="2024.0")],

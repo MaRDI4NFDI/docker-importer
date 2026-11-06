@@ -87,7 +87,7 @@ This happens easily by accident in code:
 - In mardiclient, `item.add_claim(prop, value, action="replace_all")` does the same. Leave `action` at its default.
 - Building an item's statements from scratch and writing it over the existing item wipes everything the importers and people added.
 
-A few importers replace all values of properties they own, such as the CRAN-Importer for licenses and dependencies.
+A few importers replace all values of properties they own, such as the CRAN-Importer for licenses and dependencies, and the Zenodo-Importer for authors and links to related works on its own items.
 
 ### Merge person items because the names match
 
@@ -137,7 +137,8 @@ The Crossref-Importer does not upper-case DOIs itself; the CRAN- and Julia-Impor
 | reviewed by | zbMATH-Importer |
 | full work available at URL | zbMATH-Importer |
 | copyright license (P163) | zbMATH-, Zenodo-Importer |
-| cites work (P223) | zbMATH-Importer |
+| cites work (P223) | zbMATH-, Zenodo-Importer |
+| described by source, based on, part of, has part(s) | Zenodo-Importer |
 | MaRDI profile type | zbMATH-, Crossref-, Zenodo-, OpenML-Importer |
 
 How values are stored:
@@ -145,6 +146,7 @@ How values are stored:
 - Title (Crossref-Importer): HTML tags such as `<i>` removed, runs of spaces collapsed.
 - Publication date: zbMATH-Importer writes the year only (`+YYYY-00-00T00:00:00Z`, precision year). Crossref-Importer writes day, month or year, whatever Crossref has.
 - Full work available at URL: only `http` and `https` links.
+- Text from zbMATH (zbMATH-Importer): a line break or tab, with the spaces around it, becomes one space. Titles and review texts from older imports might still contain them as literal escapes such as `\N`, `\T` or `\NEWLINE`; these might be removed by separate correction scripts.
 
 ### arXiv preprint
 
@@ -164,8 +166,8 @@ A separate item from the published version (see What a bot must never do).
 | Mathematics Subject Classification ID (P226) | arXiv-Importer; zbMATH-Importer |
 | publication date (P28) | zbMATH-, arXiv-, polyDB-Importer |
 | author (P16) | zbMATH-, arXiv-, polyDB-Importer |
-| author name string (P43) | arXiv-, polyDB-Importer |
-| DOI (P27) | arXiv-, polyDB-Importer |
+| author name string (P43) | zbMATH-, arXiv-, polyDB-Importer |
+| DOI (P27) | zbMATH-, arXiv-, polyDB-Importer |
 | preprint of (P1676), to the publication | zbMATH-Importer |
 
 How values are stored:
@@ -202,7 +204,7 @@ How names are stored, as label and as author name string:
 - polyDB-Importer: names come from three places: the 28 authors written into `PolyDBSource.py`, the authors, maintainers and contributors in each collection's polyDB metadata, and the authors of the papers the collections cite. Every name is normalized by nameparser. Spellings that look like the same person are then joined: same ORCID, same first and last name (ignoring case and hyphens), or an initial plus the same last name. The joined person's label is built from the longest first, middle and last name found among the spellings, and the other spellings become aliases. This is also written to person items that already exist.
 - OpenML-Importer: creators and contributors are only name strings, with *object has role* creator or contributor.
 
-An existing person's label changes in two places only: the zbMATH-Importer's update flow follows a name change in zbMATH, and the polyDB-Importer rewrites label and aliases when it joins name variants of one of its authors.
+An existing person's label changes in one place only: the polyDB-Importer rewrites label and aliases when it joins name variants of one of its authors. The zbMATH-Importer sets a person's label only when it creates the item.
 
 ### Journal, book, proceedings
 
@@ -274,7 +276,7 @@ How values are stored:
 
 - Instance of: from the Zenodo resource type, see the table below. A type not in the table gets no instance of.
 - Label: the title.
-- Description: "Dataset published at Zenodo repository.", with the type name. When that pair already exists, the publication date or record ID is appended.
+- Description: "Dataset published at Zenodo repository.", with the type name. When that pair already exists, the publication date or record ID is appended. If that pair exists too, the record is not imported.
 - MaRDI profile type: from the resource type, see the table below.
 - Written by: Zenodo-Importer only. One item per Zenodo concept, covering all versions.
 
@@ -286,7 +288,7 @@ How values are stored:
 | Preprint | `Q159099` | publication profile |
 | Journal article | `Q56887` | publication profile |
 | Book | `Q56401` | publication profile |
-| Workflow | `Q68657` (research workflow) | workflow profile |
+| Workflow | `Q68657` | workflow profile |
 | Presentation | `Q56867` | none |
 | Poster | `Q56854` | none |
 | Figure | `Q56862` | none |
@@ -299,12 +301,17 @@ How values are stored:
 | DOI (P27) | the concept DOI |
 | description (long text) |  |
 | publication date |  |
-| author, author name string | replaced on update |
+| author, author name string | replaced on update; see Zenodo-Importer for how people are matched |
 | copyright license | CC BY 4.0, CC BY-SA 4.0, CC BY-NC-SA 4.0 and MIT only |
 | dataset version identifier | datasets |
 | software version identifier | software |
 | community | added, never removed |
 | Internal Project ID | MATH+ projects |
+| described by source | related works with Zenodo relation isDescribedBy or isDocumentedBy; replaced on update |
+| cites work | relation cites or references; replaced on update |
+| based on | relation isDerivedFrom; replaced on update |
+| part of | relation isPartOf; replaced on update |
+| has part(s) | relation hasPart; replaced on update |
 
 How values are stored: the description has HTML tags and entities removed; the DOI is upper case.
 
@@ -347,7 +354,7 @@ How values are stored: line breaks and tabs in the description become the litera
 | Zenodo community | Zenodo-Importer | instance of community, Zenodo community ID, described at URL, MaRDI community profile |
 | Project (MATH+) | Zenodo-Importer | instance of scientific project, community |
 | polyDB collection | polyDB-Importer | author, maintained by, contributed by, cites work, data and repository URLs |
-| Workflow | item API | research workflow and script-based workflow, problem statement, uses, author, stored at, MaRDI workflow profile |
+| Workflow | item API, Zenodo-Importer | item API: research workflow and script-based workflow, problem statement, uses, author, stored at, MaRDI workflow profile. Zenodo-Importer: research workflow, MaRDI workflow profile and the properties every Zenodo resource gets |
 
 ### Vocabulary: classes, properties and profile items
 
@@ -363,7 +370,7 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 - Finds existing items by: DE Number for publications, arXiv ID for arXiv records, zbMATH author ID for people, label plus instance of for journals.
 - Rules it follows:
   - The publication date is the year only (see [Publication](#publication)). zbMATH's datestamp is the day zbMATH processed the record, so it is not used.
-  - Only reviews become review text; editorials are not stored.
+  - Only reviews become review text; editorials are not stored, and neither is a review text that only points to another record's review ("See the preview in Zbl 0708.49001."). In the update flow, a review that turns into such a pointer is not a change, and the reviewer stays as it is.
   - Authors without a zbMATH author code are author name strings.
   - When zbMATH shows its license-conflict placeholder instead of a title or journal, the title or journal is taken from Crossref through the DOI, if possible.
   - Portal errors are retried with exponential backoff (2 minutes, doubling, at most 1 hour apart, up to 10 hours), because the portal is sometimes unresponsive under bot traffic.
@@ -380,8 +387,8 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 - Runs: Prefect flow `zbmath-update`, deployment `production`, started by hand. No schedule. One run at a time, with its own volume `importer-update-data`.
 - Still started regularly: Not yet
 - Covers: records whose content changed between the previous full dump on the volume and a fresh one. New records are left to the import flow.
-- Adds and removes: for each changed field, it removes the old value only if the old dump had it and the new one does not, and adds the new value. It follows author name changes into the person's label, and moves an author from author name string to *author* once the author gets a zbMATH code.
-- Rules it follows: only values that came from zbMATH are removed, so values added by hand or taken from Crossref survive an update.
+- Adds and removes: for each changed field, it removes the old value only if the old dump had it and the new one does not, and adds the new value. It moves an author from author name string to *author* once the author gets a zbMATH code. On arXiv items it also updates the arXiv DOI and the author name strings.
+- Rules it follows: only values that came from zbMATH are removed, so values added by hand or taken from Crossref survive an update. Titles and review texts are compared by their words only, so a line break that is now a space does not count as a change. The label of an existing person is never changed, because the same person is often named differently in different papers ("Niblo, G. A." in one, "Niblo, Graham A." in the next).
 - Never: deletes an item. Records that disappeared from zbMATH are listed in a file on the volume for a later decision.
 - Safety stop: if more than half of the records that had a value in a field would lose it (and at least 1,000 records), the run stops before writing, because this might be cause by an error in the zbMath API. Rerun with `allow_mass_deletions=True` once you have checked.
 - Trying it out: `max_records_per_pass=20` applies 20 records per pass and stops; `0` stops right after the diff.
@@ -403,10 +410,13 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 ### Zenodo-Importer
 
 - Runs: Prefect deployment `zenodo-nightly`, every day at 03:00 Europe/Berlin, one run at a time.
-- Covers: records of the Zenodo communities mathplus, mardigmci and mardi updated since yesterday.
-- Adds: one item per Zenodo concept, communities, MATH+ project items.
-- Finds existing items by: concept DOI, any version DOI or any Zenodo record ID. When several items match, it prefers one that carries a Zenodo ID, then the oldest.
-- Rules it follows: one item per Zenodo concept, so all versions of a dataset or software stay together.
+- Covers: records of the Zenodo communities mathplus, mardigmci and mardi updated since yesterday, and any other Zenodo record one of them lists as a related work.
+- Adds: one item per Zenodo concept, communities, MATH+ project items, and the works a record lists as related (see the Zenodo resource table for the relations). A missing arXiv preprint is created through the arXiv-Importer, another DOI through the Crossref-Importer, and another Zenodo record through the Zenodo-Importer itself, without that record's own related works.
+- Finds existing items by: concept DOI, any version DOI or any Zenodo record ID. When several items match, it prefers one that carries a Zenodo ID, then the oldest. People by ORCID. An author without an ORCID is linked to a person item only if that person is already an author of this item under the same name (same first and last name, or an initial and the same last name); otherwise the author is an author name string.
+- Rules it follows:
+  - One item per Zenodo concept, so all versions of a dataset or software stay together.
+  - Authors and the links to related works (described by source, cites work, based on, part of, has part(s)) are replaced on update, so they match Zenodo. Links are only removed when every related work of the record could be looked up; if one could not, the existing links stay.
+  - When the description with the date appended still clashes with another item, the record is not imported and the run is marked failed, so the importer never writes into someone else's item.
 - Never: updates an item that has no Zenodo ID. An item someone else created with the same DOI is left alone.
 
 ### Julia-Importer
@@ -416,7 +426,7 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 - Covers: about 290 packages from the Julia General registry under SciML, JuliaMath, JuliaLinearAlgebra, JuliaNLSolvers and JuliaDiff. No `_jll` wrappers, no sub-directory packages except StochasticDiffEq and DelayDiffEq.
 - Adds: Julia packages, people, cited publications: when a cited DOI or arXiv ID is not in the portal yet, it calls the Crossref- or arXiv-Importer to create it, so it is written under that importer's account, and links it with described by source.
 - Finds existing items by: registry package name, the package's own repository, or the package name together with a repository named `<Name>.jl`.
-- Rules it follows: an existing item is touched only when it is certainly the same software, because many names are shared (SUNDIALS and Sundials.jl). A person item is reused only with an ORCID or as the same-named author of a paper the package cites. These decisions are recorded as D016 to D024 in the MaRDI agents project.
+- Rules it follows: an existing item is touched only when it is certainly the same software, because many names are shared (SUNDIALS and Sundials.jl). A person item is reused only with an ORCID or as the same-named author of a paper the package cites.
 - Never: overwrites or removes anything. A different existing value on a single-valued property is logged as a conflict. Zenodo DOIs in citation files are the software's own releases and are not linked as publications.
 
 ### OpenML-Importer
@@ -432,7 +442,7 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 
 ### Crossref-Importer and arXiv-Importer
 
-- Runs: only when another importer needs a publication item, mainly the CRAN- and Julia-Importer.
+- Runs: only when another importer needs a publication item, mainly the CRAN-, Julia- and Zenodo-Importer.
 - Adds: publications, arXiv preprints, journals, books, proceedings, people.
 - Finds existing items by: DOI in upper case, Crossref's "is identical to" DOI, ISBN for books, arXiv ID, and ORCID for people.
 - Rules it follows: an author becomes a person item only with an ORCID; everyone else is an author name string, so no person items are created on a name alone.

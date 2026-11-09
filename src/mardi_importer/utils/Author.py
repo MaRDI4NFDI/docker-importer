@@ -3,11 +3,9 @@ from mardi_importer.wikidata import WikidataImporter
 
 from dataclasses import dataclass, field
 from typing import List
-from nameparser import HumanName
-from nameparser.config import CONSTANTS
+from nameparser import Lexicon, Parser
 
-CONSTANTS.titles.remove("Mahdi")
-CONSTANTS.titles.remove("Bodhisattva")
+NAME_PARSER = Parser(Lexicon.default().remove("mahdi", "bodhisattva", kind="title"))
 
 
 @dataclass
@@ -29,54 +27,53 @@ class Author:
 
     @staticmethod
     def parse_name(name: str) -> str:
-        parsed_name = HumanName(name)
-        parsed_name.capitalize(force=True)
-        return str(parsed_name)
+        parsed_name = NAME_PARSER.parse(name)
+        return str(NAME_PARSER.capitalized(parsed_name, force=True))
 
     def __eq__(self, other):
         if self.orcid and self.orcid == other.orcid:
             return True
-        self_name = HumanName(self.name)
-        other_name = HumanName(other.name)
-        if self_name.first == other_name.first and self_name.last == other_name.last:
+        self_name = NAME_PARSER.parse(self.name)
+        other_name = NAME_PARSER.parse(other.name)
+        if self_name.given == other_name.given and self_name.family == other_name.family:
             return True
-        if self_name.first.lower().replace("-", "") == other_name.first.lower().replace(
+        if self_name.given.lower().replace("-", "") == other_name.given.lower().replace(
             "-", ""
-        ) and self_name.last.lower().replace(
+        ) and self_name.family.lower().replace(
             "-", ""
-        ) == other_name.last.lower().replace("-", ""):
+        ) == other_name.family.lower().replace("-", ""):
             return True
         if (
-            len(self_name.first) == 2
-            and self_name.first[0] == other_name.first[0]
-            and self_name.last == other_name.last
+            len(self_name.given) == 2
+            and self_name.given[0] == other_name.given[0]
+            and self_name.family == other_name.family
         ):
             return True
         if (
-            len(other_name.first) == 2
-            and self_name.first[0] == other_name.first[0]
-            and self_name.last == other_name.last
+            len(other_name.given) == 2
+            and self_name.given[0] == other_name.given[0]
+            and self_name.family == other_name.family
         ):
             return True
         if (
-            self_name.first == other_name.first
-            and len(self_name.last) == 2
-            and self_name.last[0] == other_name.last[0]
+            self_name.given == other_name.given
+            and len(self_name.family) == 2
+            and self_name.family[0] == other_name.family[0]
         ):
             return True
         if (
-            self_name.first == other_name.first
-            and len(other_name.last) == 2
-            and self_name.last[0] == other_name.last[0]
+            self_name.given == other_name.given
+            and len(other_name.family) == 2
+            and self_name.family[0] == other_name.family[0]
         ):
             return True
         return False
 
     def __add__(self, other):
-        self_name = HumanName(self.name)
-        other_name = HumanName(other.name)
+        self_name = NAME_PARSER.parse(self.name)
+        other_name = NAME_PARSER.parse(other.name)
 
-        name_attributes = ["first", "middle", "last"]
+        name_attributes = ["given", "middle", "family"]
         name_values = [
             getattr(self_name, attr)
             if len(getattr(self_name, attr)) >= len(getattr(other_name, attr))

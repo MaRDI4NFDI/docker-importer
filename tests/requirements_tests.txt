@@ -3,7 +3,7 @@ beautifulsoup4
 feedparser
 habanero
 httpx
-nameparser
+nameparser>=3,<4
 pandas
 rdata
 requests

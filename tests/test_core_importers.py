@@ -581,25 +581,39 @@ def _install_nameparser_stub() -> None:
         return
 
     nameparser_module = types.ModuleType("nameparser")
-    config_module = types.ModuleType("nameparser.config")
 
-    class HumanName:
-        def __init__(self, *_args, **_kwargs):
-            self.first = ""
-            self.last = ""
+    class ParsedName:
+        def __init__(self, text=""):
+            self.text = text
+            self.given = ""
             self.middle = ""
-            self.title = ""
+            self.family = ""
 
-    nameparser_module.HumanName = HumanName
+        def __str__(self):
+            return self.text
 
-    class DummyConstants:
-        def __init__(self):
-            self.titles = ["Mahdi", "Bodhisattva"]
+    class Lexicon:
+        @classmethod
+        def default(cls):
+            return cls()
 
-    config_module.CONSTANTS = DummyConstants()
+        def remove(self, *_words, **_kwargs):
+            return self
+
+    class Parser:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def parse(self, text):
+            return ParsedName(text)
+
+        def capitalized(self, name, **_kwargs):
+            return name
+
+    nameparser_module.Lexicon = Lexicon
+    nameparser_module.Parser = Parser
 
     sys.modules["nameparser"] = nameparser_module
-    sys.modules["nameparser.config"] = config_module
 
 
 _install_nameparser_stub()

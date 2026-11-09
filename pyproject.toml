@@ -22,7 +22,7 @@ dependencies = [
     "lxml",
     "mariadb",
     "mysql-connector-python",
-    "nameparser",
+    "nameparser>=3,<4",
     "openml",
     "pandas",
     "rdata",

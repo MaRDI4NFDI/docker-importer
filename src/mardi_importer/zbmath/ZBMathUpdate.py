@@ -754,6 +754,17 @@ class ZBMathUpdater:
         else:
             new_names = old_names
 
+        # zbMATH hides the names of some records behind the license placeholder.
+        # The diff then reports the names as unchanged (a placeholder is not a
+        # change), so the old names would be paired with the new codes. When
+        # the number of codes changed, those old names cannot belong to them:
+        # the new side has codes but no names, as ``push`` reads such a record.
+        if id_change is not None and new_ids and (
+            (name_change is None and len(new_names) != len(new_ids))
+            or not any(new_names)
+        ):
+            new_names = []
+
         # The new side has to line up exactly. Your update script stopped the
         # run here (sys.exit), because pairing on misaligned lists would put a
         # name on the wrong person; this stops the task the same way.

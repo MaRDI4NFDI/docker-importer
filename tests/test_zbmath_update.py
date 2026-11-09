@@ -1319,6 +1319,63 @@ class PersonLabelTest(unittest.TestCase):
         )
         self.assertIn(("smith.john", "John Smith", True), self.resolved)
 
+class HiddenAuthorNamesTest(unittest.TestCase):
+    """Records whose author names zbMATH hides behind the license placeholder."""
+
+    PLACEHOLDER = "zbMATH Open Web Interface contents unavailable due to conflicting licenses."
+
+    def setUp(self):
+        self.up = _updater()
+        self.resolved = []
+
+        def resolve(aid, name, create):
+            self.resolved.append((aid, name, create))
+            return f"Q{aid}"
+
+        self.up.resolve_author = resolve
+
+    def _authors(self, **values):
+        row = {"de_number": "1493691"}
+        row.update(values)
+        return self.up._person_values(row, "author", "author_ids", author_label)
+
+    def test_fewer_codes_behind_hidden_names_replace_the_authors(self):
+        # de_number 1493691: seven authors in the old dump, one now.
+        changes = self._authors(
+            author=";".join([self.PLACEHOLDER] * 7),
+            author_ids="a1;a2;a3;a4;a5;a6;a7",
+            author_new="",
+            author_ids_new="huang.c-l.1",
+        )
+        self.assertEqual(changes.new_qids, ["Qhuang.c-l.1"])
+        self.assertEqual(changes.old_qids, [f"Qa{i}" for i in range(1, 8)])
+        self.assertEqual(changes.new_strings, [])
+        self.assertIn(("huang.c-l.1", "", True), self.resolved)
+
+    def test_old_real_names_are_not_put_on_new_codes(self):
+        # The old dump still had the names, the new one hides them.
+        changes = self._authors(
+            author="Smith, John;Doe, Jane", author_ids="smith.john;doe.jane",
+            author_new="", author_ids_new="new.person",
+        )
+        self.assertEqual(changes.new_qids, ["Qnew.person"])
+        self.assertIn(("new.person", "", True), self.resolved)
+        self.assertEqual(changes.new_strings, [])
+
+    def test_contradicting_new_names_and_codes_still_stop_the_run(self):
+        with self.assertRaises(ZBMathUpdateError):
+            self._authors(
+                author="A, A", author_ids="a.a",
+                author_new="A, A;B, B;C, C", author_ids_new="a.a",
+            )
+
+    def test_names_and_codes_that_line_up_are_kept_together(self):
+        changes = self._authors(
+            author="Smith, John;Doe, Jane", author_ids="smith.john;doe.jane",
+            author_new="", author_ids_new="smith.john;roe.richard",
+        )
+        self.assertEqual(changes.new_qids, ["Qsmith.john", "Qroe.richard"])
+        self.assertEqual(changes.old_qids, ["Qsmith.john", "Qdoe.jane"])
 
 class MissingInPortalTest(unittest.TestCase):
     """A record without an item is set aside; the pass carries on."""

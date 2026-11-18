@@ -102,11 +102,14 @@ def _chunked(seq, size):
         yield seq[i:i + size]
 
 
-def _with_backoff(fn, log, what, base=120, cap=3600, max_total=10 * 60 * 60):
+def _with_backoff(fn, log, what, base=120, cap=3600, max_total=10 * 60 * 60, no_retry=()):
+    """Call ``fn`` until it succeeds; exceptions in ``no_retry`` are raised at once."""
     attempt, waited = 0, 0
     while True:
         try:
             return fn()
+        except no_retry:
+            raise
         except Exception as e:
             if waited >= max_total:
                 raise

@@ -979,6 +979,62 @@ class RowApplicationTest(unittest.TestCase):
         self._run(self._diff_row(doi="a", doi_new="10.1/b"))
         self.assertIn(("P1451", "1"), self.searches)
 
+class ReloadOnRetryTest(unittest.TestCase):
+    """A failed row is retried as a whole, on a freshly loaded item."""
+
+    def setUp(self):
+        self.up = _updater()
+        self.up.api.search_entity_by_value.side_effect = (
+            lambda prop, value: ["Q100"] if prop == "P1451" else []
+        )
+        self.up.resolve_author = lambda aid, name, create: f"QA{aid}"
+        self.up.resolve_journal = lambda name, create: None
+        patcher = unittest.mock.patch(
+            "mardi_importer.zbmath.misc.time.sleep", lambda s: self.sleeps.append(s)
+        )
+        self.sleeps = []
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _run(self, row):
+        return RowApplicationTest._run(self, row)
+
+    def test_a_fix_made_in_the_portal_is_picked_up_by_the_retry(self):
+        dangling = FakeClaim("Q312209", datatype="wikibase-item")
+
+        class StaleItem(FakeItem):
+            def write(self):
+                raise RuntimeError("ModificationFailed: Q312209 not found")
+
+        # Loaded before the link was removed in the portal, then after.
+        stale = StaleItem({"P1450": [FakeClaim("prime")], "P200": [dangling]})
+        fresh = FakeItem({"P1450": [FakeClaim("prime")]})
+        loads = [stale, fresh]
+        self.up.api.item.get.side_effect = lambda entity_id: loads.pop(0)
+
+        stats = self._run(RowApplicationTest._diff_row(
+            keywords="prime", keywords_new="prime;new",
+        ))
+        self.assertEqual(self.sleeps, [120])
+        self.assertEqual(loads, [], "the item is loaded again for the retry")
+        self.assertEqual(fresh.written, 1)
+        self.assertEqual(
+            sorted(c.mainsnak.datavalue["value"] for c in fresh.claims.get("P1450")
+                   if not c.removed),
+            ["new", "prime"],
+        )
+        self.assertEqual(stats["items_written"], 1)
+        self.assertEqual(stats["rows_changed"], 1, "counted once")
+        self.assertEqual(stats["claims_added"], 1, "counted once")
+
+    def test_a_data_error_is_not_retried(self):
+        self.up.api.item.get.return_value = FakeItem()
+        with self.assertRaises(ZBMathUpdateError):
+            self._run(RowApplicationTest._diff_row(
+                author="A, A", author_ids="a.a",
+                author_new="A, A;B, B;C, C", author_ids_new="a.a",
+            ))
+        self.assertEqual(self.sleeps, [])
 
 class BackoffTest(unittest.TestCase):
     """Portal calls go through the import flow's ``misc._with_backoff``."""

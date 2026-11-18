@@ -612,6 +612,17 @@ class ZBMathUpdater:
             lambda: self.api.item.get(entity_id=qid), self.log, f"fetching {qid}"
         )
 
+    def _counted_once(self, fn, *args):
+        """Call ``fn``; if it fails, undo what it added to the counters, so a
+        retry does not count the same claims twice."""
+        keys = ("rows_changed", "claims_added", "claims_removed", "preprint_links_added")
+        before = {k: self.stats[k] for k in keys}
+        try:
+            return fn(*args)
+        except Exception:
+            self.stats.update(before)
+            raise
+
     def find_publication(self, de_number: str) -> str:
         prop_nr = self.prop("de_number")
         qids = _with_backoff(
@@ -892,10 +903,16 @@ class ZBMathUpdater:
 
             self.stats["rows_seen"] += 1
             try:
-                wrote = (
-                    self._apply_arxiv_row(row, de_number)
-                    if is_arxiv
-                    else self._apply_publication_row(row, de_number)
+                # The whole row is retried, not only the write: the row loads
+                # its item afresh, so a retry sees a fix made in the portal in
+                # the meantime. Data errors are not retried.
+                wrote = _with_backoff(
+                    lambda: self._counted_once(
+                        self._apply_arxiv_row if is_arxiv else self._apply_publication_row,
+                        row, de_number,
+                    ),
+                    self.log, f"applying de_number {de_number}",
+                    no_retry=(ZBMathUpdateError,),
                 )
             except ZBMathItemNotFound as e:
                 if missing_path is None:
@@ -1086,7 +1103,7 @@ class ZBMathUpdater:
         changed |= self._fill_from_doi(row, item, de_number)
 
         if changed:
-            _with_backoff(item.write, self.log, f"writing item {qid} (de_number {de_number})")
+            item.write()
             self.log.info(
                 "updated %s (de_number %s): %s", qid, de_number, ", ".join(touched)
             )
@@ -1176,7 +1193,7 @@ class ZBMathUpdater:
                 )
                 continue
             arxiv_item.add_claims([claim], ActionIfExists.FORCE_APPEND)
-            _with_backoff(arxiv_item.write, self.log, f"writing arXiv item {arxiv_qid}")
+            arxiv_item.write()
             self.stats["preprint_links_added"] += 1
             self.log.info("linked arXiv item %s -> %s", arxiv_qid, publication_qid)
 
@@ -1247,7 +1264,7 @@ class ZBMathUpdater:
             )
 
         if changed:
-            _with_backoff(item.write, self.log, f"writing arXiv item {qid} (de_number {de_number})")
+            item.write()
             self.log.info(
                 "updated arXiv item %s (de_number %s): %s",
                 qid, de_number, ", ".join(touched),
@@ -1329,11 +1346,21 @@ class ZBMathUpdater:
                 if progress_callback:
                     progress_callback(de_number)
                 continue
-            item = self.get_item(qid)
             before_added = self.stats["claims_added"]
             before_removed = self.stats["claims_removed"]
-            if self.merge_claims(item, prop_nr, new_qids, old_qids):
-                _with_backoff(item.write, self.log, f"writing references for {qid}")
+
+            def write_references():
+                item = self.get_item(qid)
+                if not self.merge_claims(item, prop_nr, new_qids, old_qids):
+                    return False
+                item.write()
+                return True
+
+            # Retried as a whole, on a freshly loaded item (see ``apply``).
+            if _with_backoff(
+                lambda: self._counted_once(write_references),
+                self.log, f"writing references for {qid}",
+            ):
                 stats["items_written"] += 1
                 self.log.info("updated references of %s (de_number %s)", qid, de_number)
             stats["added"] += self.stats["claims_added"] - before_added

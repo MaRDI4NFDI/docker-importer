@@ -58,7 +58,9 @@ deployments:
   - name: production
     entrypoint: mardi_portal.flows.zbmath_import:zbmath_import_flow
     build: null
-    concurrency_limit: 1
+    concurrency_limit:
+      limit: 1
+      collision_strategy: CANCEL_NEW
     work_pool:
       name: prod-k8s-pool
       job_variables:

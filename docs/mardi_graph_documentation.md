@@ -397,7 +397,7 @@ Research themes are created by hand (see Added by people). The Research-Theme-Up
 | zbMATH query (P1979) | set by hand |
 | search window in days (P1968) | set by hand; 10 days if missing |
 | auto-classify keyword (P1990) | set by hand; a paper whose title or abstract contains one goes into the theme without asking the LLM |
-| has part(s) (P265) | papers, added by the Research-Theme-Updater, and on some themes datasets, added once by a maintenance script; trimmed to 100 (see Research-Theme-Updater) |
+| has part(s) (P265) | papers, added by the Research-Theme-Updater, and on some themes datasets, added once by a maintenance script; trimmed to 100 where possible (see Research-Theme-Updater) |
 | last update (P170) | set once by the maintenance script that added the datasets |
 
 ### Smaller item types
@@ -483,10 +483,10 @@ One importer with two Prefect flows: the import flow adds records the portal doe
   - The TL;DR is written last. A paper that has one counts as fully imported, and later runs only add identifiers it is missing.
   - Title and publication date are only written when the item has none. A publication date from zbMATH is the year only.
   - An author is either linked to a person item, found by identifier, or written as an author name string, never both. When an author is linked, name strings on the item that match the author's name are removed. If the portal cannot be reached during the lookup, neither is written and the paper is completed on the next run.
-  - New items get the description the zbMATH-Importer or arXiv-Importer would write. If that label and description are already taken, the arXiv or zbMATH ID is added in brackets.
+  - A new item for a zbMATH record gets the zbMATH-Importer's description, and a new arXiv preprint item gets "scientific article from arXiv", like the arXiv-Importer writes. Other new publication items, such as those from OpenAlex, get no description. If that label and description are already taken, the arXiv or zbMATH ID is added in brackets.
   - License URLs are mapped to license items through a fixed table; a URL that is not in the table is left out.
   - When Semantic Scholar gives a cited work without an identifier, the citation is matched by its exact title: only to a publication, only when exactly one publication has that title, and only for titles of four words or more. These links carry the reference *stated in* Semantic Scholar.
-  - A theme keeps at most 100 *has part(s)* links. Above that, duplicate links are removed first, then the papers with the oldest publication date, including papers someone added by hand. Entries without a publication date, such as the datasets linked so far, are never removed except as duplicates, but they count towards the 100.
+  - A theme is trimmed to 100 *has part(s)* links. Above that, duplicate links are removed first, then the papers with the oldest publication date, including papers someone added by hand. Entries without a publication date, such as the datasets linked so far, are never removed except as duplicates, even if that leaves the theme above 100. They still count towards the 100, so each one leaves room for one paper fewer.
 - Never: writes zbMATH IDs or a publisher DOI onto arXiv items, or arXiv IDs onto zbMATH items. Creates no person, journal or cited-work items; it only links existing ones.
 - Known problems:
   - For zbMATH records of arXiv preprints, the updater fetches more data from OpenAlex. If OpenAlex has merged the preprint and the journal article into one work, the arXiv item gets the publication date, open access status, concepts and keywords of the published article.

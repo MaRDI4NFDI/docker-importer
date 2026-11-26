@@ -369,18 +369,82 @@ How values are stored: line breaks and tabs in the description become the litera
 MathModDB is an ontology for mathematical models, built by MaRDI Task Area 4. Its items in the portal are entered by hand.
 
 - Instance of and MaRDI profile type: set by the creation menu, see the table below.
+- Community: MathModDB (`Q6534265`), required on every MathModDB item.
 - Label: the menu refuses a label that already exists.
 - Written by: people, through the creation menu. No importer writes these items.
 
-| Type | instance of | MaRDI profile type |
-| --- | --- | --- |
-| Academic discipline | `Q60231` | academic discipline profile (`Q6534268`) |
-| Formula | `Q96183` | formula profile (`Q5981696`) |
-| Mathematical model | `Q68663` | model profile (`Q6534270`) |
-| Quantity | `Q6534237` | quantity profile (`Q6534271`) |
-| Kind of quantity | `Q6534245` | quantity profile (`Q6534271`) |
-| Research problem | `Q6534292` | research problem profile (`Q6534269`) |
-| Computational task | `Q6534247` | task profile (`Q6534272`) |
+| Type | instance of | MaRDI profile type | EntitySchema |
+| --- | --- | --- | --- |
+| Academic discipline | `Q60231` | academic discipline profile (`Q6534268`) | E13 |
+| Formula | `Q96183` | formula profile (`Q5981696`) | E5 |
+| Mathematical model | `Q68663` | model profile (`Q6534270`) | E9 |
+| Quantity | `Q6534237` | quantity profile (`Q6534271`) | E12 |
+| Kind of quantity | `Q6534245` | quantity profile (`Q6534271`) | E17 |
+| Research problem | `Q6534292` | research problem profile (`Q6534269`) | E10 |
+| Computational task | `Q6534247` | task profile (`Q6534272`) | E11 |
+
+Each type has an EntitySchema in the portal (`EntitySchema:E…`) that says what an item of that type must and may have; its page can check an item against it. Every MathModDB item must have its instance of and *community* MathModDB. Everything else is optional.
+
+Models, formulas and tasks can also be an instance of a subtype. The class item lists them under *specialized by*:
+
+| Type | Subtypes |
+| --- | --- |
+| Mathematical model | deterministic, probabilistic, dimensional, dimensionless, dynamic, static, linear, nonlinear, continuous-space, discrete-space, continuous-time, discrete-time model |
+| Formula | the same twelve kinds of formula; a formula in a model or task may also be a partial differential equation (`Q6822213`) |
+| Computational task | linear, nonlinear, continuous-space, discrete-space, continuous-time, discrete-time task |
+
+How MathModDB items link to each other, according to the schemas:
+
+| From | Property | To | Qualifiers |
+| --- | --- | --- | --- |
+| Academic discipline | contains (P1560) | research problem | |
+| Academic discipline | specialized by (P1684) | academic discipline | |
+| Research problem | modelled by (P1513) | mathematical model | |
+| Research problem | specialized by (P1684) | research problem | assumes (P1674): any item |
+| Mathematical model | contains (P1560) | mathematical model or formula | for a formula: role, series ordinal (P146) |
+| Mathematical model | used by (P147) | computational task | |
+| Mathematical model | assumes (P1674) | formula | |
+| Mathematical model | approximated by (P1655), discretized by (P1656), linearized by (P1657), specialized by (P1684) | mathematical model | |
+| Formula | contains (P1560) | formula or quantity | for a formula: role, series ordinal (P146) |
+| Formula | in defining formula (P983) | a symbol, written as a formula | symbol represents (P984): the item the symbol stands for, such as a quantity |
+| Formula | assumes (P1674) | formula | |
+| Formula | approximated by (P1655), discretized by (P1656), linearized by (P1657), nondimensionalized by (P1658), specialized by (P1684) | formula | |
+| Quantity | contains (P1560) | quantity or quantity kind | role |
+| Quantity | approximated by (P1655), linearized by (P1657) | quantity | |
+| Quantity | nondimensionalized by (P1658), specialized by (P1684) | quantity or quantity kind | |
+| Quantity kind | contains (P1560) | quantity or quantity kind | role |
+| Quantity kind | nondimensionalized by (P1658) | quantity or quantity kind | |
+| Quantity kind | specialized by (P1684) | quantity | not yet in schema E17 |
+| Computational task | contains (P1560) | computational task | order number (P1569) |
+| Computational task | contains (P1560) | formula | role, series ordinal (P146), corresponds to (P1869) |
+| Computational task | contains (P1560) | quantity or quantity kind | role, corresponds to (P1869) |
+| Computational task | assumes (P1674) | formula | |
+| Computational task | approximated by (P1655), discretized by (P1656), linearized by (P1657), specialized by (P1684) | computational task | |
+| Any of these | described by source (P286) | publication | role |
+
+The role is given with the qualifier *object has role* (P560). The allowed roles depend on what is linked:
+
+- Formula in a model or task: governing equation (`Q7270342`), initial condition (`Q6534264`), final condition (`Q6534267`), boundary condition (`Q6534259`), coupling condition (`Q6534266`), computational domain (`Q6775579`), analytical solution (`Q6775641`), weak formulation (`Q6775618`), strong formulation (`Q6775640`), constraint (`Q6534262`), constitutive equation (`Q6775587`), input (`Q6480299`), output (`Q6480295`), parameter (`Q6480341`), constant (`Q6480317`), objective function (`Q6534255`).
+- Formula in a formula: the conditions, computational domain, analytical solution, weak and strong formulation, constraint and constitutive equation from above, and physical law (`Q6775588`).
+- Quantity or quantity kind: input (`Q6480299`), output (`Q6480295`), parameter (`Q6480341`), constant (`Q6480317`), objective function (`Q6534255`), analytical solution (`Q6775641`).
+- Publication: review (`Q6672366`), use (`Q6480405`), invention (`Q6672344`), documentation (`Q6672349`), science project (`Q6775621`), analysis (`Q6825292`), application (`Q6825298`).
+
+The MathModDB team also names definition (`Q7268735`) as a formula role; the schemas do not list it yet.
+
+How values are stored:
+
+- Formula: *defining formula* (P989) holds the whole formula and *in defining formula* (P983) holds each symbol in it, both as formulas. A formula has both or neither.
+- Publication: a linked publication must be an instance of one of these: scholarly article, conference paper, chapter, monograph, thesis, dissertation, book, report, scientific journal, version, edition or translation, ISO standard edition, YouTube channel, written work, volume, reference work, encyclopedic dictionary, Jewish encyclopedia, universal encyclopedia, literary work, controlled vocabulary, explanatory dictionary. The MathModDB team creates these publications by hand on the portal page Special:ImportFromPid, which runs the importer's DOI import as a Prefect flow. It passes each DOI to the arXiv-, Zenodo- or Crossref-Importer, so the publication items look like theirs.
+- Many items also have *Description (long)* (P1459) and *Wikidata QID* (P12).
+
+Other properties, used on items of any type:
+
+| Property | Used for |
+| --- | --- |
+| named after (P558) | the person the item is named after, e.g. Gaussian-process regression model is named after Carl Friedrich Gauss. MathModDB started using it to connect to FactGrid, where these people have items too (Gauss is FactGrid `Q750567`). |
+| similar to (P1691) | another item that is similar, where neither is a generalization of the other (for that, use *specialized by*) |
+| described at URL (P104) | a web page about exactly this item |
+| related URL (P1690) | a web page related to the item, but not exactly about it |
 
 ### Research theme
 

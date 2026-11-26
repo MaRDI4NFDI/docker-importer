@@ -79,7 +79,7 @@ def import_doi_batch(dois: List[str]) -> Dict[str, Any]:
                 log.warning(
                     f"did not recognize 'ARXIV' or 'ZENODO' in doi {doi_upper}, trying crossref"
                 )
-                publication = crossref.new_publication(doi)
+                publication = crossref.new_publication(doi_upper)
                 log.info("crossref recognized")
 
             # Try to actually create the wiki item

@@ -22,21 +22,24 @@ The docker-importer writes Items into the MaRDI portal from nine sources. Some i
    6. [Julia package](#julia-package)
    7. [Zenodo resource](#zenodo-resource-dataset-software-report-and-others)
    8. [OpenML dataset](#openml-dataset)
-   9. [Smaller item types](#smaller-item-types)
-   10. [Vocabulary: classes, properties and profile items](#vocabulary-classes-properties-and-profile-items)
+   9. [MathModDB items](#mathmoddb-items)
+   10. [Research theme](#research-theme)
+   11. [Smaller item types](#smaller-item-types)
+   12. [Vocabulary: classes, properties and profile items](#vocabulary-classes-properties-and-profile-items)
 5. [Importers and bots](#importers-and-bots)
    1. [zbMATH-Importer](#zbmath-importer)
       1. [Import flow](#import-flow)
       2. [Update flow](#update-flow)
    2. [CRAN-Importer](#cran-importer)
    3. [Zenodo-Importer](#zenodo-importer)
-   4. [Julia-Importer](#julia-importer)
-   5. [OpenML-Importer](#openml-importer)
-   6. [Crossref-Importer and arXiv-Importer](#crossref-importer-and-arxiv-importer)
-   7. [Wikidata-Importer](#wikidata-importer)
-   8. [polyDB-Importer](#polydb-importer)
-   9. [Item API](#item-api)
-   10. [Correction scripts](#correction-scripts-bot_scripts)
+   4. [Research-Theme-Updater](#research-theme-updater)
+   5. [Julia-Importer](#julia-importer)
+   6. [OpenML-Importer](#openml-importer)
+   7. [Crossref-Importer and arXiv-Importer](#crossref-importer-and-arxiv-importer)
+   8. [Wikidata-Importer](#wikidata-importer)
+   9. [polyDB-Importer](#polydb-importer)
+   10. [Item API](#item-api)
+   11. [Correction scripts](#correction-scripts-bot_scripts)
 6. [Writing a new bot](#writing-a-new-bot)
    1. [Checklist](#checklist)
    2. [Schema changes](#schema-changes)
@@ -49,6 +52,7 @@ The docker-importer writes Items into the MaRDI portal from nine sources. Some i
 | --- | --- |
 | CRAN-Importer: new packages, archive status, task views | daily 02:00 |
 | Zenodo-Importer: MaRDI communities | daily 03:00 |
+| Research-Theme-Updater: papers for research themes | daily 02:00 |
 
 ### Imported automatically, started by hand
 
@@ -68,9 +72,10 @@ People add and correct items in the portal by hand. Importers and bots should be
 
 | Topic | Responsible |
 | --- | --- |
-|  |  |
-|  |  |
-|  |  |
+| MathModDB: mathematical models, formulas, quantities, research problems, computational tasks, academic disciplines | MaRDI Task Area 4 |
+| Research themes | Tim Conrad |
+
+MathModDB items are created through a menu in the portal (`createPreDefMenu_common.js`, loaded in MediaWiki:Common.js). The menu fills in instance of and MaRDI profile type, checks for a duplicate label and requires a login. See [MathModDB items](#mathmoddb-items).
 
 ## What a bot must never do
 
@@ -88,7 +93,7 @@ This happens easily by accident in code:
 - In mardiclient, `item.add_claim(prop, value, action="replace_all")` does the same. Leave `action` at its default.
 - Building an item's statements from scratch and writing it over the existing item wipes everything the importers and people added.
 
-A few importers replace all values of properties they own, such as the CRAN-Importer for licenses and dependencies, and the Zenodo-Importer for authors and links to related works on its own items.
+A few importers replace all values of properties they own, such as the CRAN-Importer for licenses and dependencies, and the Zenodo-Importer for authors and links to related works on its own items. The Research-Theme-Updater removes the oldest papers from a research theme once it has more than 100. When it links an author of a paper to a person item, it also removes any author name string on that paper with the same name, including ones that other importers or people wrote (see its section).
 
 ### Merge person items because the names match
 
@@ -116,31 +121,39 @@ The Crossref-Importer does not upper-case DOIs itself; the CRAN- and Julia-Impor
 
 - Instance of: scholarly article (Q56887). The Crossref-Importer uses other classes for other Crossref types: book, monograph, proceedings article, book chapter, report, dissertation, dataset.
 - Label: the title.
-- Description: "scientific article; zbMATH DE number \<DE\_NR>" (zbMATH-Importer), the type such as "scientific article" or "book chapter" (Crossref-Importer).
+- Description: "scientific article; zbMATH DE number \<DE\_NR>" (zbMATH-Importer), the type such as "scientific article" or "book chapter" (Crossref-Importer). For zbMATH records, the Research-Theme-Updater writes the same description as the zbMATH-Importer; its other new items get none.
 - MaRDI profile type: MaRDI publication profile.
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
-| title (P1476) | zbMATH-Importer |
-| DOI (P27) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
-| zbMATH DE Number (P1451) | zbMATH-Importer |
-| zbMATH Open document ID | zbMATH-Importer |
-| author (P16) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
-| author name string (P43) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
-| published in | zbMATH-, Crossref-, polyDB-Importer |
+| instance of (P31) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
+| title (P159) | zbMATH-Importer; Research-Theme-Updater |
+| DOI (P27) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
+| zbMATH DE Number (P1451) | zbMATH-Importer; Research-Theme-Updater |
+| zbMATH Open document ID | zbMATH-Importer; Research-Theme-Updater |
+| author (P16) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
+| author name string (P43) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
+| published in | zbMATH-, Crossref-, polyDB-Importer; Research-Theme-Updater |
 | volume, issue, page(s) | Crossref-, polyDB-Importer |
 | ISBN-13, ISBN-10 | Crossref-, polyDB-Importer |
-| publication date (P28) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
-| Mathematics Subject Classification ID (P226) | zbMATH-Importer |
-| zbMATH Keywords | zbMATH-Importer |
+| publication date (P28) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
+| Mathematics Subject Classification ID (P226) | zbMATH-Importer; Research-Theme-Updater |
+| zbMATH Keywords | zbMATH-Importer; Research-Theme-Updater |
 | review text | zbMATH-Importer |
 | reviewed by | zbMATH-Importer |
 | full work available at URL | zbMATH-Importer |
-| copyright license (P163) | zbMATH-, Zenodo-Importer |
-| cites work (P223) | zbMATH-, Zenodo-Importer |
-| described by source, based on, part of, has part(s) | Zenodo-Importer |
-| MaRDI profile type | zbMATH-, Crossref-, Zenodo-Importer |
+| copyright license (P163) | zbMATH-, Zenodo-Importer; Research-Theme-Updater |
+| cites work (P223) | zbMATH-, Zenodo-Importer; Research-Theme-Updater |
+| described by source | Zenodo-Importer |
+| based on | Zenodo-Importer |
+| part of | Zenodo-Importer |
+| has part(s) | Zenodo-Importer |
+| MaRDI profile type | zbMATH-, Crossref-, Zenodo-Importer; Research-Theme-Updater |
+| TL;DR (P1963) | Research-Theme-Updater |
+| keywords (P1964) | Research-Theme-Updater |
+| OpenAlex ID (P388) | Research-Theme-Updater |
+| open access status (P1987) | Research-Theme-Updater |
+| OpenAlex concepts (P1988) | Research-Theme-Updater |
 
 How values are stored:
 
@@ -160,16 +173,21 @@ A separate item from the published version (see What a bot must never do).
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, arXiv-, polyDB-Importer |
-| MaRDI profile type | zbMATH-, arXiv-Importer |
-| arXiv ID (P21) | zbMATH-, arXiv-, polyDB-Importer |
-| arXiv classification (P22) | zbMATH-, arXiv-, polyDB-Importer |
-| Mathematics Subject Classification ID (P226) | arXiv-Importer; zbMATH-Importer |
-| publication date (P28) | zbMATH-, arXiv-, polyDB-Importer |
-| author (P16) | zbMATH-, arXiv-, polyDB-Importer |
-| author name string (P43) | zbMATH-, arXiv-, polyDB-Importer |
-| DOI (P27) | zbMATH-, arXiv-, polyDB-Importer |
-| preprint of (P1676), to the publication | zbMATH-Importer |
+| instance of (P31) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| MaRDI profile type | zbMATH-, arXiv-Importer; Research-Theme-Updater |
+| arXiv ID (P21) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| arXiv classification (P22) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| Mathematics Subject Classification ID (P226) | arXiv-Importer; zbMATH-Importer; Research-Theme-Updater |
+| publication date (P28) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| author (P16) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| author name string (P43) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| DOI (P27) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| preprint of (P1676), to the publication | zbMATH-Importer; Research-Theme-Updater |
+| TL;DR (P1963) | Research-Theme-Updater |
+| keywords (P1964) | Research-Theme-Updater |
+| OpenAlex ID (P388) | Research-Theme-Updater |
+| open access status (P1987) | Research-Theme-Updater |
+| OpenAlex concepts (P1988) | Research-Theme-Updater |
 
 How values are stored:
 
@@ -343,6 +361,106 @@ How values are stored: the description has HTML tags and entities removed; the D
 | number of binary features, number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features | whole numbers |
 | file format | ARFF or Sparse ARFF; other formats are not written |
 
+### MathModDB items
+
+MathModDB is an ontology for mathematical models, built by MaRDI Task Area 4. Its items in the portal are entered by hand.
+
+- Instance of and MaRDI profile type: set by the creation menu, see the table below.
+- Community: MathModDB (`Q6534265`), required on every MathModDB item.
+- Label: the menu refuses a label that already exists.
+- Written by: people, through the creation menu. No importer writes these items.
+
+| Type | instance of | MaRDI profile type | EntitySchema |
+| --- | --- | --- | --- |
+| Academic discipline | `Q60231` | academic discipline profile (`Q6534268`) | E13 |
+| Formula | `Q96183` | formula profile (`Q5981696`) | E5 |
+| Mathematical model | `Q68663` | model profile (`Q6534270`) | E9 |
+| Quantity | `Q6534237` | quantity profile (`Q6534271`) | E12 |
+| Kind of quantity | `Q6534245` | quantity profile (`Q6534271`) | E17 |
+| Research problem | `Q6534292` | research problem profile (`Q6534269`) | E10 |
+| Computational task | `Q6534247` | task profile (`Q6534272`) | E11 |
+
+Each type has an EntitySchema in the portal (`EntitySchema:E…`) that says what an item of that type must and may have; its page can check an item against it. Every MathModDB item must have its instance of and *community* MathModDB. Everything else is optional.
+
+Models, formulas and tasks can also be an instance of a subtype. The class item lists them under *specialized by*:
+
+| Type | Subtypes |
+| --- | --- |
+| Mathematical model | deterministic, probabilistic, dimensional, dimensionless, dynamic, static, linear, nonlinear, continuous-space, discrete-space, continuous-time, discrete-time model |
+| Formula | the same twelve kinds of formula; a formula in a model or task may also be a partial differential equation (`Q6822213`) |
+| Computational task | linear, nonlinear, continuous-space, discrete-space, continuous-time, discrete-time task |
+
+How MathModDB items link to each other, according to the schemas:
+
+| From | Property | To | Qualifiers |
+| --- | --- | --- | --- |
+| Academic discipline | contains (P1560) | research problem | |
+| Academic discipline | specialized by (P1684) | academic discipline | |
+| Research problem | modelled by (P1513) | mathematical model | |
+| Research problem | specialized by (P1684) | research problem | assumes (P1674): any item |
+| Mathematical model | contains (P1560) | mathematical model or formula | for a formula: role, series ordinal (P146) |
+| Mathematical model | used by (P147) | computational task | |
+| Mathematical model | assumes (P1674) | formula | |
+| Mathematical model | approximated by (P1655), discretized by (P1656), linearized by (P1657), specialized by (P1684) | mathematical model | |
+| Formula | contains (P1560) | formula or quantity | for a formula: role, series ordinal (P146) |
+| Formula | in defining formula (P983) | a symbol, written as a formula | symbol represents (P984): the item the symbol stands for, such as a quantity |
+| Formula | assumes (P1674) | formula | |
+| Formula | approximated by (P1655), discretized by (P1656), linearized by (P1657), nondimensionalized by (P1658), specialized by (P1684) | formula | |
+| Quantity | contains (P1560) | quantity or quantity kind | role |
+| Quantity | approximated by (P1655), linearized by (P1657) | quantity | |
+| Quantity | nondimensionalized by (P1658), specialized by (P1684) | quantity or quantity kind | |
+| Quantity kind | contains (P1560) | quantity or quantity kind | role |
+| Quantity kind | nondimensionalized by (P1658) | quantity or quantity kind | |
+| Quantity kind | specialized by (P1684) | quantity | not yet in schema E17 |
+| Computational task | contains (P1560) | computational task | order number (P1569) |
+| Computational task | contains (P1560) | formula | role, series ordinal (P146), corresponds to (P1869) |
+| Computational task | contains (P1560) | quantity or quantity kind | role, corresponds to (P1869) |
+| Computational task | assumes (P1674) | formula | |
+| Computational task | approximated by (P1655), discretized by (P1656), linearized by (P1657), specialized by (P1684) | computational task | |
+| Any of these | described by source (P286) | publication | role |
+
+The role is given with the qualifier *object has role* (P560). The allowed roles depend on what is linked:
+
+- Formula in a model or task: governing equation (`Q7270342`), initial condition (`Q6534264`), final condition (`Q6534267`), boundary condition (`Q6534259`), coupling condition (`Q6534266`), computational domain (`Q6775579`), analytical solution (`Q6775641`), weak formulation (`Q6775618`), strong formulation (`Q6775640`), constraint (`Q6534262`), constitutive equation (`Q6775587`), input (`Q6480299`), output (`Q6480295`), parameter (`Q6480341`), constant (`Q6480317`), objective function (`Q6534255`).
+- Formula in a formula: the conditions, computational domain, analytical solution, weak and strong formulation, constraint and constitutive equation from above, and physical law (`Q6775588`).
+- Quantity or quantity kind: input (`Q6480299`), output (`Q6480295`), parameter (`Q6480341`), constant (`Q6480317`), objective function (`Q6534255`), analytical solution (`Q6775641`).
+- Publication: review (`Q6672366`), use (`Q6480405`), invention (`Q6672344`), documentation (`Q6672349`), science project (`Q6775621`), analysis (`Q6825292`), application (`Q6825298`).
+
+The MathModDB team also names definition (`Q7268735`) as a formula role; the schemas do not list it yet.
+
+How values are stored:
+
+- Formula: *defining formula* (P989) holds the whole formula and *in defining formula* (P983) holds each symbol in it, both as formulas. A formula has both or neither.
+- Publication: a linked publication must be an instance of one of these: scholarly article, conference paper, chapter, monograph, thesis, dissertation, book, report, scientific journal, version, edition or translation, ISO standard edition, YouTube channel, written work, volume, reference work, encyclopedic dictionary, Jewish encyclopedia, universal encyclopedia, literary work, controlled vocabulary, explanatory dictionary. The MathModDB team creates these publications by hand on the portal page Special:ImportFromPid, which runs the importer's DOI import as a Prefect flow. It passes each DOI to the arXiv-, Zenodo- or Crossref-Importer, so the publication items look like theirs.
+- Many items also have *Description (long)* (P1459) and *Wikidata QID* (P12).
+
+Other properties, used on items of any type:
+
+| Property | Used for |
+| --- | --- |
+| named after (P558) | the person the item is named after, e.g. Gaussian-process regression model is named after Carl Friedrich Gauss. MathModDB started using it to connect to FactGrid, where these people have items too (Gauss is FactGrid `Q750567`). |
+| similar to (P1691) | another item that is similar, where neither is a generalization of the other (for that, use *specialized by*) |
+| described at URL (P104) | a web page about exactly this item |
+| related URL (P1690) | a web page related to the item, but not exactly about it |
+
+### Research theme
+
+Research themes are created by hand (see Added by people). The Research-Theme-Updater adds new papers to them every night.
+
+- Instance of: research theme (`Q7266523`).
+- Label and description: the theme's name and what it covers. The Research-Theme-Updater's LLM reads both to decide which papers belong to the theme.
+- Written by: people, except *has part(s)* and *last update*.
+
+| Property | Notes |
+| --- | --- |
+| arXiv search query (P1965) | set by hand |
+| OpenAlex query (P1967) | set by hand |
+| zbMATH query (P1979) | set by hand |
+| search window in days (P1968) | set by hand; 10 days if missing |
+| auto-classify keyword (P1990) | set by hand; a paper whose title or abstract contains one goes into the theme without asking the LLM |
+| has part(s) (P265) | papers, added by the Research-Theme-Updater, and on some themes datasets, added once by a maintenance script; trimmed to 100 where possible (see Research-Theme-Updater) |
+| last update (P170) | set once by the maintenance script that added the datasets |
+
 ### Smaller item types
 
 | Item type | Written by | Main properties |
@@ -416,6 +534,28 @@ One importer with two Prefect flows: the import flow adds records the portal doe
   - When the description with the date appended still clashes with another item, the record is not imported and the run is marked failed, so the importer never writes into someone else's item.
 - Never: updates an item that has no Zenodo ID. An item someone else created with the same DOI is left alone.
 
+### Research-Theme-Updater
+
+- Runs: Prefect deployment `topic-overviews` from the repository `mardiportal_research_theme_updater`, every day at 02:00 Europe/Berlin.
+- Covers: every research theme (instance of `Q7266523`). For each theme, papers from zbMATH Open, OpenAlex and the arXiv search API that match the theme's queries and appeared in the last 10 days, or in the theme's own search window.
+- Adds: items for the papers that an LLM puts into a theme, or whose title or abstract contains one of the theme's keywords. An OpenAlex record with a journal, or with a DOI other than an arXiv DOI, is the published article even if it also lists an arXiv version: it becomes a publication item, linked from its arXiv item with *preprint of* when that item is in the portal. Any other record with an arXiv ID becomes an arXiv preprint item, and the rest become publication items. Each gets a TL;DR written by the LLM, with *generated by* pointing to the model's item, and keywords. It also adds *has part(s)* from the theme to the paper, *preprint of* links, and *cites work* links to papers already in the portal.
+- Finds existing items by: arXiv ID or arXiv DOI for arXiv records. For other records, zbMATH document ID or DE Number, then DOI and OpenAlex ID, skipping arXiv items. For Zenodo DOIs, also the exact label of a scholarly article. People by zbMATH author ID, or by the ORCID that OpenAlex gives for that author; nobody is matched by name. Journals by label plus instance of scientific journal. Cited works by zbMATH document ID, DOI or OpenAlex ID.
+- Rules it follows:
+  - The TL;DR is written last. A paper that has one counts as fully imported, and later runs only add identifiers it is missing.
+  - Title and publication date are only written when the item has none. A publication date from zbMATH is the year only.
+  - An author is either linked to a person item, found by identifier, or written as an author name string, never both. When an author is linked, name strings on the item that match the author's name are removed. If the portal cannot be reached during the lookup, neither is written and the paper is completed on the next run.
+  - A new item for a zbMATH record gets the zbMATH-Importer's description, and a new arXiv preprint item gets "scientific article from arXiv", like the arXiv-Importer writes. Other new publication items, such as those from OpenAlex, get no description. If that label and description are already taken, the arXiv or zbMATH ID is added in brackets.
+  - License URLs are mapped to license items through a fixed table; a URL that is not in the table is left out.
+  - When Semantic Scholar gives a cited work without an identifier, the citation is matched by its exact title: only to a publication, only when exactly one publication has that title, and only for titles of four words or more. These links carry the reference *stated in* Semantic Scholar.
+  - A theme is trimmed to 100 *has part(s)* links. Above that, duplicate links are removed first, then the papers with the oldest publication date, including papers someone added by hand. Entries without a publication date, such as the datasets linked so far, are never removed except as duplicates, even if that leaves the theme above 100. They still count towards the 100, so each one leaves room for one paper fewer.
+- Never: writes zbMATH IDs or a publisher DOI onto arXiv items, or arXiv IDs onto zbMATH items. Creates no person, journal or cited-work items; it only links existing ones.
+- Known problems:
+  - For zbMATH records of arXiv preprints, the updater fetches more data from OpenAlex. If OpenAlex has merged the preprint and the journal article into one work, the arXiv item gets the publication date, open access status, concepts and keywords of the published article.
+  - When zbMATH has no references for a paper from the arXiv search, the citation step asks Crossref with the journal DOI whenever arXiv lists one. The arXiv item then gets the journal article's references as *cites work* and its license.
+  - An arXiv item whose published version is in zbMATH gets the published article's zbMATH reference list as *cites work*.
+  - Keywords from the LLM and keywords from OpenAlex both go into keywords (P1964) and cannot be told apart.
+  - Items written by earlier versions can still have arXiv IDs on published items, publisher DOIs or the journal's data on arXiv items, authors listed both as person items and as name strings, "Last, First" name strings, and authors or citations matched by name or title.
+
 ### Julia-Importer
 
 - Runs: CLI `mardi-importer import-julia`, by hand. `--dry-run` reports without writing; `--packages` limits the run.
@@ -450,8 +590,8 @@ One importer with two Prefect flows, built like the zbMATH-Importer: the import 
 - Runs: Prefect flow `openml-update`, deployment `production`, started by hand. No schedule. One run at a time, with its own volume `importer-openml-update-data` (mounted at `/mnt/openml-update-data`). The OpenML flows share no volume with the zbMATH flows, because a volume can be attached to only one pod at a time.
 - Still started regularly: Not yet
 - Covers: datasets whose record changed between the previous download on the volume and a fresh one. New datasets are left to the import flow.
-- Adds and removes: a value is removed only if the previous download had it and the new one does not; values added by hand stay. A label is changed only if it still is the old OpenML name.
-- First run: without a previous download every dataset is checked. Nothing is removed then, except values the earlier importer wrote in an outdated form: the profile item "Dataset" and descriptions with literal `\N` and `\T` codes, which are replaced by the current form.
+- Adds and removes: a value is removed only if the previous download had it and the new one does not; values added by hand stay. An item has one OpenML download link: once the new record has one, any other OpenML download link on the item (an older host such as api.openml.org, or a replaced file) is removed. A label is changed only if it still is the old OpenML name.
+- First run: without a previous download every dataset is checked. Nothing is removed then, except values the earlier importer wrote in an outdated form: the profile item "Dataset", descriptions with literal `\N` and `\T` codes, and OpenML download links on an older host, which are replaced by the current form.
 - Never: deletes an item. Datasets that disappeared from OpenML are listed in `openml_<date>_gone_from_openml.txt`.
 - Safety stop: if more than half of the datasets that had a value in a field would lose it (and at least 100), the run stops before writing. Rerun with `allow_mass_deletions=True` once you have checked.
 - Missing items: a changed dataset whose item is not in the portal goes to `openml_<date>_missing_in_portal.txt`, and the run is marked failed at the end.

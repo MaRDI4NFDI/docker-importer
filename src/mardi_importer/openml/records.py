@@ -33,8 +33,10 @@ MD5 = "wd:Q185235"
 ARFF_FORMATS = {"arff": "wd:Q4489412", "sparse_arff": "label:Sparse ARFF"}
 
 # OpenML qualities stored on the item, with the portal property for each.
+# NumberOfBinaryFeatures is left out: OpenML's dataset list does not give it,
+# and fetching it would take one more request per dataset. Values the earlier
+# importer wrote stay on the items.
 QUALITIES = {
-    "NumberOfBinaryFeatures": "number of binary features",
     "NumberOfClasses": "number of classes",
     "NumberOfFeatures": "number of features",
     "NumberOfInstances": "number of instances",

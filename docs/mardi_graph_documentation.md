@@ -346,11 +346,11 @@ How values are stored: the description has HTML tags and entities removed; the D
 | --- | --- |
 | OpenML dataset ID |  |
 | dataset version identifier |  |
-| description (long text) | on one line: line breaks and tabs become spaces |
+| description (long text) | on one line: line breaks and tabs become spaces; written in full, not shortened, like the zbMATH review text |
 | author name string | creators and contributors, with object has role creator or contributor; OpenML gives names only, no identifiers |
 | collection date | text, as OpenML gives it |
 | upload date | the day only |
-| copyright license | only CC0, CC BY 4.0, CC BY-SA 4.0, CC BY-NC 4.0, CC BY-NC-SA 4.0, MIT, GPL-2 and GPL-3; other licences are not written |
+| copyright license | only CC0, CC BY 4.0, CC BY-SA 4.0, CC BY-NC 4.0, CC BY-NC-SA 4.0, MIT, GPL-2 and GPL-3; other licences, such as OpenML's "Public", are not written |
 | full work available at URL | download URL and original data URL |
 | default target attribute | name of the column that machine-learning tasks predict by default, e.g. "class"; can be several names, comma separated; plain text |
 | row id attribute | name of the column that holds the row IDs, if the dataset has one; plain text |
@@ -358,7 +358,8 @@ How values are stored: the description has HTML tags and entities removed; the D
 | cites work | the paper, when OpenML's paper\_url contains a DOI or an arXiv ID; created through the Crossref- or arXiv-Importer if missing |
 | citation text | OpenML's paper\_url field as it is, a URL or a free-text citation; written even when the paper is linked with cites work |
 | checksum | MD5, with determination method MD5 |
-| number of binary features, number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features | whole numbers |
+| number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features | whole numbers |
+| number of binary features | not written: OpenML's dataset list does not give it; values the earlier importer wrote stay |
 | file format | ARFF or Sparse ARFF; other formats are not written |
 
 ### MathModDB items
@@ -577,6 +578,7 @@ One importer with two Prefect flows, built like the zbMATH-Importer: the import 
   - Both flows start by downloading every dataset's record as one line in `openml_<date>.jsonl`. An interrupted download continues where it stopped.
   - OpenML gives people as names only, so creators and contributors are author name strings.
   - Portal errors are retried with exponential backoff, as in the zbMATH-Importer.
+- Older code: the files of the earlier OpenML importer that are no longer used are kept in `archive/openml/`, outside the package.
 
 #### Import flow
 

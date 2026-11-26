@@ -23,9 +23,11 @@ The docker-importer writes Items into the MaRDI portal from nine sources. Some i
    7. [Zenodo resource](#zenodo-resource-dataset-software-report-and-others)
    8. [OpenML dataset](#openml-dataset)
    9. [MathModDB items](#mathmoddb-items)
-   10. [Research theme](#research-theme)
-   11. [Smaller item types](#smaller-item-types)
-   12. [Vocabulary: classes, properties and profile items](#vocabulary-classes-properties-and-profile-items)
+   10. [MathAlgoDB items](#mathalgodb-items)
+   11. [Research workflow](#research-workflow)
+   12. [Research theme](#research-theme)
+   13. [Smaller item types](#smaller-item-types)
+   14. [Vocabulary: classes, properties and profile items](#vocabulary-classes-properties-and-profile-items)
 5. [Importers and bots](#importers-and-bots)
    1. [zbMATH-Importer](#zbmath-importer)
       1. [Import flow](#import-flow)
@@ -39,7 +41,8 @@ The docker-importer writes Items into the MaRDI portal from nine sources. Some i
    8. [Wikidata-Importer](#wikidata-importer)
    9. [polyDB-Importer](#polydb-importer)
    10. [Item API](#item-api)
-   11. [Correction scripts](#correction-scripts-bot_scripts)
+   11. [MaRDMO](#mardmo)
+   12. [Correction scripts](#correction-scripts-bot_scripts)
 6. [Writing a new bot](#writing-a-new-bot)
    1. [Checklist](#checklist)
    2. [Schema changes](#schema-changes)
@@ -72,9 +75,13 @@ People add and correct items in the portal by hand. Importers and bots should be
 | Topic | Responsible |
 | --- | --- |
 | MathModDB: mathematical models, formulas, quantities, research problems, computational tasks, academic disciplines | MaRDI Task Area 4 |
+| MathAlgoDB: algorithms, algorithmic tasks, benchmarks, software | MaRDI Task Area 4 |
+| Research workflows documented through MaRDMO | MaRDI Task Area 4 |
 | Research themes | Tim Conrad |
 
 MathModDB items are created through a menu in the portal (`createPreDefMenu_common.js`, loaded in MediaWiki:Common.js). The menu fills in instance of and MaRDI profile type, checks for a duplicate label and requires a login. See [MathModDB items](#mathmoddb-items).
+
+People also write items through MaRDMO, a plugin for the research data management tool RDMO. They document a mathematical model, an algorithm or a research workflow in an RDMO interview and export it to the portal under their own account. MaRDI Task Area 4 maintains the plugin, but anyone with a portal account can use it. See [MaRDMO](#mardmo).
 
 ## What a bot must never do
 
@@ -118,24 +125,25 @@ The Crossref-Importer does not upper-case DOIs itself; the CRAN- and Julia-Impor
 
 ### Publication
 
-- Instance of: scholarly article (Q56887). The Crossref-Importer uses other classes for other Crossref types: book, monograph, proceedings article, book chapter, report, dissertation, dataset.
+- Instance of: scholarly article (Q56887). The Crossref-Importer uses other classes for other Crossref types: book, monograph, proceedings article, book chapter, report, dissertation, dataset. MaRDMO uses scholarly article for journal articles and preprints, and publication (`Q56751`) for everything else.
 - Label: the title. The OpenML-Importer writes no label.
-- Description: "scientific article; zbMATH DE number \<DE\_NR>" (zbMATH-Importer), the type such as "scientific article" or "book chapter" (Crossref-Importer), "scientific article about an OpenML dataset" (OpenML-Importer). For zbMATH records, the Research-Theme-Updater writes the same description as the zbMATH-Importer; its other new items get none.
+- Description: "scientific article; zbMATH DE number \<DE\_NR>" (zbMATH-Importer), the type such as "scientific article" or "book chapter" (Crossref-Importer), "scientific article about an OpenML dataset" (OpenML-Importer), "scientific article (doi: \<DOI>)" (MaRDMO, also on items that are not articles, with the DOI as the source gives it, usually lower case). For zbMATH records, the Research-Theme-Updater writes the same description as the zbMATH-Importer; its other new items get none.
 - MaRDI profile type: MaRDI publication profile.
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, Crossref-, Zenodo-, OpenML-, polyDB-Importer; Research-Theme-Updater |
-| title (P159) | zbMATH-Importer; Research-Theme-Updater |
-| DOI (P27) | zbMATH-, Crossref-, Zenodo-, OpenML-, polyDB-Importer; Research-Theme-Updater |
+| instance of (P31) | zbMATH-, Crossref-, Zenodo-, OpenML-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| title (P159) | zbMATH-Importer; Research-Theme-Updater; MaRDMO |
+| DOI (P27) | zbMATH-, Crossref-, Zenodo-, OpenML-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
 | zbMATH DE Number (P1451) | zbMATH-Importer; Research-Theme-Updater |
 | zbMATH Open document ID | zbMATH-Importer; Research-Theme-Updater |
-| author (P16) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
-| author name string (P43) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
-| published in | zbMATH-, Crossref-, polyDB-Importer; Research-Theme-Updater |
-| volume, issue, page(s) | Crossref-, polyDB-Importer |
+| author (P16) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| author name string (P43) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| published in | zbMATH-, Crossref-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| volume, issue, page(s) | Crossref-, polyDB-Importer; MaRDMO |
 | ISBN-13, ISBN-10 | Crossref-, polyDB-Importer |
-| publication date (P28) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater |
+| publication date (P28) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| language of work or name (P34) | MaRDMO, English only |
 | Mathematics Subject Classification ID (P226) | zbMATH-Importer; Research-Theme-Updater |
 | zbMATH Keywords | zbMATH-Importer; Research-Theme-Updater |
 | review text | zbMATH-Importer |
@@ -147,7 +155,7 @@ The Crossref-Importer does not upper-case DOIs itself; the CRAN- and Julia-Impor
 | based on | Zenodo-Importer |
 | part of | Zenodo-Importer |
 | has part(s) | Zenodo-Importer |
-| MaRDI profile type | zbMATH-, Crossref-, Zenodo-, OpenML-Importer; Research-Theme-Updater |
+| MaRDI profile type | zbMATH-, Crossref-, Zenodo-, OpenML-Importer; Research-Theme-Updater; MaRDMO |
 | TL;DR (P1963) | Research-Theme-Updater |
 | keywords (P1964) | Research-Theme-Updater |
 | OpenAlex ID (P388) | Research-Theme-Updater |
@@ -167,20 +175,20 @@ A separate item from the published version (see What a bot must never do).
 
 - Instance of: (Q56887)
 - Label: the title.
-- Description: "scientific article from arXiv".
+- Description: "scientific article from arXiv". MaRDMO writes "scientific article (doi: \<DOI>)".
 - MaRDI profile type: MaRDI publication profile
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
-| MaRDI profile type | zbMATH-, arXiv-Importer; Research-Theme-Updater |
-| arXiv ID (P21) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| instance of (P31) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| MaRDI profile type | zbMATH-, arXiv-Importer; Research-Theme-Updater; MaRDMO |
+| arXiv ID (P21) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
 | arXiv classification (P22) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
 | Mathematics Subject Classification ID (P226) | arXiv-Importer; zbMATH-Importer; Research-Theme-Updater |
-| publication date (P28) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
-| author (P16) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
-| author name string (P43) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
-| DOI (P27) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater |
+| publication date (P28) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| author (P16) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| author name string (P43) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
+| DOI (P27) | zbMATH-, arXiv-, polyDB-Importer; Research-Theme-Updater; MaRDMO |
 | preprint of (P1676), to the publication | zbMATH-Importer; Research-Theme-Updater |
 | TL;DR (P1963) | Research-Theme-Updater |
 | keywords (P1964) | Research-Theme-Updater |
@@ -198,18 +206,18 @@ How values are stored:
 
 - Instance of: human (`wd:Q5`).
 - Label: the person's name, formatted as described below.
-- Description: none.
+- Description: none. MaRDMO writes "scientist (ORCID iD \<ORCID>)" or "scientist (zbMath ID \<ID>)".
 - MaRDI profile type: MaRDI person profile. The polyDB-Importer writes none.
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, Crossref-, arXiv-, Zenodo-, CRAN-, Julia-, polyDB-Importer |
-| zbMATH author ID | zbMATH-Importer |
-| ORCID iD | Crossref-, arXiv-, Zenodo-, CRAN-, Julia-, polyDB-Importer |
+| instance of (P31) | zbMATH-, Crossref-, arXiv-, Zenodo-, CRAN-, Julia-, polyDB-Importer; MaRDMO |
+| zbMATH author ID | zbMATH-Importer; MaRDMO |
+| ORCID iD | Crossref-, arXiv-, Zenodo-, CRAN-, Julia-, polyDB-Importer; MaRDMO |
 | arXiv author ID | arXiv-, polyDB-Importer |
 | employer | polyDB-Importer |
 | aliases | Julia-Importer (new items), polyDB-Importer |
-| MaRDI profile type | zbMATH-, Crossref-, arXiv-, Zenodo-, CRAN-, Julia-Importer |
+| MaRDI profile type | zbMATH-, Crossref-, arXiv-, Zenodo-, CRAN-, Julia-Importer; MaRDMO |
 
 How names are stored, as label and as author name string:
 
@@ -221,6 +229,7 @@ How names are stored, as label and as author name string:
 - Julia-Importer: the most frequent spelling across all packages that contains a space; the other spellings become aliases.
 - polyDB-Importer: names come from three places: the 28 authors written into `PolyDBSource.py`, the authors, maintainers and contributors in each collection's polyDB metadata, and the authors of the papers the collections cite. Every name is normalized by nameparser. Spellings that look like the same person are then joined: same ORCID, same first and last name (ignoring case and hyphens), or an initial plus the same last name. The joined person's label is built from the longest first, middle and last name found among the spellings, and the other spellings become aliases. This is also written to person items that already exist.
 - OpenML-Importer: creators and contributors are only name strings, with *object has role* creator or contributor.
+- MaRDMO: "Given Family" from Crossref, DataCite or ORCID; zbMATH's "Last, First" turned around at the comma.
 
 An existing person's label changes in one place only: the polyDB-Importer rewrites label and aliases when it joins name variants of one of its authors. The zbMATH-Importer sets a person's label only when it creates the item.
 
@@ -228,15 +237,17 @@ An existing person's label changes in one place only: the polyDB-Importer rewrit
 
 - Instance of: scientific journal (`wd:Q5633421`), book (`wd:Q571`) or proceedings (`wd:Q1143604`).
 - Label: the name, with runs of spaces collapsed.
-- Description: "scientific journal" (zbMATH-Importer), none otherwise.
-- MaRDI profile type: none.
+- Description: "scientific journal" (zbMATH-Importer), "scientific journal (ISSN \<ISSN>)" (MaRDMO), none otherwise.
+- MaRDI profile type: MaRDI journal profile (`Q6767915`) for journals. So far only MaRDMO writes it; the other importers write none and should be changed to write it too. Books and proceedings get none.
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, Crossref-, polyDB-Importer |
+| instance of (P31) | zbMATH-, Crossref-, polyDB-Importer; MaRDMO |
 | ISSN, with distribution format print or online | Crossref-, polyDB-Importer |
+| ISSN, without distribution format | MaRDMO |
 | ISBN | Crossref-, polyDB-Importer (books) |
 | publication date | Crossref-, polyDB-Importer (proceedings) |
+| MaRDI profile type | MaRDMO |
 
 ### R package
 
@@ -366,12 +377,12 @@ How values are stored: line breaks and tabs in the description become the litera
 
 ### MathModDB items
 
-MathModDB is an ontology for mathematical models, built by MaRDI Task Area 4. Its items in the portal are entered by hand.
+MathModDB is an ontology for mathematical models, built by MaRDI Task Area 4. Its items are entered by hand, in the portal or through MaRDMO.
 
 - Instance of and MaRDI profile type: set by the creation menu, see the table below.
 - Community: MathModDB (`Q6534265`), required on every MathModDB item.
 - Label: the menu refuses a label that already exists.
-- Written by: people, through the creation menu. No importer writes these items.
+- Written by: people, through the creation menu or through [MaRDMO](#mardmo). MaRDMO writes the same instance of, profile type and community as the menu.
 
 | Type | instance of | MaRDI profile type | EntitySchema |
 | --- | --- | --- | --- |
@@ -434,8 +445,9 @@ The MathModDB team also names definition (`Q7268735`) as a formula role; the sch
 How values are stored:
 
 - Formula: *defining formula* (P989) holds the whole formula and *in defining formula* (P983) holds each symbol in it, both as formulas. A formula has both or neither.
-- Publication: a linked publication must be an instance of one of these: scholarly article, conference paper, chapter, monograph, thesis, dissertation, book, report, scientific journal, version, edition or translation, ISO standard edition, YouTube channel, written work, volume, reference work, encyclopedic dictionary, Jewish encyclopedia, universal encyclopedia, literary work, controlled vocabulary, explanatory dictionary. The MathModDB team creates these publications by hand on the portal page Special:ImportFromPid, which runs the importer's DOI import as a Prefect flow. It passes each DOI to the arXiv-, Zenodo- or Crossref-Importer, so the publication items look like theirs.
+- Publication: a linked publication must be an instance of one of these: scholarly article, conference paper, chapter, monograph, thesis, dissertation, book, report, scientific journal, version, edition or translation, ISO standard edition, YouTube channel, written work, volume, reference work, encyclopedic dictionary, Jewish encyclopedia, universal encyclopedia, literary work, controlled vocabulary, explanatory dictionary. The MathModDB team creates these publications by hand on the portal page Special:ImportFromPid, which runs the importer's DOI import as a Prefect flow. It passes each DOI to the arXiv-, Zenodo- or Crossref-Importer, so the publication items look like theirs. Publications linked through MaRDMO are created by MaRDMO itself, see [Publication](#publication).
 - Many items also have *Description (long)* (P1459) and *Wikidata QID* (P12).
+- MaRDMO also writes aliases, *QUDT quantity kind ID* (P1654) on quantity kinds, *QUDT constant ID* (P1693) on quantities, and *comment* (P8), a free-text note, on formulas.
 
 Other properties, used on items of any type:
 
@@ -445,6 +457,52 @@ Other properties, used on items of any type:
 | similar to (P1691) | another item that is similar, where neither is a generalization of the other (for that, use *specialized by*) |
 | described at URL (P104) | a web page about exactly this item |
 | related URL (P1690) | a web page related to the item, but not exactly about it |
+
+### MathAlgoDB items
+
+MathAlgoDB is the ontology for algorithms, built by MaRDI Task Area 4. Its items are written by [MaRDMO](#mardmo), from the algorithm interview.
+
+- Community: MathAlgoDB (`Q6830558`).
+
+| Type | instance of | MaRDI profile type |
+| --- | --- | --- |
+| Algorithm | `Q127020` | algorithm profile (`Q6503323`) |
+| Algorithmic task | `Q6775701` | task profile (`Q6534272`) |
+| Benchmark | `Q6825282` | none |
+| Software | `Q56614` | software profile (`Q5976450`); community MathAlgoDB only when an algorithm is implemented by it |
+
+| From | Property | To |
+| --- | --- | --- |
+| Algorithmic task | solved by (P1578) | algorithm |
+| Algorithm | implemented by (P1766) | software |
+| Benchmark | manifestation of (P930) | algorithmic task |
+| Benchmark | tested by (P1750) | software |
+| Software | programmed in (P114) | programming language |
+| Software | depends on software (P342) | software |
+| Algorithm, algorithmic task | specialized by (P1684), has part(s) (P265), subclass of (P36), similar to (P1691) | the same type |
+| Any of these | described by source (P286) | publication, with *object has role* (P560) |
+
+Software also gets DOI, swMATH work ID (P13), source code repository URL (P339) and described at URL (P104). Benchmarks get DOI, MORwiki ID (P1720), source code repository URL and described at URL.
+
+### Research workflow
+
+- Instance of: research workflow (`Q68657`). MaRDMO adds reproducibility classes, see below.
+- MaRDI profile type: MaRDI workflow profile (`Q6534216`).
+- Written by: MaRDMO, item API, Zenodo-Importer. The item API writes script-based workflow, problem statement, uses, author and stored at. The Zenodo-Importer writes the properties every Zenodo resource gets.
+
+What MaRDMO writes:
+
+| Property | Notes |
+| --- | --- |
+| description (long) (P1459) |  |
+| problem statement (P1604) | the research objective |
+| instance of | for each aspect the person answered: mathematically, runtime, result, original platform or cross-platform reproducible research workflow (`Q6534210` to `Q6534214`), with a comment qualifier, or the matching irreproducible class (`Q7226901` to `Q7226905`) |
+| instance of: transferable research workflow (`Q6534215`) | with comment qualifiers |
+| uses (P557) | mathematical model, with *used by* (P147) qualifiers naming its computational tasks |
+| contains (P1560) | process steps and other workflows |
+| described by source (P286) | publication, with *object has role* (P560) |
+
+The parts of a workflow (process steps, hardware, data sets and others) are listed under [Smaller item types](#smaller-item-types).
 
 ### Research theme
 
@@ -472,7 +530,11 @@ Research themes are created by hand (see Added by people). The Research-Theme-Up
 | Zenodo community | Zenodo-Importer | instance of community, Zenodo community ID, described at URL, MaRDI community profile |
 | Project (MATH+) | Zenodo-Importer | instance of scientific project, community |
 | polyDB collection | polyDB-Importer | author, maintained by, contributed by, cites work, data and repository URLs |
-| Workflow | item API, Zenodo-Importer | item API: research workflow and script-based workflow, problem statement, uses, author, stored at, MaRDI workflow profile. Zenodo-Importer: research workflow, MaRDI workflow profile and the properties every Zenodo resource gets |
+| Process step | MaRDMO | instance of process step (`Q6486603`), input data set (P1605), output data set (P1606), uses (P557) for an algorithm or method with qualifiers platform (P143), comment (parameters), DOI and URL, field of work (P437) |
+| Computer hardware | MaRDMO | instance of computer hardware (`Q56583`), number of compute nodes (P1874), CPU (P1540) with a count qualifier |
+| CPU model | MaRDMO | instance of CPU model (`Q7171486`), number of processor cores (P1565) |
+| Data set from a workflow | MaRDMO | instance of data set, MaRDI data set profile (`Q5984635`), data size (P1542) with unit or number of records (P139), file extension (P921), binary or text data, open data or proprietary information, mandates (P1563) data publishing with a DOI, or research data archiving with an end time |
+| Method, research tool, programming language | MaRDMO | instance of only |
 
 ### Vocabulary: classes, properties and profile items
 
@@ -608,6 +670,21 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 - Runs: on request, `POST /create/item`, `POST /update/item`, CLI `create-item`. Every call uses the caller's own bot account; there is no shared fallback account, so every edit is attributed to the person who made it.
 - Adds: any item (raw format with local property and item IDs) or a typed item. The only type so far is WORKFLOW, defined in `services/item_schemas.py`.
 - Never: overwrites existing values on `/update/item` unless `do_override` is set; without it the call is refused with the values that are there.
+
+### MaRDMO
+
+- Runs: when someone clicks "Export to MaRDI Portal" in an RDMO project that uses the MaRDMO plugin. MaRDI Task Area 4 maintains the plugin; anyone with a portal account can use it. Edits are made under that person's own portal account (OAuth2), so the history shows the person, not a bot.
+- Still started regularly: Yes
+- Covers: one documentation per export: a mathematical model (MathModDB), an algorithm (MathAlgoDB) or a research workflow.
+- Adds: MathModDB and MathAlgoDB items, research workflows and their parts, and the publications, people and journals they cite. An item the person picked from Wikidata is created in the portal with its label, description and *Wikidata QID* (P12), plus MaRDMO's own statements; Wikidata's statements are not copied.
+- Finds existing items by: what the person picks in the interview, from a portal search limited to the item's class. Items from Wikidata by *Wikidata QID* (P12). Publications by DOI in upper case, in the portal, then in Wikidata. People by ORCID, then zbMATH author ID, then Wikidata QID, never by name. Journals by ISSN or Wikidata QID. For any other new item it checks whether the label and description already exist together, and stops the export if they do.
+- Rules it follows:
+  - A publication that is not in the portal is looked up by DOI at Crossref, DataCite, zbMATH and doi.org, and MaRDMO creates it itself. It does not go through the Crossref-Importer. A publication with an arXiv DOI also gets its arXiv ID.
+  - Every DOI is written in upper case.
+  - A person item is created only with an ORCID or zbMATH author ID. Everyone else is an author name string.
+  - Before it adds a statement to an existing item, it checks whether the same statement with the same qualifiers is already there.
+- Never: removes or replaces a value; it only adds statements and qualifiers. Changes an item that has a Zenodo ID (P227), because those belong to the Zenodo-Importer.
+- Known problem: an item MaRDMO copies from Wikidata is not in the Wikidata-Importer's mapping table. If the Wikidata-Importer later imports the same Wikidata item, on request or because an importer lists it in `wikidata_entities.txt`, it creates a second item.
 
 ### Correction scripts (`bot_scripts/`)
 

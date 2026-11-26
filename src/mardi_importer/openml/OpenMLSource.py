@@ -16,6 +16,7 @@ Existing items are found by their OpenML dataset ID.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 from typing import Callable, Iterator, Optional
@@ -41,6 +42,24 @@ def read_records(path: Optional[str]) -> Iterator[dict]:
         for line in f:
             if line.strip():
                 yield json.loads(line)
+
+
+BINARY = "NumberOfBinaryFeatures"
+
+
+def binary_counts(path: str) -> dict[str, str]:
+    """NumberOfBinaryFeatures per dataset from the newest other download.
+
+    A dataset's data never changes under its ID, so the count can be taken
+    from an earlier download instead of asking OpenML again.
+    """
+    folder = os.path.dirname(os.path.abspath(path))
+    files = sorted(f for f in glob.glob(os.path.join(folder, "openml_*.jsonl"))
+                   if os.path.abspath(f) != os.path.abspath(path))
+    if not files:
+        return {}
+    return {r["id"]: r["qualities"][BINARY] for r in read_records(files[-1])
+            if BINARY in r.get("qualities", {})}
 
 
 class OpenMLSource(ADataSource):
@@ -85,6 +104,19 @@ class OpenMLSource(ADataSource):
                 return datasets
             offset += PAGE_SIZE
 
+    def binary_count(self, did: str) -> Optional[str]:
+        """NumberOfBinaryFeatures of one dataset, from ``/data/qualities``.
+
+        The dataset list does not include it. ``None`` when OpenML has no
+        value, for example while it is still computing the qualities.
+        """
+        response = self._get(f"data/qualities/{did}")
+        qualities = ((response or {}).get("data_qualities") or {}).get("quality")
+        for quality in (qualities if isinstance(qualities, list) else [qualities]):
+            if isinstance(quality, dict) and quality.get("name") == BINARY:
+                return quality.get("value")
+        return None
+
     def pull(self, path: str) -> str:
         """Save every active OpenML dataset to ``path``, one record per line.
 
@@ -99,12 +131,19 @@ class OpenMLSource(ADataSource):
         datasets = self.list_datasets()
         todo = [did for did in sorted(datasets, key=int) if did not in have]
         self.logger.info("%d datasets on OpenML, %d to download", len(datasets), len(todo))
+        known = binary_counts(path)
+        self.logger.info("binary feature counts known from the previous download: %d", len(known))
         for n, did in enumerate(todo, 1):
             response = self._get(f"data/{did}")
             if response is None:
                 self.logger.warning("OpenML dataset %s has no description; skipped", did)
                 continue
-            record = record_from_api(response["data_set_description"], datasets[did])
+            qualities = list(datasets[did])
+            if not any(q.get("name") == BINARY for q in qualities):
+                count = known.get(did) or self.binary_count(did)
+                if count is not None:
+                    qualities.append({"name": BINARY, "value": count})
+            record = record_from_api(response["data_set_description"], qualities)
             with open(part, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
                 f.flush()

@@ -58,7 +58,8 @@ The docker-importer writes Items into the MaRDI portal from nine sources. Some i
 | zbMATH-Importer, update flow | Prefect UI | yes |
 | Julia-Importer | CLI `import-julia` | ? |
 | polyDB-Importer | `scripts/import.py --mode polydb` | no |
-| OpenML-Importer | `scripts/import.py --mode openml` (fails at the moment, see its section) | no |
+| OpenML-Importer, import flow | Prefect UI | not yet |
+| OpenML-Importer, update flow | Prefect UI | not yet |
 | Wikidata-Importer | API or CLI | yes |
 
 ### Added by people
@@ -114,15 +115,15 @@ The Crossref-Importer does not upper-case DOIs itself; the CRAN- and Julia-Impor
 ### Publication
 
 - Instance of: scholarly article (Q56887). The Crossref-Importer uses other classes for other Crossref types: book, monograph, proceedings article, book chapter, report, dissertation, dataset.
-- Label: the title. The OpenML-Importer writes no label.
-- Description: "scientific article; zbMATH DE number \<DE\_NR>" (zbMATH-Importer), the type such as "scientific article" or "book chapter" (Crossref-Importer), "scientific article about an OpenML dataset" (OpenML-Importer).
+- Label: the title.
+- Description: "scientific article; zbMATH DE number \<DE\_NR>" (zbMATH-Importer), the type such as "scientific article" or "book chapter" (Crossref-Importer).
 - MaRDI profile type: MaRDI publication profile.
 
 | Property | Written by |
 | --- | --- |
-| instance of (P31) | zbMATH-, Crossref-, Zenodo-, OpenML-, polyDB-Importer |
+| instance of (P31) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
 | title (P1476) | zbMATH-Importer |
-| DOI (P27) | zbMATH-, Crossref-, Zenodo-, OpenML-, polyDB-Importer |
+| DOI (P27) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
 | zbMATH DE Number (P1451) | zbMATH-Importer |
 | zbMATH Open document ID | zbMATH-Importer |
 | author (P16) | zbMATH-, Crossref-, Zenodo-, polyDB-Importer |
@@ -139,7 +140,7 @@ The Crossref-Importer does not upper-case DOIs itself; the CRAN- and Julia-Impor
 | copyright license (P163) | zbMATH-, Zenodo-Importer |
 | cites work (P223) | zbMATH-, Zenodo-Importer |
 | described by source, based on, part of, has part(s) | Zenodo-Importer |
-| MaRDI profile type | zbMATH-, Crossref-, Zenodo-, OpenML-Importer |
+| MaRDI profile type | zbMATH-, Crossref-, Zenodo-Importer |
 
 How values are stored:
 
@@ -317,34 +318,30 @@ How values are stored: the description has HTML tags and entities removed; the D
 
 ### OpenML dataset
 
-> Written by an outdated importer. Some of these items differ from the current conventions (see the OpenML-Importer section). Don't use them as a model for new dataset items.
-
 - Instance of: dataset (`wd:Q1172284`).
 - Label: the OpenML dataset name.
 - Description: "OpenML dataset with id \<OPENML\_ID>".
-- MaRDI profile type: an item labelled "Dataset", not "MaRDI dataset profile".
+- MaRDI profile type: MaRDI dataset profile. Items written by the earlier importer had an item labelled "Dataset"; the update flow replaces it.
 - Written by: OpenML-Importer only.
 
 | Property | Notes |
 | --- | --- |
 | OpenML dataset ID |  |
 | dataset version identifier |  |
-| description (long text) |  |
-| author name string | creators and contributors, with object has role |
+| description (long text) | on one line: line breaks and tabs become spaces |
+| author name string | creators and contributors, with object has role creator or contributor; OpenML gives names only, no identifiers |
 | collection date | text, as OpenML gives it |
-| upload date |  |
-| copyright license |  |
+| upload date | the day only |
+| copyright license | only CC0, CC BY 4.0, CC BY-SA 4.0, CC BY-NC 4.0, CC BY-NC-SA 4.0, MIT, GPL-2 and GPL-3; other licences are not written |
 | full work available at URL | download URL and original data URL |
 | default target attribute | name of the column that machine-learning tasks predict by default, e.g. "class"; can be several names, comma separated; plain text |
 | row id attribute | name of the column that holds the row IDs, if the dataset has one; plain text |
 | OpenML semantic tag | only from the fixed list of OpenML subject tags |
-| cites work | the paper, created if missing (see Publication) |
+| cites work | the paper, when OpenML's paper\_url contains a DOI or an arXiv ID; created through the Crossref- or arXiv-Importer if missing |
 | citation text | OpenML's paper\_url field as it is, a URL or a free-text citation; written even when the paper is linked with cites work |
-| checksum | MD5 |
-| number of binary features, number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features |  |
-| file format | ARFF or Sparse ARFF |
-
-How values are stored: line breaks and tabs in the description become the literal characters `\N` and `\T`; the upload date keeps only the day; counts are whole numbers.
+| checksum | MD5, with determination method MD5 |
+| number of binary features, number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features | whole numbers |
+| file format | ARFF or Sparse ARFF; other formats are not written |
 
 ### Smaller item types
 
@@ -431,14 +428,34 @@ One importer with two Prefect flows: the import flow adds records the portal doe
 
 ### OpenML-Importer
 
-> Outdated. The OpenML-Importer does not follow the current schema conventions and cannot run in its current state. It needs to be revisited before anyone runs it again or copies anything from it.
+One importer with two Prefect flows, built like the zbMATH-Importer: the import flow adds datasets the portal does not have yet, the update flow changes existing ones. Both share the following.
 
-- Runs: `scripts/import.py --mode openml`, by hand. At the moment this fails: the OpenML source is not registered in `mardi_importer/__init__.py`, so `Importer.create_source("openml")` raises "Unknown source". The items already in the portal come from earlier runs.
-- Still started regularly: No longer
-- Covers: every dataset listed by OpenML. `pull()` saves them to `dataset_dict.p`; `push()` reads `/data/dataset_dict.p`.
-- Adds: OpenML datasets and the papers they cite.
-- Finds existing items by: OpenML dataset ID plus instance of dataset for datasets; DOI or arXiv ID for papers.
-- Updates: adds the same statements again to existing items; nothing is removed.
+- Covers: every active dataset listed by the OpenML API (`/api/v1/json/data/list`).
+- Adds: OpenML datasets, and the papers they cite (through the Crossref- or arXiv-Importer).
+- Finds existing items by: OpenML dataset ID for datasets; DOI or arXiv ID for papers.
+- Rules it follows:
+  - Both flows start by downloading every dataset's record as one line in `openml_<date>.jsonl`. An interrupted download continues where it stopped.
+  - OpenML gives people as names only, so creators and contributors are author name strings.
+  - Portal errors are retried with exponential backoff, as in the zbMATH-Importer.
+
+#### Import flow
+
+- Runs: Prefect flow `openml-import`, deployment `production`, started by hand. No schedule. One run at a time. Data and checkpoint live on its own volume `importer-openml-data` (mounted at `/mnt/openml-data`), and an interrupted run resumes where it stopped.
+- Still started regularly: Not yet
+- Steps: download, then create an item for every dataset whose OpenML dataset ID is not in the portal. Datasets already in the portal are left to the update flow.
+- Trying it out: `max_records=20` creates 20 items and stops; the next run continues after them.
+
+#### Update flow
+
+- Runs: Prefect flow `openml-update`, deployment `production`, started by hand. No schedule. One run at a time, with its own volume `importer-openml-update-data` (mounted at `/mnt/openml-update-data`). The OpenML flows share no volume with the zbMATH flows, because a volume can be attached to only one pod at a time.
+- Still started regularly: Not yet
+- Covers: datasets whose record changed between the previous download on the volume and a fresh one. New datasets are left to the import flow.
+- Adds and removes: a value is removed only if the previous download had it and the new one does not; values added by hand stay. A label is changed only if it still is the old OpenML name.
+- First run: without a previous download every dataset is checked. Nothing is removed then, except values the earlier importer wrote in an outdated form: the profile item "Dataset" and descriptions with literal `\N` and `\T` codes, which are replaced by the current form.
+- Never: deletes an item. Datasets that disappeared from OpenML are listed in `openml_<date>_gone_from_openml.txt`.
+- Safety stop: if more than half of the datasets that had a value in a field would lose it (and at least 100), the run stops before writing. Rerun with `allow_mass_deletions=True` once you have checked.
+- Missing items: a changed dataset whose item is not in the portal goes to `openml_<date>_missing_in_portal.txt`, and the run is marked failed at the end.
+- Trying it out: `max_records_per_pass=20` checks 20 changed datasets and stops.
 
 ### Crossref-Importer and arXiv-Importer
 

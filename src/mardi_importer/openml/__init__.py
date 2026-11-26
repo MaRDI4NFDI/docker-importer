@@ -1,1 +1,1 @@
-from .OpenMLSource import OpenMLSource
+from .OpenMLSource import OpenMLSource  # noqa: F401

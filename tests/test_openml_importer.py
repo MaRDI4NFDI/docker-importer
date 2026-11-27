@@ -11,6 +11,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
 from unittest.mock import MagicMock
 
 # Installs the Prefect stub and the stand-ins for mardi_importer and zbmath.
@@ -105,6 +106,14 @@ class RecordTests(unittest.TestCase):
 
     def test_escaped_quotes(self):
         self.assertEqual(R.clean_text(r"""King-Rook\'s side, \"won\"."""), """King-Rook's side, "won".""")
+
+    def test_plus_sign_only_ignored_on_numbers(self):
+        s, item = source(), Item()
+        target = local_property("default target attribute")
+        item.claims.add(Claim(target, "+class"))
+        OpenMLUpdater(s).apply(item, record(default_target_attribute="class"),
+                               record(default_target_attribute="+class"))
+        self.assertEqual(item.claims.values(target), ["class"])
 
     def test_text_key_ignores_old_codes(self):
         self.assertEqual(R.text_key("a\\Nb\\T c"), R.text_key("a b c"))
@@ -285,12 +294,63 @@ class PushAndUpdateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "openml.jsonl")
             write_download(path, [record(id="61"), record(id="3", name="kr"), record(id="7", name="seven")])
-            stats = s.push(path, progress_callback=done.append, max_rows=1)
+            stats = s.push(path, progress_callback=lambda last, retry: done.append(last), max_rows=1)
             self.assertEqual((stats["created"], stats["already_in_portal"], stats["stopped_early"]), (1, 1, True))
             self.assertEqual(done, ["3", "7"])
-            stats = s.push(path, resume_after_id=done[-1], progress_callback=done.append)
+            stats = s.push(path, resume_after_id=done[-1], progress_callback=lambda last, retry: done.append(last))
             self.assertEqual(stats["created"], 1)
             self.assertEqual(done, ["3", "7", "61"])
+        del Item.write
+
+    def test_failed_dataset_is_retried(self):
+        s = source()
+        s.find_items = lambda ids: {}
+        s.api.item.new.side_effect = Item
+
+        def write(self, summary=None):
+            if self.labels.values["en"] == "kr":
+                raise RuntimeError("portal error")
+            return types.SimpleNamespace(id="Q" + self.labels.values["en"])
+        Item.write = write
+        done = []
+        no_retry = mock.patch("mardi_importer.openml.OpenMLDataset._with_backoff", lambda f, *a, **k: f())
+        with no_retry, tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "openml.jsonl")
+            write_download(path, [record(id="1", name="one"), record(id="3", name="kr"), record(id="7", name="seven")])
+            stats = s.push(path, progress_callback=lambda last, retry: done.append((last, retry)))
+            self.assertEqual((stats["created"], stats["failed"]), (2, 1))
+            # dataset 7 is not redone later; dataset 3 is kept to retry
+            self.assertEqual(done, [("1", []), ("3", ["3"]), ("7", ["3"])])
+            Item.write = lambda self, summary=None: types.SimpleNamespace(id="Q" + self.labels.values["en"])
+            made = []
+            s.api.item.new.side_effect = lambda: made.append(1) or Item()
+            done.clear()
+            stats = s.push(path, resume_after_id="7", retry_ids=("3",),
+                           progress_callback=lambda last, retry: done.append((last, retry)))
+            self.assertEqual((stats["created"], stats["failed"], len(made)), (1, 0, 1))
+            self.assertEqual(done, [("7", [])])     # only 3 was tried again
+        del Item.write
+
+    def test_failed_update_is_retried(self):
+        s = source()
+        s.find_items = lambda ids: {"1": "Q1", "3": "Q3", "7": "Q7"}
+        s.api.item.get.side_effect = lambda entity_id: Item()
+        Item.write = lambda self, summary=None: (_ for _ in ()).throw(RuntimeError("x")) \
+            if self.labels.values.get("en") == "kr" else self
+        done = []
+        no_retry = mock.patch("mardi_importer.openml.OpenMLUpdate._with_backoff", lambda f, *a, **k: f())
+        with no_retry, tempfile.TemporaryDirectory() as tmp:
+            new = os.path.join(tmp, "new.jsonl")
+            write_download(new, [record(id="1", name="one"), record(id="3", name="kr"), record(id="7", name="seven")])
+            stats = s.update_from_downloads(None, new, progress_callback=lambda last, retry: done.append((last, retry)))
+            self.assertEqual((stats["updated"], stats["failed"]), (2, 1))
+            self.assertEqual(done, [("1", []), ("3", ["3"]), ("7", ["3"])])
+            Item.write = lambda self, summary=None: self
+            done.clear()
+            stats = s.update_from_downloads(None, new, resume_after_id="7", retry_ids=("3",),
+                                            progress_callback=lambda last, retry: done.append((last, retry)))
+            self.assertEqual((stats["changed"], stats["failed"]), (1, 0))
+            self.assertEqual(done, [("7", [])])
         del Item.write
 
     def test_update_only_touches_changed_datasets(self):
@@ -390,6 +450,17 @@ class DownloadTests(unittest.TestCase):
             second = s.pull(os.path.join(tmp, "openml_2026-02-01.jsonl"))
             self.assertEqual([r["qualities"]["NumberOfBinaryFeatures"] for r in read_records(second)], ["2", "2"])
             self.assertEqual([c for c in calls if "qualities" in c], [])
+
+    def test_half_written_line_is_dropped(self):
+        from mardi_importer.openml.OpenMLSource import drop_partial_line
+        with tempfile.TemporaryDirectory() as tmp:
+            part = os.path.join(tmp, "openml.jsonl.part")
+            with open(part, "w") as f:
+                f.write('{"id": "2"}\n{"id": "3"}\n{"id": "6", "na')
+            drop_partial_line(part)
+            self.assertEqual([r["id"] for r in read_records(part)], ["2", "3"])
+            drop_partial_line(part)                 # a complete file stays as it is
+            self.assertEqual([r["id"] for r in read_records(part)], ["2", "3"])
 
     def test_binary_count_missing(self):
         s = source()

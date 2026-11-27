@@ -34,6 +34,11 @@ API = "https://www.openml.org/api/v1/json"
 PAGE_SIZE = 1000
 
 
+def qid_number(qid: str) -> int:
+    """``"Q123"`` -> 123, so that Q99 sorts before Q100."""
+    return int(qid.lstrip("Q"))
+
+
 def read_records(path: Optional[str]) -> Iterator[dict]:
     """The records of a download file, in file order."""
     if not path or not os.path.exists(path):
@@ -42,6 +47,45 @@ def read_records(path: Optional[str]) -> Iterator[dict]:
         for line in f:
             if line.strip():
                 yield json.loads(line)
+
+
+def drop_partial_line(path: str) -> None:
+    """Cut a half-written last line, left by a run stopped while writing it.
+
+    Every record is written as one line ending in a newline, so a file that
+    does not end in a newline ends in a fragment. The complete records stay.
+    """
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return
+    with open(path, "rb+") as f:
+        data = f.read()
+        if data.endswith(b"\n"):
+            return
+        f.truncate(data.rfind(b"\n") + 1)
+
+
+class Progress:
+    """Where a run is, saved through a callback after every dataset.
+
+    The last ID handled moves forward past failures, so datasets handled
+    after a failure are not done twice. The failed IDs are kept in a retry
+    list instead, which the next run handles first.
+    """
+
+    def __init__(self, last_id: Optional[str], retry_ids, callback):
+        self.last_id = last_id
+        self.pending = set(retry_ids)        # from earlier runs, not handled yet
+        self.failed: set[str] = set()
+        self.callback = callback
+
+    def done(self, did: str, failed: bool) -> None:
+        self.pending.discard(did)
+        if failed:
+            self.failed.add(did)
+        if self.last_id is None or int(did) > int(self.last_id):
+            self.last_id = did
+        if self.callback:
+            self.callback(self.last_id, sorted(self.pending | self.failed, key=int))
 
 
 BINARY = "NumberOfBinaryFeatures"
@@ -127,6 +171,7 @@ class OpenMLSource(ADataSource):
         if os.path.exists(path):
             return path
         part = path + ".part"
+        drop_partial_line(part)
         have = {r["id"] for r in read_records(part)}
         datasets = self.list_datasets()
         todo = [did for did in sorted(datasets, key=int) if did not in have]
@@ -166,8 +211,8 @@ class OpenMLSource(ADataSource):
             for did, qids in mapping.items():
                 if len(qids) > 1:
                     self.logger.warning("OpenML dataset %s has several items %s; using %s",
-                                        did, sorted(qids), min(qids))
-                found[str(did)] = min(qids)
+                                        did, sorted(qids, key=qid_number), min(qids, key=qid_number))
+                found[str(did)] = min(qids, key=qid_number)
         return found
 
     def resolve(self, ref: str, create: bool = True) -> Optional[str]:
@@ -197,7 +242,7 @@ class OpenMLSource(ADataSource):
 
         found = self.api.search_entity_by_value("wdt:P356" if kind == "doi" else "wdt:P818", value)
         if found or not create:
-            return min(found) if found else None
+            return min(found, key=qid_number) if found else None
         try:
             source = Importer.create_source("crossref" if kind == "doi" else "arxiv")
             return source.new_publication(value).create()
@@ -211,8 +256,9 @@ class OpenMLSource(ADataSource):
         self,
         path: str,
         resume_after_id: Optional[str] = None,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Optional[Callable[[Optional[str], list], None]] = None,
         max_rows: Optional[int] = None,
+        retry_ids: tuple = (),
     ) -> dict:
         """Create items for the datasets in ``path`` that the portal lacks.
 
@@ -221,20 +267,25 @@ class OpenMLSource(ADataSource):
 
         Args:
             path: a complete download file.
-            resume_after_id: skip datasets up to and including this ID.
-            progress_callback: called with each dataset ID once it is done.
+            resume_after_id: skip datasets up to and including this ID...
+            retry_ids: ...except these, which failed in an earlier run.
+            progress_callback: called after each dataset with the last ID
+                handled and the IDs still to retry (the failed ones, and
+                retry IDs not reached yet). Save both and pass them back.
             max_rows: create at most this many items, then stop with
                 ``stopped_early`` set in the returned stats.
         """
         records = sorted(read_records(path), key=lambda r: int(r["id"]))
-        if resume_after_id is not None:
-            records = [r for r in records if int(r["id"]) > int(resume_after_id)]
+        records = [r for r in records if r["id"] in retry_ids or resume_after_id is None
+                   or int(r["id"]) > int(resume_after_id)]
         existing = self.find_items([r["id"] for r in records])
         stats = {"created": 0, "already_in_portal": 0, "failed": 0, "stopped_early": False}
+        progress = Progress(resume_after_id, retry_ids, progress_callback)
         for record in records:
             if max_rows is not None and stats["created"] >= max_rows:
                 stats["stopped_early"] = True
                 break
+            failed = False
             if record["id"] in existing:
                 stats["already_in_portal"] += 1
             else:
@@ -244,8 +295,8 @@ class OpenMLSource(ADataSource):
                 except Exception as e:
                     self.logger.error("OpenML dataset %s not created: %s", record["id"], e)
                     stats["failed"] += 1
-            if progress_callback:
-                progress_callback(record["id"])
+                    failed = True
+            progress.done(record["id"], failed)
         return stats
 
     def update_from_downloads(self, old_path: Optional[str], new_path: str, **kwargs) -> dict:

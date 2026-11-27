@@ -577,6 +577,7 @@ One importer with two Prefect flows, built like the zbMATH-Importer: the import 
   - Both flows start by downloading every dataset's record as one line in `openml_<date>.jsonl`. An interrupted download continues where it stopped.
   - OpenML gives people as names only, so creators and contributors are author name strings.
   - Portal errors are retried with exponential backoff, as in the zbMATH-Importer.
+  - A dataset that still fails is counted, and the run is marked failed when that step ends. The run carries on with the next datasets, and the failed IDs are saved in the checkpoint, so the next run retries only those and does not redo the datasets after them; the update flow also keeps its comparison baseline until then.
 - Older code: the files of the earlier OpenML importer that are no longer used are kept in `archive/openml/`, outside the package.
 
 #### Import flow

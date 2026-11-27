@@ -49,12 +49,17 @@ def push_openml(path: str, max_rows: Optional[int]) -> dict:
     checkpoint = Checkpoint(CHECKPOINT_FILE)
     progress = checkpoint.progress("push_openml")
     resume = progress["last_id"] if progress else None
+    retry = tuple(progress.get("retry", [])) if progress else ()
     if resume:
         log.info("Resuming push_openml after OpenML dataset %s", resume)
+    if retry:
+        log.info("Retrying OpenML datasets that failed before: %s", ", ".join(retry))
     stats = Importer.create_source("openml").push(
         path,
         resume_after_id=resume,
-        progress_callback=lambda did: checkpoint.save_progress("push_openml", {"last_id": did}),
+        retry_ids=retry,
+        progress_callback=lambda did, retry: checkpoint.save_progress(
+            "push_openml", {"last_id": did, "retry": retry}),
         max_rows=max_rows,
     )
     log.info("push_openml finished: %s", stats)
@@ -86,12 +91,16 @@ def openml_import_flow(max_records: Optional[int] = None):
         checkpoint.mark("download_openml", {"download_path": path})
 
     # ── Step 2: push ─────────────────────────────────────────────────────
-    stats = {"failed": 0}
+    stats = {}
     if checkpoint.done("push_openml"):
         log.info("Skipping push_openml (already done)")
     else:
         stats = push_openml(path, max_records)
         checkpoint = Checkpoint(CHECKPOINT_FILE)     # the task saved its progress
+        if stats["failed"]:
+            # The failed IDs are saved in the checkpoint, so a rerun retries them.
+            raise RuntimeError(f"{stats['failed']} dataset(s) could not be created; see the log. "
+                               "Fix the cause and run again: the next run retries them first.")
         if stats["stopped_early"]:
             message = (f"Stopped after {max_records} new item(s). Check them, then run again "
                        "with the same max_records for the next batch or without it for the rest.")
@@ -102,6 +111,4 @@ def openml_import_flow(max_records: Optional[int] = None):
     # ── Done: archive the checkpoint so the next run starts fresh ────────
     archive = checkpoint.archive()
     log.info("OpenML import complete; checkpoint archived to %s", archive)
-    if stats["failed"]:
-        raise RuntimeError(f"{stats['failed']} dataset(s) could not be created; see the log")
     return stats

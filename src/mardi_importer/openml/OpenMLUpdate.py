@@ -12,6 +12,7 @@ the earlier OpenML importer wrote in an outdated form: the profile item
 
 from __future__ import annotations
 
+import re
 from typing import Callable, Optional
 
 from wikibaseintegrator.wbi_enums import ActionIfExists
@@ -21,6 +22,9 @@ from mardi_importer.zbmath.ZBMathUpdate import claim_scalar
 
 from .OpenMLDataset import SUMMARY
 from .records import Field, openml_download, statements, text_key
+
+
+SIGNED = re.compile(r"^\+[0-9][0-9.:TZ-]*$")
 
 
 def read_ids(path: Optional[str]) -> list[str]:
@@ -111,7 +115,8 @@ class OpenMLUpdater:
                 return text_key(value)
             if field.compare == "url" and openml_download(value):
                 return f"openml-download:{openml_download(value)}"
-            return value.lstrip("+")
+            # quantities and times come back from the portal as "+150"
+            return value[1:] if SIGNED.match(value) else value
 
         def mine(claim):
             if not field.by_qualifier:
@@ -157,9 +162,10 @@ class OpenMLUpdater:
         old: dict,
         new: dict,
         resume_after_id: Optional[str] = None,
-        progress_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Optional[Callable[[Optional[str], list], None]] = None,
         missing_path: Optional[str] = None,
         max_rows: Optional[int] = None,
+        retry_ids: tuple = (),
     ) -> dict:
         """Update the items of the datasets whose record changed.
 
@@ -169,23 +175,29 @@ class OpenMLUpdater:
         Args:
             old: dataset ID -> record, from the previous download.
             new: dataset ID -> record, from the new download.
-            resume_after_id: skip datasets up to and including this ID.
-            progress_callback: called with each dataset ID once it is done.
+            resume_after_id: skip datasets up to and including this ID...
+            retry_ids: ...except these, which failed in an earlier run.
+            progress_callback: called after each dataset with the last ID
+                handled and the IDs still to retry (see ``OpenMLSource.push``).
             missing_path: changed datasets without an item are appended here.
             max_rows: handle at most this many datasets, then stop with
                 ``stopped_early`` set in the returned stats.
         """
         changed = [did for did in sorted(new, key=int)
-                   if (not old or (did in old and old[did] != new[did]))
-                   and (resume_after_id is None or int(did) > int(resume_after_id))]
+                   if did in retry_ids
+                   or ((not old or (did in old and old[did] != new[did]))
+                       and (resume_after_id is None or int(did) > int(resume_after_id)))]
         items = self.source.find_items(changed)
         missing = set(read_ids(missing_path))
         stats = {"changed": len(changed), "updated": 0, "unchanged": 0,
                  "missing_in_portal": 0, "failed": 0, "stopped_early": False}
+        from .OpenMLSource import Progress
+        progress = Progress(resume_after_id, retry_ids, progress_callback)
         for n, did in enumerate(changed):
             if max_rows is not None and n >= max_rows:
                 stats["stopped_early"] = True
                 break
+            failed = False
             if did not in items:
                 if missing_path and did not in missing:
                     with open(missing_path, "a", encoding="utf-8") as f:
@@ -205,7 +217,7 @@ class OpenMLUpdater:
                 except Exception as e:
                     self.log.error("OpenML dataset %s (%s) not updated: %s", did, items[did], e)
                     stats["failed"] += 1
-            if progress_callback:
-                progress_callback(did)
+                    failed = True
+            progress.done(did, failed)
         self.stats = stats
         return stats

@@ -95,12 +95,17 @@ def update_items(old_path: Optional[str], new_path: str, max_rows: Optional[int]
     checkpoint = Checkpoint(CHECKPOINT_FILE)
     progress = checkpoint.progress("update_items")
     resume = progress["last_id"] if progress else None
+    retry = tuple(progress.get("retry", [])) if progress else ()
     if resume:
         log.info("Resuming update_items after OpenML dataset %s", resume)
+    if retry:
+        log.info("Retrying OpenML datasets that failed before: %s", ", ".join(retry))
     stats = Importer.create_source("openml").update_from_downloads(
         old_path, new_path,
         resume_after_id=resume,
-        progress_callback=lambda did: checkpoint.save_progress("update_items", {"last_id": did}),
+        retry_ids=retry,
+        progress_callback=lambda did, retry: checkpoint.save_progress(
+            "update_items", {"last_id": did, "retry": retry}),
         missing_path=f"{new_path[:-len('.jsonl')]}_missing_in_portal.txt",
         max_rows=max_rows,
     )
@@ -170,12 +175,16 @@ def openml_update_flow(
         checkpoint.mark("check_deletions", result)
 
     # ── Step 4: update the items ─────────────────────────────────────────
-    stats = {"failed": 0}
+    stats = {}
     if checkpoint.done("update_items"):
         log.info("Skipping update_items (already done)")
     else:
         stats = update_items(previous, new_path, max_records_per_pass)
         checkpoint = Checkpoint(CHECKPOINT_FILE)     # the task saved its progress
+        if stats["failed"]:
+            # The checkpoint (with the failed IDs) and the baseline stay, so a rerun retries them.
+            raise RuntimeError(f"{stats['failed']} dataset(s) could not be updated; see the log. "
+                               "Fix the cause and run again: the next run retries them first.")
         if stats["stopped_early"]:
             message = (f"Stopped after {max_records_per_pass} dataset(s). Check the items "
                        "listed as 'updated' in the log, then run again with the same "
@@ -193,9 +202,8 @@ def openml_update_flow(
     log.info("OpenML update complete. %s is the next baseline; checkpoint archived to %s",
              new_path, archive)
     missing = read_ids(f"{new_path[:-len('.jsonl')]}_missing_in_portal.txt")
-    if missing or stats["failed"]:
+    if missing:
         raise RuntimeError(
             f"All steps finished, but {len(missing)} changed dataset(s) have no item in "
-            f"the portal (listed in {_stem(new_path)}_missing_in_portal.txt) and "
-            f"{stats['failed']} could not be updated; see the log.")
+            f"the portal (listed in {_stem(new_path)}_missing_in_portal.txt); see the log.")
     return stats

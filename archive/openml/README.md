@@ -9,4 +9,4 @@ imported, and nothing here is run.
   The current importer creates papers through the Crossref- and
   arXiv-Importer instead. Note: it wrote arXiv IDs into the DOI property.
 - `misc.py` had `convert_time_to_iso()` for the upload date. The current
-  importer keeps the day from OpenML's `upload_date` directly.
+  importer keeps the date from OpenML's `upload_date` directly.

@@ -349,18 +349,17 @@ How values are stored: the description has HTML tags and entities removed; the D
 | description (long text) | on one line: line breaks and tabs become spaces; written in full, not shortened, like the zbMATH review text |
 | author name string | creators and contributors, with object has role creator or contributor; OpenML gives names only, no identifiers |
 | collection date | text, as OpenML gives it |
-| upload date | the day only |
+| upload date | date only, without the time of day |
 | copyright license | only CC0, CC BY 4.0, CC BY-SA 4.0, CC BY-NC 4.0, CC BY-NC-SA 4.0, MIT, GPL-2 and GPL-3; other licences, such as OpenML's "Public", are not written |
-| full work available at URL | download URL and original data URL |
+| full work available at URL | ARFF download URL, Parquet download URL and original data URL |
 | default target attribute | name of the column that machine-learning tasks predict by default, e.g. "class"; can be several names, comma separated; plain text |
 | row id attribute | name of the column that holds the row IDs, if the dataset has one; plain text |
 | OpenML semantic tag | only from the fixed list of OpenML subject tags |
 | cites work | the paper, when OpenML's paper\_url contains a DOI or an arXiv ID; created through the Crossref- or arXiv-Importer if missing |
 | citation text | OpenML's paper\_url field as it is, a URL or a free-text citation; written even when the paper is linked with cites work |
 | checksum | MD5, with determination method MD5 |
-| number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features | whole numbers |
-| number of binary features | not written: OpenML's dataset list does not give it; values the earlier importer wrote stay |
-| file format | ARFF or Sparse ARFF; other formats are not written |
+| number of binary features, number of classes, number of features, number of instances, number of instances with missing values, number of missing values, number of numeric features, number of symbolic features | whole numbers. The dataset list does not give the number of binary features, so it is fetched per dataset (`/data/qualities/<id>`), or taken from the previous download on the volume, since a dataset's data does not change under its ID |
+| file format | ARFF or Sparse ARFF, plus Apache Parquet when OpenML offers a Parquet download; other formats are not written |
 
 ### MathModDB items
 

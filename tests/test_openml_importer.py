@@ -95,6 +95,14 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(fields[("wdt:P2860", None)].values, [])
         self.assertEqual(fields[("wdt:P2093", ("wdt:P3831", R.CREATOR))].values, ["R.A. Fisher"])
 
+    def test_parquet_download(self):
+        parquet = "https://data.openml.org/datasets/0000/0061/dataset_61.pq"
+        record = R.record_from_api(dict(IRIS, parquet_url=parquet), IRIS_QUALITIES)
+        fields = {(f.prop, f.qualifier): f for f in R.statements(record)}
+        self.assertEqual(fields[("wdt:P2701", None)].values, ["wd:Q4489412", R.PARQUET])
+        self.assertIn(parquet, fields[("wdt:P953", None)].values)
+        self.assertEqual(R.openml_download(parquet), None)    # not mistaken for the ARFF link
+
     def test_escaped_quotes(self):
         self.assertEqual(R.clean_text(r"""King-Rook\'s side, \"won\"."""), """King-Rook's side, "won".""")
 
@@ -357,6 +365,36 @@ class DownloadTests(unittest.TestCase):
             self.assertEqual(s.pull(path), path)
             self.assertEqual([r["id"] for r in read_records(path)], ["3", "61"])
             self.assertEqual(calls.count("data/3"), 1)
+
+    def test_binary_features_fetched_once_then_reused(self):
+        s = source()
+        calls = []
+
+        def get(path):
+            calls.append(path)
+            if path.startswith("data/list"):
+                return None if not path.endswith("/0") else {"data": {"dataset": [
+                    {"did": 61, "quality": IRIS_QUALITIES}, {"did": 3, "quality": []}]}}
+            if path.startswith("data/qualities/"):
+                return {"data_qualities": {"quality": [
+                    {"name": "NumberOfBinaryFeatures", "value": "2.0"},
+                    {"name": "NumberOfClasses", "value": "3.0"}]}}
+            return {"data_set_description": dict(IRIS, id=path.split("/")[1])}
+
+        s._get = get
+        with tempfile.TemporaryDirectory() as tmp:
+            first = s.pull(os.path.join(tmp, "openml_2026-01-01.jsonl"))
+            self.assertEqual([r["qualities"]["NumberOfBinaryFeatures"] for r in read_records(first)], ["2", "2"])
+            self.assertEqual(sorted(c for c in calls if "qualities" in c), ["data/qualities/3", "data/qualities/61"])
+            calls.clear()
+            second = s.pull(os.path.join(tmp, "openml_2026-02-01.jsonl"))
+            self.assertEqual([r["qualities"]["NumberOfBinaryFeatures"] for r in read_records(second)], ["2", "2"])
+            self.assertEqual([c for c in calls if "qualities" in c], [])
+
+    def test_binary_count_missing(self):
+        s = source()
+        s._get = lambda path: None
+        self.assertIsNone(s.binary_count("61"))
 
 
 if __name__ == "__main__":

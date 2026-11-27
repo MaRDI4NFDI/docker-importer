@@ -31,12 +31,13 @@ CONTRIBUTOR = "wd:Q20204892"        # object has role: contributor
 MD5 = "wd:Q185235"
 
 ARFF_FORMATS = {"arff": "wd:Q4489412", "sparse_arff": "label:Sparse ARFF"}
+PARQUET = "wd:Q28915683"         # Apache Parquet; every dataset also has a Parquet download
 
 # OpenML qualities stored on the item, with the portal property for each.
-# NumberOfBinaryFeatures is left out: OpenML's dataset list does not give it,
-# and fetching it would take one more request per dataset. Values the earlier
-# importer wrote stay on the items.
+# The dataset list gives all of them except NumberOfBinaryFeatures, which the
+# source fetches per dataset (see OpenMLSource.pull).
 QUALITIES = {
+    "NumberOfBinaryFeatures": "number of binary features",
     "NumberOfClasses": "number of classes",
     "NumberOfFeatures": "number of features",
     "NumberOfInstances": "number of instances",
@@ -186,6 +187,7 @@ def record_from_api(description: dict, qualities: list) -> dict:
         "licence": text("licence"),
         "url": text("url"),
         "original_data_url": text("original_data_url"),
+        "parquet_url": text("parquet_url"),
         "default_target_attribute": text("default_target_attribute"),
         "row_id_attribute": text("row_id_attribute"),
         "tags": sorted({t for t in as_list(d.get("tag")) if t in SEMANTIC_TAGS}),
@@ -212,7 +214,8 @@ def statements(record: dict) -> list[Field]:
         Field("collection date", one(r.get("collection_date"))),
         Field("upload date", [f"+{r['upload_date']}T00:00:00Z"] if r.get("upload_date") else []),
         Field("wdt:P275", one(LICENSES.get(r.get("licence")))),
-        Field("wdt:P953", [u for u in (r.get("url"), r.get("original_data_url")) if u and URL.match(u)],
+        Field("wdt:P953", [u for u in (r.get("url"), r.get("parquet_url"), r.get("original_data_url"))
+                           if u and URL.match(u)],
               compare="url"),
         Field("default target attribute", one(r.get("default_target_attribute"))),
         Field("row id attribute", one(r.get("row_id_attribute"))),
@@ -220,7 +223,7 @@ def statements(record: dict) -> list[Field]:
         Field("wdt:P2860", one(paper(r.get("paper_url")))),
         Field("citation text", one(r.get("paper_url"))),
         Field("wdt:P4092", one(r.get("md5_checksum")), ("wdt:P459", MD5)),
-        Field("wdt:P2701", one(fmt)),
+        Field("wdt:P2701", [f for f in (fmt, PARQUET if r.get("parquet_url") else None) if f]),
     ]
     for quality, prop in QUALITIES.items():
         fields.append(Field(prop, one(r.get("qualities", {}).get(quality))))

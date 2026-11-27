@@ -23,7 +23,6 @@ dependencies = [
     "mariadb",
     "mysql-connector-python",
     "nameparser>=3,<4",
-    "openml",
     "pandas",
     "rdata",
     "sickle",

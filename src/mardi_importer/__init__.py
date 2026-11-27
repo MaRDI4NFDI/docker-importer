@@ -9,6 +9,7 @@ from .polydb import PolyDBSource
 from .zbmath import ZBMathSource
 from .zenodo import ZenodoSource
 from .julia import JuliaSource
+from .openml import OpenMLSource
 
 Importer.register('cran', CRANSource, 'CRAN_USER', 'CRAN_PASS')
 Importer.register('polydb', PolyDBSource, 'POLYDB_USER', 'POLYDB_PASS')
@@ -17,3 +18,4 @@ Importer.register('zenodo', ZenodoSource, 'ZENODO_USER', 'ZENODO_PASS')
 Importer.register('crossref', CrossrefSource, 'CROSSREF_USER', 'CROSSREF_PASS')
 Importer.register('arxiv', ArxivSource, 'ARXIV_USER', 'ARXIV_PASS')
 Importer.register('julia', JuliaSource, 'JULIA_USER', 'JULIA_PASS')
+Importer.register('openml', OpenMLSource, 'OPENML_USER', 'OPENML_PASS')

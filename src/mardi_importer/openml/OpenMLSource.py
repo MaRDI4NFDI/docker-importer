@@ -1,158 +1,311 @@
+"""Import OpenML datasets into the MaRDI portal.
+
+Like the zbMATH source, the OpenML source is driven by two Prefect flows
+(``mardi_portal.flows.openml_import`` and ``openml_update``):
+
+- :meth:`OpenMLSource.pull` downloads every active OpenML dataset as one
+  record per line (see :mod:`.records`) to a download file. An interrupted
+  download continues where it stopped.
+- :meth:`OpenMLSource.push` creates an item (:class:`.OpenMLDataset`) for
+  every dataset in a download that the portal does not have yet.
+- :meth:`OpenMLSource.update_from_downloads` compares two downloads and
+  updates the items of the datasets that changed (:class:`.OpenMLUpdater`).
+
+Existing items are found by their OpenML dataset ID.
+"""
+
+from __future__ import annotations
+
+import glob
+import json
+import os
+from typing import Callable, Iterator, Optional
+
+import requests
+
 from mardi_importer.base import ADataSource
+from mardi_importer.zbmath.misc import _with_backoff
+
 from .OpenMLDataset import OpenMLDataset
-from itertools import zip_longest
-import openml
-import pickle
+from .OpenMLUpdate import OpenMLUpdater
+from .records import record_from_api
+
+API = "https://www.openml.org/api/v1/json"
+PAGE_SIZE = 1000
+
+
+def qid_number(qid: str) -> int:
+    """``"Q123"`` -> 123, so that Q99 sorts before Q100."""
+    return int(qid.lstrip("Q"))
+
+
+def read_records(path: Optional[str]) -> Iterator[dict]:
+    """The records of a download file, in file order."""
+    if not path or not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                yield json.loads(line)
+
+
+def drop_partial_line(path: str) -> None:
+    """Cut a half-written last line, left by a run stopped while writing it.
+
+    Every record is written as one line ending in a newline, so a file that
+    does not end in a newline ends in a fragment. The complete records stay.
+    """
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return
+    with open(path, "rb+") as f:
+        data = f.read()
+        if data.endswith(b"\n"):
+            return
+        f.truncate(data.rfind(b"\n") + 1)
+
+
+class Progress:
+    """Where a run is, saved through a callback after every dataset.
+
+    The last ID handled moves forward past failures, so datasets handled
+    after a failure are not done twice. The failed IDs are kept in a retry
+    list instead, which the next run handles first.
+    """
+
+    def __init__(self, last_id: Optional[str], retry_ids, callback):
+        self.last_id = last_id
+        self.pending = set(retry_ids)        # from earlier runs, not handled yet
+        self.failed: set[str] = set()
+        self.callback = callback
+
+    def done(self, did: str, failed: bool) -> None:
+        self.pending.discard(did)
+        if failed:
+            self.failed.add(did)
+        if self.last_id is None or int(did) > int(self.last_id):
+            self.last_id = did
+        if self.callback:
+            self.callback(self.last_id, sorted(self.pending | self.failed, key=int))
+
+
+BINARY = "NumberOfBinaryFeatures"
+
+
+def binary_counts(path: str) -> dict[str, str]:
+    """NumberOfBinaryFeatures per dataset from the newest other download.
+
+    A dataset's data never changes under its ID, so the count can be taken
+    from an earlier download instead of asking OpenML again.
+    """
+    folder = os.path.dirname(os.path.abspath(path))
+    files = sorted(f for f in glob.glob(os.path.join(folder, "openml_*.jsonl"))
+                   if os.path.abspath(f) != os.path.abspath(path))
+    if not files:
+        return {}
+    return {r["id"]: r["qualities"][BINARY] for r in read_records(files[-1])
+            if BINARY in r.get("qualities", {})}
+
 
 class OpenMLSource(ADataSource):
+    """Downloads OpenML datasets and writes them to the portal."""
+
     def __init__(self, user: str, password: str):
         super().__init__(user, password)
+        self.session = requests.Session()
+        self._ids: dict[str, Optional[str]] = {}
 
     def setup(self):
-        """Create all necessary properties and entities for OpenML
-        """
-        # Import entities from Wikidata
+        """Create the properties and items the dataset items use."""
         self.import_wikidata_entities("/wikidata_entities.txt")
-
-        # Create new required local entities
         self.create_local_entities("/new_entities.json")
 
-    def pull(self):
-        dataset_dict = {"name": [], "dataset_id": [], "description":[], "version": [], "creators": [],
-                        "contributors" : [], "collection_date": [], "upload_date": [], 
-                        "license": [], "url":[], "default_target_attribute":[], "row_id_attribute":[],
-                        "tags":[], "original_data_url":[], "paper_url":[],
-                        "md5_checksum": [], "num_binary_features":[],
-                        "num_classes":[], "num_features":[], "num_instances":[], "num_instances_missing_vals":[],
-                        "num_missing_vals":[], "num_numeric_features":[], "num_symbolic_features":[], 
-                        "format":[]}
-        dataset_df = openml.datasets.list_datasets(output_format="dataframe")
-        did_list = dataset_df["did"].unique()
-        for did in did_list:
-            try:
-                ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=True, download_features_meta_data=False)
-            except Exception as e:
-                ds = openml.datasets.get_dataset(int(did), download_data=False, download_qualities=False, download_features_meta_data=False)
-            dataset_dict["name"].append(ds.name)
-            dataset_dict["dataset_id"].append(did)
-            dataset_dict["description"].append(ds.description)
-            dataset_dict["version"].append(ds.version)
-            dataset_dict["creators"].append(ds.creator)
-            dataset_dict["contributors"].append(ds.contributor)
-            dataset_dict["collection_date"].append(ds.collection_date)
-            dataset_dict["upload_date"].append(ds.upload_date)
-            dataset_dict["license"].append(ds.licence)
-            dataset_dict["url"].append(ds.url)
-            dataset_dict["default_target_attribute"].append(ds.default_target_attribute)
-            dataset_dict["row_id_attribute"].append(ds.row_id_attribute)
-            dataset_dict["tags"].append(ds.tag)
-            dataset_dict["original_data_url"].append(ds.original_data_url)
-            dataset_dict["paper_url"].append(ds.paper_url)
-            dataset_dict["md5_checksum"].append(ds.md5_checksum)
-            dataset_dict["format"].append(ds.format)
-            try:
-                qualities = ds.qualities
-            except:
-                dataset_dict["num_binary_features"].append(None)
-                dataset_dict["num_classes"].append(None)
-                dataset_dict["num_features"].append(None)
-                dataset_dict["num_instances"].append(None)
-                dataset_dict["num_instances_missing_vals"].append(None)
-                dataset_dict["num_missing_vals"].append(None)
-                dataset_dict["num_numeric_features"].append(None)
-                dataset_dict["num_symbolic_features"].append(None)
+    # ── OpenML ───────────────────────────────────────────────────────────
+
+    def _get(self, path: str) -> Optional[dict]:
+        """GET an OpenML API path; ``None`` when OpenML has no result (412)."""
+        def call():
+            response = self.session.get(f"{API}/{path}", timeout=120)
+            if response.status_code == 412:
+                return None
+            response.raise_for_status()
+            return response.json()
+        return _with_backoff(call, self.logger, f"OpenML {path}", base=10, cap=600, max_total=3600)
+
+    def list_datasets(self) -> dict[str, list]:
+        """Dataset ID -> its qualities, for every active dataset on OpenML."""
+        datasets, offset = {}, 0
+        while True:
+            page = self._get(f"data/list/limit/{PAGE_SIZE}/offset/{offset}")
+            if page is None:
+                if offset == 0:
+                    raise RuntimeError("OpenML listed no datasets")
+                return datasets
+            entries = page["data"]["dataset"]
+            entries = entries if isinstance(entries, list) else [entries]
+            for entry in entries:
+                datasets[str(entry["did"])] = entry.get("quality", [])
+            if len(entries) < PAGE_SIZE:
+                return datasets
+            offset += PAGE_SIZE
+
+    def binary_count(self, did: str) -> Optional[str]:
+        """NumberOfBinaryFeatures of one dataset, from ``/data/qualities``.
+
+        The dataset list does not include it. ``None`` when OpenML has no
+        value, for example while it is still computing the qualities.
+        """
+        response = self._get(f"data/qualities/{did}")
+        qualities = ((response or {}).get("data_qualities") or {}).get("quality")
+        for quality in (qualities if isinstance(qualities, list) else [qualities]):
+            if isinstance(quality, dict) and quality.get("name") == BINARY:
+                return quality.get("value")
+        return None
+
+    def pull(self, path: str) -> str:
+        """Save every active OpenML dataset to ``path``, one record per line.
+
+        The records are first written to ``path + ".part"``. A rerun after an
+        interruption skips the datasets already in that file. The file is
+        renamed to ``path`` once every dataset is in it.
+        """
+        if os.path.exists(path):
+            return path
+        part = path + ".part"
+        drop_partial_line(part)
+        have = {r["id"] for r in read_records(part)}
+        datasets = self.list_datasets()
+        todo = [did for did in sorted(datasets, key=int) if did not in have]
+        self.logger.info("%d datasets on OpenML, %d to download", len(datasets), len(todo))
+        known = binary_counts(path)
+        self.logger.info("binary feature counts known from the previous download: %d", len(known))
+        for n, did in enumerate(todo, 1):
+            response = self._get(f"data/{did}")
+            if response is None:
+                self.logger.warning("OpenML dataset %s has no description; skipped", did)
                 continue
-            if 'NumberOfBinaryFeatures' in ds.qualities:
-                dataset_dict["num_binary_features"].append(ds.qualities['NumberOfBinaryFeatures'])
+            qualities = list(datasets[did])
+            if not any(q.get("name") == BINARY for q in qualities):
+                count = known.get(did) or self.binary_count(did)
+                if count is not None:
+                    qualities.append({"name": BINARY, "value": count})
+            record = record_from_api(response["data_set_description"], qualities)
+            with open(part, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            if n % 500 == 0:
+                self.logger.info("downloaded %d of %d", n, len(todo))
+        os.replace(part, path)
+        return path
+
+    # ── portal lookups ───────────────────────────────────────────────────
+
+    def find_items(self, dataset_ids: list[str]) -> dict[str, str]:
+        """OpenML dataset ID -> QID of its item, for the IDs the portal has."""
+        found = {}
+        for start in range(0, len(dataset_ids), 200):
+            chunk = dataset_ids[start:start + 200]
+            mapping = _with_backoff(
+                lambda: self.api.batch_search_by_value("wdt:P11238", chunk),
+                self.logger, "searching OpenML dataset IDs")
+            for did, qids in mapping.items():
+                if len(qids) > 1:
+                    self.logger.warning("OpenML dataset %s has several items %s; using %s",
+                                        did, sorted(qids, key=qid_number), min(qids, key=qid_number))
+                found[str(did)] = min(qids, key=qid_number)
+        return found
+
+    def resolve(self, ref: str, create: bool = True) -> Optional[str]:
+        """The portal ID for an item reference from :mod:`.records`.
+
+        ``doi:`` and ``arxiv:`` references are created through the Crossref-
+        or arXiv-Importer when the portal does not have them and ``create``
+        is set. Returns ``None`` when the item cannot be found or made.
+        """
+        if not ref.startswith(("wd:", "label:", "doi:", "arxiv:")):
+            return ref
+        if ref in self._ids and (self._ids[ref] or not create):
+            return self._ids[ref]
+        kind, value = ref.split(":", 1)
+        if kind == "wd":
+            qid = self.api.get_local_id_by_label(ref, "item")
+        elif kind == "label":
+            qids = self.api.get_local_id_by_label(value, "item")
+            qid = qids[0] if qids else None
+        else:
+            qid = self._publication(kind, value, create)
+        self._ids[ref] = qid if qid and qid != "None" else None
+        return self._ids[ref]
+
+    def _publication(self, kind: str, value: str, create: bool) -> Optional[str]:
+        from mardi_importer import Importer
+
+        found = self.api.search_entity_by_value("wdt:P356" if kind == "doi" else "wdt:P818", value)
+        if found or not create:
+            return min(found, key=qid_number) if found else None
+        try:
+            source = Importer.create_source("crossref" if kind == "doi" else "arxiv")
+            return source.new_publication(value).create()
+        except Exception as e:     # one bad paper must not stop the run
+            self.logger.warning("could not create publication %s:%s: %s", kind, value, e)
+            return None
+
+    # ── writing ──────────────────────────────────────────────────────────
+
+    def push(
+        self,
+        path: str,
+        resume_after_id: Optional[str] = None,
+        progress_callback: Optional[Callable[[Optional[str], list], None]] = None,
+        max_rows: Optional[int] = None,
+        retry_ids: tuple = (),
+    ) -> dict:
+        """Create items for the datasets in ``path`` that the portal lacks.
+
+        Datasets are handled in ID order; ones that already have an item are
+        left to the update flow.
+
+        Args:
+            path: a complete download file.
+            resume_after_id: skip datasets up to and including this ID...
+            retry_ids: ...except these, which failed in an earlier run.
+            progress_callback: called after each dataset with the last ID
+                handled and the IDs still to retry (the failed ones, and
+                retry IDs not reached yet). Save both and pass them back.
+            max_rows: create at most this many items, then stop with
+                ``stopped_early`` set in the returned stats.
+        """
+        records = sorted(read_records(path), key=lambda r: int(r["id"]))
+        records = [r for r in records if r["id"] in retry_ids or resume_after_id is None
+                   or int(r["id"]) > int(resume_after_id)]
+        existing = self.find_items([r["id"] for r in records])
+        stats = {"created": 0, "already_in_portal": 0, "failed": 0, "stopped_early": False}
+        progress = Progress(resume_after_id, retry_ids, progress_callback)
+        for record in records:
+            if max_rows is not None and stats["created"] >= max_rows:
+                stats["stopped_early"] = True
+                break
+            failed = False
+            if record["id"] in existing:
+                stats["already_in_portal"] += 1
             else:
-                dataset_dict["num_binary_features"].append(None)
-            if  'NumberOfClasses' in ds.qualities:
-                dataset_dict["num_classes"].append(ds.qualities['NumberOfClasses'])
-            else:
-                dataset_dict["num_classes"].append(None)
-            if  'NumberOfFeatures' in ds.qualities:
-                dataset_dict["num_features"].append(ds.qualities['NumberOfFeatures'])
-            else:
-                dataset_dict["num_features"].append(None)
-            if  'NumberOfInstances' in ds.qualities:
-                dataset_dict["num_instances"].append(ds.qualities['NumberOfInstances'])
-            else:
-                dataset_dict["num_instances"].append(None)
-            if  'NumberOfInstancesWithMissingValues' in ds.qualities:
-                dataset_dict["num_instances_missing_vals"].append(ds.qualities['NumberOfInstancesWithMissingValues'])
-            else:
-                dataset_dict["num_instances_missing_vals"].append(None)
-            if  'NumberOfMissingValues' in ds.qualities:
-                dataset_dict["num_missing_vals"].append(ds.qualities['NumberOfMissingValues'])
-            else:
-                dataset_dict["num_missing_vals"].append(None)
-            if  'NumberOfNumericFeatures' in ds.qualities:
-                dataset_dict["num_numeric_features"].append(ds.qualities['NumberOfNumericFeatures'])
-            else:
-                dataset_dict["num_numeric_features"].append(None)
-            if  'NumberOfSymbolicFeatures' in ds.qualities:
-                dataset_dict["num_symbolic_features"].append(ds.qualities['NumberOfSymbolicFeatures'])
-            else:
-                dataset_dict["num_symbolic_features"].append(None)
-        with open('dataset_dict.p', 'wb') as handle:
-            pickle.dump(dataset_dict, handle)
-        return(dataset_dict)
-    
-    def push(self):
-        with open('/data/dataset_dict.p', 'rb') as handle:
-            dataset_dict = pickle.load(handle)
-        # dataset_dict = {'name': ['kr-vs-kp'],
-        #             'description': ['Author: Alen Shapiro\nSource: [UCI](https://archive.ics.uci.edu/ml/datasets/Chess+(King-Rook+vs.+King-Pawn))\nPlease cite: [UCI citation policy](https://archive.ics.uci.edu/ml/citation_policy.html)\n\n1. Title: Chess End-Game -- King+Rook versus King+Pawn on a7\n(usually abbreviated KRKPA7). The pawn on a7 means it is one square\naway from queening. It is the King+Rook\'s side (white) to move.\n\n2. Sources:\n(a) Database originally generated and described by Alen Shapiro.\n(b) Donor/Coder: Rob Holte (holte@uottawa.bitnet). The database\nwas supplied to Holte by Peter Clark of the Turing Institute\nin Glasgow (pete@turing.ac.uk).\n(c) Date: 1 August 1989\n\n3. Past Usage:\n- Alen D. Shapiro (1983,1987), "Structured Induction in Expert Systems",\nAddison-Wesley. This book is based on Shapiro\'s Ph.D. thesis (1983)\nat the University of Edinburgh entitled "The Role of Structured\nInduction in Expert Systems".\n- Stephen Muggleton (1987), "Structuring Knowledge by Asking Questions",\npp.218-229 in "Progress in Machine Learning", edited by I. Bratko\nand Nada Lavrac, Sigma Press, Wilmslow, England SK9 5BB.\n- Robert C. Holte, Liane Acker, and Bruce W. Porter (1989),\n"Concept Learning and the Problem of Small Disjuncts",\nProceedings of IJCAI. Also available as technical report AI89-106,\nComputer Sciences Department, University of Texas at Austin,\nAustin, Texas 78712.\n\n4. Relevant Information:\nThe dataset format is described below. Note: the format of this\ndatabase was modified on 2/26/90 to conform with the format of all\nthe other databases in the UCI repository of machine learning databases.\n\n5. Number of Instances: 3196 total\n\n6. Number of Attributes: 36\n\n7. Attribute Summaries:\nClasses (2): -- White-can-win ("won") and White-cannot-win ("nowin").\nI believe that White is deemed to be unable to win if the Black pawn\ncan safely advance.\nAttributes: see Shapiro\'s book.\n\n8. Missing Attributes: -- none\n\n9. Class Distribution:\nIn 1669 of the positions (52%), White can win.\nIn 1527 of the positions (48%), White cannot win.\n\nThe format for instances in this database is a sequence of 37 attribute values.\nEach instance is a board-descriptions for this chess endgame. The first\n36 attributes describe the board. The last (37th) attribute is the\nclassification: "win" or "nowin". There are 0 missing values.\nA typical board-description is\n\nf,f,f,f,f,f,f,f,f,f,f,f,l,f,n,f,f,t,f,f,f,f,f,f,f,t,f,f,f,f,f,f,f,t,t,n,won\n\nThe names of the features do not appear in the board-descriptions.\nInstead, each feature correponds to a particular position in the\nfeature-value list. For example, the head of this list is the value\nfor the feature "bkblk". The following is the list of features, in\nthe order in which their values appear in the feature-value list:\n\n[bkblk,bknwy,bkon8,bkona,bkspr,bkxbq,bkxcr,bkxwp,blxwp,bxqsq,cntxt,dsopp,dwipd,\nhdchk,katri,mulch,qxmsq,r2ar8,reskd,reskr,rimmx,rkxwp,rxmsq,simpl,skach,skewr,\nskrxp,spcop,stlmt,thrsk,wkcti,wkna8,wknck,wkovl,wkpos,wtoeg]\n\nIn the file, there is one instance (board position) per line.\n\n\nNum Instances: 3196\nNum Attributes: 37\nNum Continuous: 0 (Int 0 / Real 0)\nNum Discrete: 37\nMissing values: 0 / 0.0%'],
-        #             'dataset_id': [3],
-        #             'version': [1],
-        #             'creators': ['Alen Shapiro'],
-        #             'contributors': ['Rob Holte'],
-        #             'collection_date': ['1989-08-01'],
-        #             'upload_date': ['2014-04-06T23:19:28'],
-        #             'license': ['CC0'],
-        #             'url': ['https://api.openml.org/data/v1/download/3/kr-vs-kp.arff'],
-        #             'default_target_attribute': ['class'],
-        #             'row_id_attribute': [None],
-        #             'tags': [['Machine Learning',
-        #                 'Mathematics',
-        #                 'mythbusting_1',
-        #                 'OpenML-CC18',
-        #                 'OpenML100',
-        #                 'study_1',
-        #                 'study_123',
-        #                 'study_14',
-        #                 'study_144',
-        #                 'uci']],
-        #             'original_data_url': ['https://archive.ics.uci.edu/ml/datasets/Chess+(King-Rook+vs.+King-Pawn)'],
-        #             'paper_url': ['https://dl.acm.org/doi/abs/10.5555/32231'],
-        #             'md5_checksum': ['ad6eb32b7492524d4382a40e23cdbb8e'],
-        #             'features': [{0: ["0 - bkblk (nominal)"],
-        #                         1: ["1 - bknwy (nominal)"],
-        #                         2: ["2 - bkon8 (nominal)"],
-        #                         3: ["3 - bkona (nominal)"],
-        #                         36: ["36 - class (nominal)"]}],
-        #             'num_binary_features': [35.0],
-        #             'num_classes': [2.0],
-        #             'num_features': [37.0],
-        #             'num_instances': [3196.0],
-        #             'num_instances_missing_vals': [0.0],
-        #             'num_missing_vals': [0.0],
-        #             'num_numeric_features': [0.0],
-        #             'num_symbolic_features': [37.0],
-        #             'format': ['ARFF']}
-        found = False
-        for items in zip_longest(*[dataset_dict[key] for key in dataset_dict], fillvalue=None):
-            lookup_dict = dict(zip(dataset_dict.keys(), items))
-            # if lookup_dict["dataset_id"] == 3:
-            #     found = True
-            #     continue
-            # if not found:
-            #     continue
-            dataset = OpenMLDataset(
-                api = self.api,
-                **lookup_dict
-            )
-            if not dataset.exists():
-                dataset.create()
-            else:
-                dataset.update()
+                try:
+                    OpenMLDataset(self, record).create()
+                    stats["created"] += 1
+                except Exception as e:
+                    self.logger.error("OpenML dataset %s not created: %s", record["id"], e)
+                    stats["failed"] += 1
+                    failed = True
+            progress.done(record["id"], failed)
+        return stats
+
+    def update_from_downloads(self, old_path: Optional[str], new_path: str, **kwargs) -> dict:
+        """Update the items of datasets that changed between two downloads.
+
+        ``old_path`` ``None`` means there is no previous download (see
+        :mod:`.OpenMLUpdate`). Keyword arguments go to
+        :meth:`OpenMLUpdater.update`.
+        """
+        old = {r["id"]: r for r in read_records(old_path)}
+        new = {r["id"]: r for r in read_records(new_path)}
+        return OpenMLUpdater(self).update(old, new, **kwargs)

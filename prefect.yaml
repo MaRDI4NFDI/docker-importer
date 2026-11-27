@@ -95,3 +95,36 @@ deployments:
         volume_mounts:
           - name: update-data
             mountPath: /mnt/update-data
+
+  # Each OpenML flow has its own volume, not shared with zbMATH: a volume can be
+  # attached to only one pod at a time. The update flow keeps the previous
+  # download on its volume to compare the next one with.
+  - name: production
+    entrypoint: mardi_portal.flows.openml_import:openml_import_flow
+    build: null
+    concurrency_limit: 1
+    work_pool:
+      name: prod-k8s-pool
+      job_variables:
+        volumes:
+          - name: openml-data
+            persistentVolumeClaim:
+              claimName: importer-openml-data
+        volume_mounts:
+          - name: openml-data
+            mountPath: /mnt/openml-data
+
+  - name: production
+    entrypoint: mardi_portal.flows.openml_update:openml_update_flow
+    build: null
+    concurrency_limit: 1
+    work_pool:
+      name: prod-k8s-pool
+      job_variables:
+        volumes:
+          - name: openml-update-data
+            persistentVolumeClaim:
+              claimName: importer-openml-update-data
+        volume_mounts:
+          - name: openml-update-data
+            mountPath: /mnt/openml-update-data
